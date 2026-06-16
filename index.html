@@ -113,8 +113,9 @@
     <!-- 로그인 패널 -->
     <div class="auth-panel active" id="panel-login">
       <div class="auth-field">
-        <label>이메일</label>
-        <input type="email" id="login-email" placeholder="example@etners.com" />
+        <label>ID</label>
+        <input type="text" id="login-email" placeholder="아이디 입력 (이메일 @ 앞부분)" />
+        <small style="color:var(--muted);font-size:12px;margin-top:5px;display:block">예시: hong123 → hong123@etners.com 으로 로그인됩니다</small>
       </div>
       <div class="auth-field">
         <label>비밀번호</label>
@@ -141,8 +142,13 @@
         <input type="text" id="signup-name" placeholder="홍길동" />
       </div>
       <div class="auth-field">
-        <label>이메일</label>
-        <input type="email" id="signup-email" placeholder="example@etners.com" />
+        <label>ID</label>
+        <input type="text" id="signup-id" placeholder="사용할 아이디 입력 (영문/숫자)" />
+        <small style="color:var(--muted);font-size:12px;margin-top:5px;display:block">이메일은 ID@etners.com 형태로 자동 생성됩니다</small>
+      </div>
+      <div class="auth-field">
+        <label>이메일 <small style="color:var(--muted);font-weight:400">(참고용 — ID 기반 자동 생성)</small></label>
+        <input type="text" id="signup-email" placeholder="자동 입력됩니다" readonly style="background:#f1f5f9;color:var(--muted)" />
       </div>
       <div class="auth-field">
         <label>비밀번호 (8자 이상)</label>
@@ -399,9 +405,11 @@ function showAuthStatus(id, type, msg) {
 
 // ── 로그인 ──
 async function handleLogin() {
-  const email = document.getElementById('login-email').value.trim();
-  const pw    = document.getElementById('login-pw').value;
-  if (!email || !pw) { showAuthStatus('login-status','error','이메일과 비밀번호를 입력해주세요.'); return; }
+  const inputId = document.getElementById('login-email').value.trim();
+  const pw      = document.getElementById('login-pw').value;
+  if (!inputId || !pw) { showAuthStatus('login-status','error','ID와 비밀번호를 입력해주세요.'); return; }
+  // ID에 @etners.com 붙여서 이메일로 변환
+  const email = inputId.includes('@') ? inputId : inputId + '@etners.com';
 
   const btn = document.getElementById('login-btn');
   btn.disabled = true;
@@ -420,12 +428,15 @@ async function handleLogin() {
 async function handleSignup() {
   const affiliation = document.getElementById('signup-affiliation').value;
   const name  = document.getElementById('signup-name').value.trim();
-  const email = document.getElementById('signup-email').value.trim();
+  const userId = document.getElementById('signup-id').value.trim();
   const pw    = document.getElementById('signup-pw').value;
 
-  if (!affiliation || !name || !email || !pw) { showAuthStatus('signup-status','error','모든 항목을 입력해주세요.'); return; }
-  if (!email.endsWith('@etners.com')) { showAuthStatus('signup-status','error','@etners.com 도메인 이메일만 가입 가능합니다.'); return; }
+  if (!affiliation || !name || !userId || !pw) { showAuthStatus('signup-status','error','모든 항목을 입력해주세요.'); return; }
+  if (!/^[a-zA-Z0-9]{4,}$/.test(userId)) { showAuthStatus('signup-status','error','ID는 영문/숫자 조합 4자 이상이어야 합니다.'); return; }
   if (pw.length < 8) { showAuthStatus('signup-status','error','비밀번호는 8자 이상이어야 합니다.'); return; }
+
+  // ID로 이메일 자동 생성
+  const email = userId + '@etners.com';
 
   const btn = document.getElementById('signup-btn');
   btn.disabled = true;
@@ -445,6 +456,7 @@ async function handleSignup() {
       email,
       name,
       affiliation,
+      user_id: userId,
       role: 'user'
     });
   }
@@ -536,6 +548,13 @@ function showAdminNav() {
     await enterApp(session.user);
   }
 })();
+
+
+// ID 입력 시 이메일 자동 미리보기
+document.getElementById('signup-id')?.addEventListener('input', function() {
+  const emailEl = document.getElementById('signup-email');
+  if (emailEl) emailEl.value = this.value ? this.value + '@etners.com' : '';
+});
 
 // 엔터키 지원
 document.addEventListener('keydown', e => {
