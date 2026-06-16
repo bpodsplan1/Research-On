@@ -24,9 +24,136 @@
 .pool-view{display:none}.pool-view.active{display:block}.pool-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}.pool-col{border:1px solid var(--line);border-radius:20px;background:#fff;padding:14px;min-height:360px}.pool-item{width:100%;display:flex;justify-content:space-between;gap:10px;border:1px solid var(--line);background:#f8fafc;border-radius:14px;padding:11px 12px;margin:8px 0;font-weight:900;text-align:left}.pool-item.active{background:var(--soft);border-color:rgba(37,99,235,.35);color:var(--primary2)}.mindmap{position:relative;height:560px;border:1px solid var(--line);border-radius:24px;background:radial-gradient(circle at center,#fff 0,#f8fafc 68%);overflow:hidden}.node{position:absolute;border:1px solid var(--line);background:#fff;border-radius:999px;padding:10px 13px;font-weight:900;box-shadow:0 8px 20px rgba(15,23,42,.06);transform:translate(-50%,-50%);white-space:nowrap}.node.center{left:50%;top:50%;width:128px;height:128px;display:grid;place-items:center;background:linear-gradient(135deg,#1d4ed8,#0f766e);color:#fff;font-size:20px;border:0}.node.depth1{color:var(--primary2)}.node.depth2{color:var(--green)}.node.depth3{color:#7c3aed}.mind-toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
 .newsletter-preview{border:1px solid var(--line);border-radius:24px;overflow:hidden;background:#fff;box-shadow:var(--shadow)}.newsletter-cover{padding:26px;background:linear-gradient(135deg,#0f172a,#1d4ed8);color:#fff}.newsletter-body{padding:24px}.insight-box{border-left:5px solid var(--green);background:var(--greenSoft);padding:15px;border-radius:16px;margin-top:14px}.progress{height:9px;border-radius:999px;background:#e2e8f0;overflow:hidden}.progress span{display:block;height:100%;background:linear-gradient(90deg,#2563eb,#0f766e)}
 @media(max-width:1100px){.cols-4{grid-template-columns:repeat(2,1fr)}.cols-3,.cols-2,.split,.builder-layout,.exp-grid,.pool-cols{grid-template-columns:1fr}.sticky-panel{position:static}}@media(max-width:840px){.app{grid-template-columns:1fr}.sidebar{display:none;position:fixed;z-index:30;width:292px;left:0;top:0}.sidebar.open{display:flex}.main{padding:18px}.mobile-menu{display:inline-flex;align-items:center}.topbar{align-items:stretch;flex-wrap:wrap}.search{order:3;max-width:none;flex-basis:100%}.user-chip{margin-left:auto;min-width:0}.hero h2{font-size:28px}.cols-4,.cols-3,.cols-2{grid-template-columns:1fr}.page-title{align-items:flex-start;flex-direction:column}th:nth-child(4),td:nth-child(4){display:none}}
+
+/* ── Supabase Auth 오버레이 ── */
+#auth-overlay {
+  position:fixed;inset:0;z-index:9999;
+  background:radial-gradient(circle at top left,rgba(37,99,235,.18),transparent 30%),
+             radial-gradient(circle at bottom right,rgba(15,118,110,.13),transparent 35%),
+             #f4f7fb;
+  display:flex;align-items:center;justify-content:center;padding:20px;
+}
+#auth-overlay.hidden{display:none;}
+.auth-card{
+  background:#fff;border-radius:28px;padding:40px;
+  width:100%;max-width:440px;
+  box-shadow:0 24px 70px rgba(15,23,42,.13);
+  border:1px solid var(--line);
+}
+.auth-logo{
+  width:52px;height:52px;border-radius:18px;
+  background:linear-gradient(135deg,#1d4ed8,#0f766e);
+  display:grid;place-items:center;color:#fff;font-weight:900;font-size:20px;
+  margin-bottom:20px;
+}
+.auth-title{font-size:26px;font-weight:950;letter-spacing:-.04em;margin:0 0 6px;}
+.auth-sub{color:var(--muted);font-size:14px;margin:0 0 28px;}
+.auth-tabs{display:flex;gap:8px;margin-bottom:24px;}
+.auth-tab{
+  flex:1;padding:10px;border:1px solid var(--line);border-radius:14px;
+  background:#f8fafc;color:#475569;font-weight:900;font-size:14px;
+}
+.auth-tab.active{background:var(--soft);color:var(--primary2);border-color:rgba(37,99,235,.3);}
+.auth-panel{display:none;}
+.auth-panel.active{display:block;}
+.auth-field{margin-bottom:16px;}
+.auth-field label{display:block;font-size:13px;font-weight:900;color:#334155;margin-bottom:7px;}
+.auth-field input,.auth-field select{
+  width:100%;border:1px solid var(--line);border-radius:14px;
+  padding:12px 14px;font-size:14px;outline:none;
+  background:#f8fafc;color:var(--ink);
+}
+.auth-field input:focus,.auth-field select:focus{
+  border-color:rgba(37,99,235,.5);
+  box-shadow:0 0 0 4px rgba(37,99,235,.1);
+  background:#fff;
+}
+.auth-btn{
+  width:100%;padding:14px;border-radius:14px;border:0;
+  background:linear-gradient(135deg,#1d4ed8,#0f766e);
+  color:#fff;font-weight:900;font-size:15px;
+  margin-top:4px;transition:.15s;
+}
+.auth-btn:hover{opacity:.9;transform:translateY(-1px);}
+.auth-btn:disabled{opacity:.45;cursor:not-allowed;transform:none;}
+.auth-status{
+  margin-top:14px;padding:12px 14px;border-radius:14px;
+  font-size:13px;font-weight:700;display:none;
+}
+.auth-status.error{background:var(--redSoft);color:var(--red);display:block;}
+.auth-status.success{background:var(--greenSoft);color:var(--green);display:block;}
+.auth-status.loading{background:var(--soft);color:var(--primary2);display:block;}
+.auth-divider{height:1px;background:var(--line);margin:20px 0;}
+.auth-domain-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  background:#eaf1ff;color:var(--primary2);
+  font-size:12px;font-weight:900;padding:4px 10px;border-radius:999px;
+  margin-bottom:18px;
+}
 </style>
 </head>
 <body>
+
+<!-- Supabase CDN -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!-- Auth 오버레이 -->
+<div id="auth-overlay">
+  <div class="auth-card">
+    <div class="auth-logo">RA</div>
+    <h1 class="auth-title">Research Agent Hub</h1>
+    <p class="auth-sub">AI 리서치 자동화 플랫폼 · etners 전용</p>
+    <div class="auth-domain-badge">@etners.com 도메인 전용</div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">로그인</button>
+      <button class="auth-tab" id="tab-signup" onclick="switchAuthTab('signup')">회원가입</button>
+    </div>
+
+    <!-- 로그인 패널 -->
+    <div class="auth-panel active" id="panel-login">
+      <div class="auth-field">
+        <label>이메일</label>
+        <input type="email" id="login-email" placeholder="example@etners.com" />
+      </div>
+      <div class="auth-field">
+        <label>비밀번호</label>
+        <input type="password" id="login-pw" placeholder="비밀번호 입력" />
+      </div>
+      <button class="auth-btn" id="login-btn" onclick="handleLogin()">로그인</button>
+      <div class="auth-status" id="login-status"></div>
+    </div>
+
+    <!-- 회원가입 패널 -->
+    <div class="auth-panel" id="panel-signup">
+      <div class="auth-field">
+        <label>소속</label>
+        <select id="signup-affiliation">
+          <option value="" disabled selected>소속을 선택하세요</option>
+          <option value="BW센터 1팀">BW센터 1팀</option>
+          <option value="BW센터 2팀">BW센터 2팀</option>
+          <option value="WS센터 1팀">WS센터 1팀</option>
+          <option value="WS센터 2팀">WS센터 2팀</option>
+        </select>
+      </div>
+      <div class="auth-field">
+        <label>이름</label>
+        <input type="text" id="signup-name" placeholder="홍길동" />
+      </div>
+      <div class="auth-field">
+        <label>이메일</label>
+        <input type="email" id="signup-email" placeholder="example@etners.com" />
+      </div>
+      <div class="auth-field">
+        <label>비밀번호 (8자 이상)</label>
+        <input type="password" id="signup-pw" placeholder="비밀번호 입력" />
+      </div>
+      <button class="auth-btn" id="signup-btn" onclick="handleSignup()">회원가입</button>
+      <div class="auth-status" id="signup-status"></div>
+    </div>
+  </div>
+</div>
+
 <div class="app">
 <aside class="sidebar" id="sidebar">
   <div class="brand"><div class="logo">RA</div><div><h1>Research Agent Hub</h1><p>AI 리서치 자동화 플랫폼</p></div></div>
@@ -248,5 +375,176 @@ function bindEvents(){
 function init(){ renderCore(); renderExt(); updateSelection(); setStep(0); updatePayload(); initPool(); initSubscribeCats(); bindEvents(); }
 document.addEventListener('DOMContentLoaded', init);
 </script>
+
+<script>
+// ── Supabase 초기화 ──
+const { createClient } = supabase;
+const _sb = createClient('https://aiftpranlfudkbobxyll.supabase.co', 'sb_publishable_qnUFAiMRiJNzARP_FE12Bg_3zFEdc94');
+
+// ── Auth 탭 전환 ──
+function switchAuthTab(tab) {
+  document.getElementById('panel-login').classList.toggle('active', tab === 'login');
+  document.getElementById('panel-signup').classList.toggle('active', tab === 'signup');
+  document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+  document.getElementById('tab-signup').classList.toggle('active', tab === 'signup');
+  document.getElementById('login-status').className = 'auth-status';
+  document.getElementById('signup-status').className = 'auth-status';
+}
+
+function showAuthStatus(id, type, msg) {
+  const el = document.getElementById(id);
+  el.className = 'auth-status ' + type;
+  el.textContent = msg;
+}
+
+// ── 로그인 ──
+async function handleLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pw    = document.getElementById('login-pw').value;
+  if (!email || !pw) { showAuthStatus('login-status','error','이메일과 비밀번호를 입력해주세요.'); return; }
+
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  showAuthStatus('login-status','loading','로그인 중...');
+
+  const { data, error } = await _sb.auth.signInWithPassword({ email, password: pw });
+  if (error) {
+    showAuthStatus('login-status','error', error.message.includes('Invalid') ? '이메일 또는 비밀번호가 올바르지 않습니다.' : error.message);
+    btn.disabled = false;
+    return;
+  }
+  await enterApp(data.user);
+}
+
+// ── 회원가입 ──
+async function handleSignup() {
+  const affiliation = document.getElementById('signup-affiliation').value;
+  const name  = document.getElementById('signup-name').value.trim();
+  const email = document.getElementById('signup-email').value.trim();
+  const pw    = document.getElementById('signup-pw').value;
+
+  if (!affiliation || !name || !email || !pw) { showAuthStatus('signup-status','error','모든 항목을 입력해주세요.'); return; }
+  if (!email.endsWith('@etners.com')) { showAuthStatus('signup-status','error','@etners.com 도메인 이메일만 가입 가능합니다.'); return; }
+  if (pw.length < 8) { showAuthStatus('signup-status','error','비밀번호는 8자 이상이어야 합니다.'); return; }
+
+  const btn = document.getElementById('signup-btn');
+  btn.disabled = true;
+  showAuthStatus('signup-status','loading','처리 중...');
+
+  const { data, error } = await _sb.auth.signUp({ email, password: pw });
+  if (error) {
+    showAuthStatus('signup-status','error', error.message);
+    btn.disabled = false;
+    return;
+  }
+
+  // profiles 테이블에 사용자 정보 저장
+  if (data.user) {
+    await _sb.from('profiles').insert({
+      id: data.user.id,
+      email,
+      name,
+      affiliation,
+      role: 'user'
+    });
+  }
+
+  showAuthStatus('signup-status','success','회원가입 완료! 로그인해주세요.');
+  btn.disabled = false;
+  setTimeout(() => switchAuthTab('login'), 1500);
+}
+
+// ── 앱 진입 ──
+async function enterApp(user) {
+  // profiles에서 사용자 정보 조회
+  const { data: profile } = await _sb.from('profiles').select('*').eq('id', user.id).single();
+
+  const name        = profile?.name        || user.email.split('@')[0];
+  const affiliation = profile?.affiliation || '';
+  const role        = profile?.role        || 'user';
+
+  // 사이드바 사용자 정보 반영
+  const avatarEl = document.querySelector('.avatar');
+  const nameEl   = document.querySelector('.user-chip b');
+  const roleEl   = document.querySelector('.user-chip small');
+  if (avatarEl) avatarEl.textContent = name.slice(0,1).toUpperCase();
+  if (nameEl)   nameEl.textContent   = name;
+  if (roleEl)   roleEl.textContent   = affiliation + ' · ' + (role === 'admin' ? 'Admin' : 'Standard');
+
+  // sidebar-footer 로그아웃 버튼 추가
+  const footer = document.querySelector('.sidebar-footer');
+  if (footer && !footer.querySelector('.logout-btn')) {
+    const logoutBtn = document.createElement('button');
+    logoutBtn.className = 'btn line logout-btn';
+    logoutBtn.style.cssText = 'width:100%;margin-top:10px;background:rgba(255,255,255,.15);color:#fff;border-color:rgba(255,255,255,.3)';
+    logoutBtn.textContent = '로그아웃';
+    logoutBtn.onclick = handleLogout;
+    footer.appendChild(logoutBtn);
+  }
+
+  // 관리자 메뉴 표시
+  if (role === 'admin') showAdminNav();
+
+  // 세션 저장
+  sessionStorage.setItem('raUser', JSON.stringify({ name, affiliation, role, email: user.email }));
+
+  // 앱 화면 표시
+  document.getElementById('auth-overlay').classList.add('hidden');
+}
+
+// ── 로그아웃 ──
+async function handleLogout() {
+  await _sb.auth.signOut();
+  sessionStorage.removeItem('raUser');
+  // 관리자 메뉴 제거
+  const adminNav = document.getElementById('admin-nav');
+  if (adminNav) adminNav.remove();
+  // 로그인 화면 복귀
+  document.getElementById('auth-overlay').classList.remove('hidden');
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-pw').value = '';
+  document.getElementById('login-status').className = 'auth-status';
+  document.getElementById('login-btn').disabled = false;
+  switchAuthTab('login');
+}
+
+// ── 관리자 메뉴 ──
+function showAdminNav() {
+  if (document.getElementById('admin-nav')) return;
+  const nav = document.querySelector('.sidebar nav');
+  if (!nav) return;
+  const adminSection = document.createElement('div');
+  adminSection.id = 'admin-nav';
+  adminSection.className = 'nav-section';
+  adminSection.innerHTML = `
+    <div class="nav-title" style="color:#2563eb">Admin</div>
+    <button class="nav-item" data-page="admin-keyword" type="button"><span class="nav-icon">🏷️</span>키워드 관리</button>
+    <button class="nav-item" data-page="admin-approve" type="button"><span class="nav-icon">✅</span>계정 승인</button>
+    <button class="nav-item" data-page="admin-newsletter" type="button"><span class="nav-icon">📮</span>뉴스레터 관리</button>
+  `;
+  nav.appendChild(adminSection);
+  // 새로 추가된 nav-item 이벤트 바인딩
+  adminSection.querySelectorAll('.nav-item[data-page]').forEach(btn => {
+    btn.addEventListener('click', () => goPage(btn.dataset.page));
+  });
+}
+
+// ── 세션 복원 ──
+(async function restoreSession() {
+  const { data: { session } } = await _sb.auth.getSession();
+  if (session?.user) {
+    await enterApp(session.user);
+  }
+})();
+
+// 엔터키 지원
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  if (document.getElementById('auth-overlay').classList.contains('hidden')) return;
+  if (document.getElementById('panel-login').classList.contains('active')) handleLogin();
+  else handleSignup();
+});
+</script>
+
 </body>
 </html>
