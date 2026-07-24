@@ -419,10 +419,13 @@ async function submitProxySubscribe(){
   showAuthStatus('proxySubStatus','loading','처리 중...');
   try{
     // 1) 이미 Research On 계정이 있는 사람이면 → 바로 구독 처리
-    const { data:existing, error:findErr } = await _sb.from('profiles').select('id,name').eq('email', email).maybeSingle();
+    // profiles는 RLS로 본인 행만 보이므로, 다른 사람 이메일 조회/구독처리는
+    // 전용 RPC(find_profile_by_email/subscribe_profile_newsletter)를 통해서만 수행합니다.
+    const { data:existingRows, error:findErr } = await _sb.rpc('find_profile_by_email', { p_email: email });
     if(findErr) throw findErr;
+    const existing = existingRows && existingRows[0];
     if(existing){
-      const { error } = await _sb.from('profiles').update({ newsletter_subscribed:true, newsletter_subscribed_at: new Date().toISOString() }).eq('id', existing.id);
+      const { error } = await _sb.rpc('subscribe_profile_newsletter', { p_email: email });
       if(error) throw error;
       triggerNewsletterWelcome(email, existing.name || name);
       showAuthStatus('proxySubStatus','success', `${existing.name || name}님을 구독자로 등록했습니다.`);

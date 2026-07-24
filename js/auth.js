@@ -23,10 +23,12 @@ async function handleLogin(){
   const btn = document.getElementById('login-btn');
   btn.disabled = true; showAuthStatus('login-status','loading','로그인 중...');
   try{
-    const { data:profile, error:profileErr } = await _sb.from('profiles').select('email').eq('user_id',userId).maybeSingle();
+    // profiles는 RLS로 보호되어 로그인 전(anon)에는 직접 조회할 수 없으므로,
+    // 아이디→이메일만 변환해주는 전용 RPC(get_email_by_user_id)를 사용합니다.
+    const { data:email, error:profileErr } = await _sb.rpc('get_email_by_user_id', { p_user_id: userId });
     if(profileErr) throw new Error('프로필 조회 실패: '+profileErr.message);
-    if(!profile)   throw new Error('존재하지 않는 ID입니다.');
-    const { data:authData, error:authErr } = await _sb.auth.signInWithPassword({ email:profile.email, password:pw });
+    if(!email)     throw new Error('존재하지 않는 ID입니다.');
+    const { data:authData, error:authErr } = await _sb.auth.signInWithPassword({ email, password:pw });
     if(authErr) throw new Error('비밀번호가 올바르지 않습니다.');
     await enterApp(authData.user);
   } catch(e){
@@ -49,12 +51,14 @@ async function handleSignup(){
   const btn = document.getElementById('signup-btn');
   btn.disabled=true; showAuthStatus('signup-status','loading','처리 중...');
   try{
-    const { data:existId, error:idErr } = await _sb.from('profiles').select('user_id').eq('user_id',userId).maybeSingle();
-    if(idErr)   throw new Error('중복 확인 오류: '+idErr.message);
-    if(existId) throw new Error('이미 사용 중인 ID입니다.');
-    const { data:existEmail, error:emailErr } = await _sb.from('profiles').select('email').eq('email',email).maybeSingle();
-    if(emailErr)    throw new Error('중복 확인 오류: '+emailErr.message);
-    if(existEmail)  throw new Error('이미 가입된 이메일입니다.');
+    // profiles 테이블은 RLS로 보호되어 로그인 전(anon)에는 직접 조회할 수 없으므로,
+    // 중복 여부만 boolean으로 반환하는 전용 RPC(check_user_id_available/check_email_available)를 사용합니다.
+    const { data:idAvailable, error:idErr } = await _sb.rpc('check_user_id_available', { p_user_id: userId });
+    if(idErr)        throw new Error('중복 확인 오류: '+idErr.message);
+    if(!idAvailable) throw new Error('이미 사용 중인 ID입니다.');
+    const { data:emailAvailable, error:emailErr } = await _sb.rpc('check_email_available', { p_email: email });
+    if(emailErr)         throw new Error('중복 확인 오류: '+emailErr.message);
+    if(!emailAvailable)  throw new Error('이미 가입된 이메일입니다.');
     const { data:authData, error:authErr } = await _sb.auth.signUp({ email, password:pw });
     if(authErr)        throw new Error('계정 생성 실패: '+authErr.message);
     if(!authData.user) throw new Error('계정 생성에 실패했습니다. 다시 시도해주세요.');
