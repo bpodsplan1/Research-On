@@ -60,6 +60,10 @@ function bindEvents(){
   // 검색 히스토리
   $$('.tab[data-hist-filter]').forEach(b=>b.addEventListener('click', ()=>{ $$('.tab[data-hist-filter]').forEach(x=>x.classList.toggle('active',x===b)); histFilterMode=b.dataset.histFilter; renderHistoryPage(); }));
   $$('.tab[data-saved-filter]').forEach(b=>b.addEventListener('click', ()=>{ $$('.tab[data-saved-filter]').forEach(x=>x.classList.toggle('active',x===b)); savedFilterMode=b.dataset.savedFilter; renderSavedPage(); }));
+  $('#savedDeleteModeBtn')?.addEventListener('click', ()=>setSavedSelectMode(true));
+  $('#cancelSavedSelectBtn')?.addEventListener('click', ()=>setSavedSelectMode(false));
+  $('#selectAllSaved')?.addEventListener('change', e=>toggleSelectAllSaved(e.target.checked));
+  $('#deleteSelectedSavedBtn')?.addEventListener('click', deleteSelectedSaved);
   $$('.tab[data-acct-filter]').forEach(b=>b.addEventListener('click', ()=>{ $$('.tab[data-acct-filter]').forEach(x=>x.classList.toggle('active',x===b)); acctFilterMode=b.dataset.acctFilter; filterAccountsTable(); }));
 
   // 계정 설정 / 사용자 팝업

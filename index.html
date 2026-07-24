@@ -339,10 +339,22 @@
 </section>
 <section class="page" id="saved">
   <div class="page-title"><div><h2>저장 자료함</h2><p>저장한 기사와 AI 인사이트 리포트를 모아봅니다.</p></div></div>
-  <div class="tabbar" style="margin-bottom:16px">
-    <button class="tab active" data-saved-filter="all" type="button">전체</button>
-    <button class="tab" data-saved-filter="article" type="button">기사</button>
-    <button class="tab" data-saved-filter="report" type="button">리포트</button>
+  <div class="tabbar" style="margin-bottom:16px;justify-content:space-between">
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="tab active" data-saved-filter="all" type="button">전체</button>
+      <button class="tab" data-saved-filter="article" type="button">기사</button>
+      <button class="tab" data-saved-filter="report" type="button">리포트</button>
+    </div>
+    <button class="btn line" id="savedDeleteModeBtn" type="button">삭제</button>
+  </div>
+  <div class="card" id="savedSelectBar" style="display:none;padding:14px 20px;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;cursor:pointer">
+      <input type="checkbox" id="selectAllSaved" /> 전체 선택
+    </label>
+    <div style="display:flex;gap:8px">
+      <button class="btn red" id="deleteSelectedSavedBtn" type="button">선택한 자료 삭제</button>
+      <button class="btn line" id="cancelSavedSelectBtn" type="button">취소</button>
+    </div>
   </div>
   <div class="grid cols-3" id="savedGrid"></div>
 </section>

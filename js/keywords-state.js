@@ -211,21 +211,48 @@ async function deleteKeywordSet(i){
   keywordSets.splice(i,1); renderKeywordsPage(); showToast('키워드 세트가 삭제되었습니다.');
 }
 let savedFilterMode = 'all'; // 'all' | 'article' | 'report'
+let savedSelectMode = false;
 function renderSavedPage(){
   const isReport = d => d.type === 'AI 인사이트 리포트';
   const filtered = savedDocs
     .map((d,i)=>({d,i}))
     .filter(({d}) => savedFilterMode==='all' ? true : savedFilterMode==='report' ? isReport(d) : !isReport(d));
   $('#savedGrid').innerHTML = filtered.length ? filtered.map(({d,i})=>`
-    <div class="card" style="cursor:pointer" onclick="openDocModal(${i},'saved')"><span class="badge ${d.badge||'blue'}">${esc(d.type||'자료')}</span><h3>${esc(d.title)}</h3><p style="color:var(--muted)">${esc((d.body||'').slice(0,80))}${(d.body||'').length>80?'...':''}</p>
-    <button class="btn line" type="button" onclick="event.stopPropagation();deleteSavedDoc(${i})">삭제</button></div>
+    <div class="card" style="cursor:pointer;position:relative" onclick="${savedSelectMode ? 'handleSavedCardClick(event,this)' : `openDocModal(${i},'saved')`}">
+      ${savedSelectMode ? `<input type="checkbox" class="saved-chk" data-i="${i}" style="position:absolute;top:16px;right:16px" />` : ''}
+      <span class="badge ${d.badge||'blue'}">${esc(d.type||'자료')}</span><h3 style="${savedSelectMode?'padding-right:26px':''}">${esc(d.title)}</h3><p style="color:var(--muted)">${esc((d.body||'').slice(0,80))}${(d.body||'').length>80?'...':''}</p>
+    </div>
   `).join('') : '<div class="empty-state"><h3>저장한 자료가 없어요</h3><p>리서치 결과나 AI 인사이트 리포트에서 저장해보세요.</p></div>';
 }
-async function deleteSavedDoc(i){
+// 자료 박스(체크박스 이외 영역) 클릭 시 체크박스를 토글한다 — 리서치 결과 상세 목록과 동일한 패턴.
+function handleSavedCardClick(e, card){
+  if(e.target.closest('input,button,a')) return;
+  const chk = card.querySelector('.saved-chk');
+  if(chk) chk.checked = !chk.checked;
+}
+function setSavedSelectMode(on){
+  savedSelectMode = on;
+  const bar = $('#savedSelectBar'); if(bar) bar.style.display = on ? 'flex' : 'none';
+  const btn = $('#savedDeleteModeBtn'); if(btn) btn.style.display = on ? 'none' : '';
+  const selectAll = $('#selectAllSaved'); if(selectAll) selectAll.checked = false;
+  renderSavedPage();
+}
+function toggleSelectAllSaved(checked){
+  $$('.saved-chk').forEach(c=>c.checked = checked);
+}
+async function deleteSelectedSaved(){
+  const checked = $$('.saved-chk:checked');
+  if(!checked.length){ showToast('삭제할 자료를 먼저 선택해주세요.'); return; }
+  if(!confirm(`선택한 ${checked.length}건의 자료를 삭제하시겠습니까? 되돌릴 수 없습니다.`)) return;
   const uid = await getUid(); if(!uid) return;
-  const doc = savedDocs[i];
-  if(doc?.id) await _sb.from('saved_docs').delete().eq('id', doc.id).eq('profile_id', uid);
-  savedDocs.splice(i,1); renderSavedPage(); showToast('자료가 삭제되었습니다.');
+  const idxSet = new Set([...checked].map(c=>+c.dataset.i));
+  const targets = savedDocs.filter((d,i)=>idxSet.has(i));
+  for(const doc of targets){
+    if(doc.id) await _sb.from('saved_docs').delete().eq('id', doc.id).eq('profile_id', uid);
+  }
+  savedDocs = savedDocs.filter((d,i)=>!idxSet.has(i));
+  setSavedSelectMode(false);
+  showToast(`${targets.length}건의 자료가 삭제되었습니다.`);
 }
 
 function timeAgo(h){
