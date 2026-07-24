@@ -1,0 +1,283 @@
+{
+  "name": "[Research On] 뉴스레터 - 신규 구독 웰컴 메일 및 최신호 즉시 발송",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "newsletter/welcome",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "61b06349-ab5f-40c7-b296-6d22b8b7cf7a",
+      "name": "E0. Webhook - 신규 구독 웰컴 요청",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -528,
+        144
+      ],
+      "webhookId": "newsletter-welcome"
+    },
+    {
+      "parameters": {
+        "jsCode": "// '구독 신청' 페이지에서 본인 구독 또는 타인 대리 등록이 성공했을 때 프론트엔드가 호출한다.\n// 이 노드 하나의 출력이 아래에서 두 갈래로 동시에 나뉜다(n8n의 fan-out):\n//   (A) 웰컴 메일을 바로 보내고 곧장 웹훅 응답을 반환하는 빠른 경로\n//   (B) 5분을 기다렸다가 최신 호 뉴스레터를 그 사람에게 바로 보내는 지연 경로(응답과 무관하게 백그라운드로 진행)\n// 뉴스레터 2단계 워크플로우의 \"관리자 승인 후 1분 대기(테스트용)\" 분기와 동일한 fan-out 패턴을 재사용했다.\nconst data = $json.body || $json;\nfunction txt(v){ return v===null||v===undefined?'':String(v).trim(); }\nfunction esc(v){\n  return txt(v).replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]));\n}\n\nconst email = txt(data.email);\nconst name = txt(data.name) || '구독자';\nif (!email) throw new Error('email이 필요합니다.');\n\nconst subject = '[Research On] 뉴스레터 구독을 환영합니다';\nconst welcomeHtml = `\n<div style=\"font-family:'Malgun Gothic',sans-serif;max-width:600px;margin:0 auto;color:#0f172a\">\n  <div style=\"background:linear-gradient(135deg,#1d4ed8,#0f766e);padding:28px 32px;border-radius:16px 16px 0 0\">\n    <div style=\"color:#ffffff;font-size:13px;font-weight:800;letter-spacing:.08em;opacity:.85\">RESEARCH ON</div>\n    <div style=\"color:#ffffff;font-size:22px;font-weight:900;margin-top:6px\">뉴스레터 구독을 환영합니다</div>\n  </div>\n  <div style=\"background:#ffffff;border:1px solid #e5eaf2;border-top:0;border-radius:0 0 16px 16px;padding:28px 32px\">\n    <p style=\"font-size:15px;line-height:1.7;margin:0 0 16px\">${esc(name)}님, 안녕하세요.</p>\n    <p style=\"font-size:14px;line-height:1.8;color:#334155;margin:0 0 20px\">\n      Research On 뉴스레터 구독을 신청해주셔서 감사합니다. 앞으로 아래 네 가지 주제를 중심으로\n      BPO사업본부 보직자분들께 도움이 될 만한 소식을 정리해 전달드리겠습니다.\n    </p>\n    <ul style=\"font-size:13.5px;line-height:2;color:#334155;padding-left:20px;margin:0 0 20px\">\n      <li><b>CLIENT WATCH</b> — 주요 고객사 관련 동향</li>\n      <li><b>RESEARCH ON INSIGHT</b> — 리서치 허브에서 발굴한 인사이트</li>\n      <li><b>BUSINESS &amp; WORK</b> — 사업·업무 관련 트렌드</li>\n      <li><b>PEOPLE &amp; CULTURE</b> — 조직문화·인사 트렌드</li>\n    </ul>\n    <div style=\"background:#eaf1ff;border-radius:12px;padding:16px 18px;margin-bottom:20px\">\n      <div style=\"font-size:13px;font-weight:800;color:#1d4ed8;margin-bottom:4px\">📅 정기 발송 안내</div>\n      <div style=\"font-size:13.5px;color:#1e3a8a;line-height:1.6\">매주 <b>월요일 오전 8시</b>에 최신 호를 이메일로 보내드립니다.</div>\n    </div>\n    <p style=\"font-size:13px;color:#697386;line-height:1.7;margin:0\">\n      구독 정보 변경이나 해지는 Research On 리서치허브의 \"구독 신청\" 메뉴에서 언제든 가능합니다.\n    </p>\n    <p style=\"font-size:13px;color:#94a3b8;margin-top:24px\">Research On · BPO사업본부</p>\n  </div>\n</div>`;\n\nreturn [{ json: { email, name, subject, welcome_html: welcomeHtml } }];\n"
+      },
+      "id": "58228629-8a3c-4bab-b642-0e6908c663af",
+      "name": "E1. Code - 입력 검증 + 웰컴 메일 본문 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -256,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.welcome_html }}",
+        "options": {}
+      },
+      "id": "79342765-c418-4afc-a882-b10bfe35e93e",
+      "name": "E2A. Gmail - 웰컴 메일 발송",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "484f12b6-b760-4382-8053-8f4521fd67de",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "qa6HS0nnuLRBT7uR",
+          "name": "Gmail(7/14)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const g = $json;\nconst ctx = $('E1. Code - 입력 검증 + 웰컴 메일 본문 구성').first().json;\nreturn [{ json: {\n  success: true,\n  message: `${ctx.name}님(${ctx.email})에게 웰컴 메일을 발송했습니다. 5분 뒤 최신 호가 이어서 발송됩니다.`,\n  email: ctx.email,\n  gmail_message_id: g.id || g.messageId || ''\n}}];\n"
+      },
+      "id": "7cfe8643-2530-49e6-8f2e-c5b07b94b779",
+      "name": "E3A. Code - 응답 데이터 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "cc2c0c43-3730-4f07-a2be-7e679b161d82",
+      "name": "E4A. Respond to Webhook - 웰컴 처리 결과 반환",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        512,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "unit": "minutes"
+      },
+      "id": "357a45f5-5e6b-4438-8922-c10c62d67e95",
+      "name": "E2B. Wait - 5분 대기",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        304
+      ],
+      "webhookId": "a9a9002b-57b9-4789-a783-5dbee7bc0dae",
+      "notes": "구독 직후 5분 뒤 최신 호를 바로 보내 실시간성을 체감시키기 위한 지연입니다. 실제 정기발송(C0, 매주 월요일 08시)과는 별개의 1회성 환영 발송입니다."
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
+          "mode": "list",
+          "cachedResultName": "Research On DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1094582586,
+          "mode": "list",
+          "cachedResultName": "newsletters",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=1094582586"
+        },
+        "options": {}
+      },
+      "id": "8ab3f6f2-77f0-484b-8e20-fe4feb2808c1",
+      "name": "E3B. Google Sheets - newsletters 전체 조회",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        256,
+        304
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F55rrvsZtvhOvoA3",
+          "name": "Google Sheets(7/14)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 발송 이력(SENT)이 있으면 가장 최근 호를, 없으면 예약(QUEUED) 중인 가장 최근 호를\n// 신규 구독자에게 보낼 \"최신 호\"로 선택한다.\n// (뉴스레터 2단계 워크플로우의 D3. \"최신 발송본 선택\" 노드와 동일한 로직)\nconst rows = $input.all().map(x => x.json || {});\nconst ctx = $('E1. Code - 입력 검증 + 웰컴 메일 본문 구성').first().json;\nfunction txt(v){ return v===null||v===undefined?'':String(v).trim(); }\n\nconst sent = rows.filter(r => txt(r.status).toUpperCase() === 'SENT');\nconst queued = rows.filter(r => txt(r.status).toUpperCase() === 'QUEUED');\n\nfunction latest(list){\n  if (!list.length) return null;\n  return list.slice().sort((a, b) => new Date(b.generated_at || 0) - new Date(a.generated_at || 0))[0];\n}\n\nconst pick = latest(sent) || latest(queued);\nif (!pick || !txt(pick.newsletter_html)) {\n  // 발송할 뉴스레터가 아직 하나도 없는 경우 — 웰컴 메일은 이미 나갔으므로 여기서는 조용히 종료한다.\n  throw new Error('아직 발송된(또는 예약된) 뉴스레터가 없어 최신 호를 보낼 수 없습니다.');\n}\n\nreturn [{\n  json: {\n    issue_id: txt(pick.issue_id),\n    subject: txt(pick.subject) || '[Research On] 뉴스레터',\n    newsletter_html: txt(pick.newsletter_html),\n    recipient: ctx.email,\n    recipient_name: ctx.name\n  }\n}];\n"
+      },
+      "id": "75d012a2-a92b-4941-821f-1009f8cf1ed1",
+      "name": "E4B. Code - 최신 발송본 선택",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        512,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.recipient }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.newsletter_html }}",
+        "options": {}
+      },
+      "id": "1248f31d-4662-44d4-b73d-aee3659ef46d",
+      "name": "E5B. Gmail - 최신 호 즉시 발송",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        768,
+        304
+      ],
+      "webhookId": "0af6155a-dac0-490c-a11e-edf537381be7",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "qa6HS0nnuLRBT7uR",
+          "name": "Gmail(7/14)"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "E0. Webhook - 신규 구독 웰컴 요청": {
+      "main": [
+        [
+          {
+            "node": "E1. Code - 입력 검증 + 웰컴 메일 본문 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E1. Code - 입력 검증 + 웰컴 메일 본문 구성": {
+      "main": [
+        [
+          {
+            "node": "E2A. Gmail - 웰컴 메일 발송",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "E2B. Wait - 5분 대기",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E2A. Gmail - 웰컴 메일 발송": {
+      "main": [
+        [
+          {
+            "node": "E3A. Code - 응답 데이터 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E3A. Code - 응답 데이터 구성": {
+      "main": [
+        [
+          {
+            "node": "E4A. Respond to Webhook - 웰컴 처리 결과 반환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E2B. Wait - 5분 대기": {
+      "main": [
+        [
+          {
+            "node": "E3B. Google Sheets - newsletters 전체 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E3B. Google Sheets - newsletters 전체 조회": {
+      "main": [
+        [
+          {
+            "node": "E4B. Code - 최신 발송본 선택",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E4B. Code - 최신 발송본 선택": {
+      "main": [
+        [
+          {
+            "node": "E5B. Gmail - 최신 호 즉시 발송",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "af6275dc-3935-4ef8-a4cf-50ae0c444aee",
+  "meta": {
+    "instanceId": "1dbf02fc19e4bfd97b9fe74c58b21c46219b2aed60e7d66cdce419ae0a4d7f7e"
+  },
+  "id": "i7aFnIxpxD0TmG9h",
+  "tags": []
+}

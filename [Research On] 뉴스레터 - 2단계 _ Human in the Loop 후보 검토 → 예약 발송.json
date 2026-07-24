@@ -1,0 +1,1359 @@
+{
+  "name": "[Research On] 뉴스레터 - 2단계 : Human in the Loop 후보 검토 → 예약 발송",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "newsletter/draft",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "252141d5-ba60-4919-b4df-1a4405cdc01b",
+      "name": "A0. Webhook - 뉴스레터 후보 초안 조회",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        44320,
+        1360
+      ],
+      "webhookId": "newsletter-draft-hitl"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "documentURL": "https://docs.google.com/document/d/1FML9a8fOGfi4SsF19SWqWAEMpImaZRD1SjlLwp5ne00/edit?usp=drivesdk"
+      },
+      "id": "19a15e41-4bd2-4448-b40a-b7ee57df3874",
+      "name": "A1. Google Docs - 회사 맥락 읽기",
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        44560,
+        1360
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "cL4GHzurJWdHGv4W",
+          "name": "Google Docs(7/14)"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "후보 문구를 정리할 때만 참고합니다. 후보 선택은 AI가 하지 않으며 관리자가 웹에서 수행합니다."
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
+          "mode": "list",
+          "cachedResultName": "Research On DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1294785882,
+          "mode": "list",
+          "cachedResultName": "newsletter_research",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=1294785882"
+        },
+        "options": {}
+      },
+      "id": "7dc2dafc-72dc-4a98-8a72-864b9f226178",
+      "name": "A2. Google Sheets - newsletter_research 후보 조회",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        44800,
+        1360
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F55rrvsZtvhOvoA3",
+          "name": "Google Sheets(7/14)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
+          "mode": "list",
+          "cachedResultName": "Research On DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "research_results",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=0"
+        },
+        "options": {}
+      },
+      "id": "ff4706df-f4b6-450a-b256-7f8b80a7605f",
+      "name": "A3. Google Sheets - research_results 후보 조회",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        45040,
+        1360
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F55rrvsZtvhOvoA3",
+          "name": "Google Sheets(7/14)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Human-in-the-loop용 후보 정규화 및 '후보별 편집' 프롬프트 생성\n// 중요: 이 단계에서 AI는 후보를 선택하거나 탈락시키지 않습니다.\n\nconst request = $('A0. Webhook - 뉴스레터 후보 초안 조회').first().json.body || {};\nconst newsletterRows = $('A2. Google Sheets - newsletter_research 후보 조회').all().map(x => x.json || {});\nconst researchRows = $('A3. Google Sheets - research_results 후보 조회').all().map(x => x.json || {});\n\nfunction txt(v){ return v === null || v === undefined ? '' : String(v).trim(); }\nfunction truthy(v){\n  if (v === true || v === 1) return true;\n  return ['true','1','y','yes','예','o'].includes(txt(v).toLowerCase());\n}\nfunction parseDate(v){ const d = new Date(v || ''); return isNaN(d.getTime()) ? null : d; }\nfunction parseJson(v){\n  if (v && typeof v === 'object') return v;\n  try { return v ? JSON.parse(v) : {}; } catch { return {}; }\n}\nfunction urls(v){\n  if (Array.isArray(v)) return [...new Set(v.map(txt).filter(x => /^https?:\\/\\//i.test(x)))].slice(0,4);\n  return [...new Set(txt(v).split(/[\\n,]+/).map(x=>x.trim()).filter(x => /^https?:\\/\\//i.test(x)))].slice(0,4);\n}\nfunction getDocText(obj){\n  const chunks=[];\n  const walk=(x)=>{\n    if(!x || typeof x !== 'object') return;\n    if(x.textRun && typeof x.textRun.content === 'string') chunks.push(x.textRun.content);\n    for(const v of Object.values(x)){\n      if(Array.isArray(v)) v.forEach(walk);\n      else if(v && typeof v === 'object') walk(v);\n    }\n  };\n  walk(obj);\n  return chunks.join('').replace(/\\r/g,'\\n').replace(/\\n{3,}/g,'\\n\\n').trim().slice(0,1200);\n}\n\nconst days = Math.max(1, Math.min(30, Number(request.days || 7)));\nconst maxPerSection = Math.max(1, Math.min(10, Number(request.max_per_section || 6)));\nconst now = new Date();\nconst from = new Date(now.getTime() - days * 86400000);\nconst periodStart = from.toISOString().slice(0,10);\nconst periodEnd = now.toISOString().slice(0,10);\nfunction inWindow(v){ const d=parseDate(v); return !d || (d >= from && d <= now); }\n\nconst external = newsletterRows\n  .filter(r => inWindow(r.collected_at || r.generated_at || r.created_at))\n  .map((r,i)=>({\n    candidate_id: txt(r.item_id || `NLR-${i+1}`),\n    section: txt(r.section).toUpperCase(),\n    title: txt(r.title),\n    summary: txt(r.summary).slice(0,900),\n    implication: txt(r.implication).slice(0,500),\n    source_urls: urls(r.source_urls),\n    priority: Number(r.priority || 50),\n    evidence_level: txt(r.evidence_level || 'MEDIUM'),\n    target: txt(r.target),\n    keyword: txt(r.keyword)\n  }))\n  .filter(x => ['CLIENT_WATCH','BUSINESS_WORK','PEOPLE_CULTURE'].includes(x.section))\n  .filter(x => x.title || x.summary)\n  .sort((a,b)=>b.priority-a.priority);\n\nconst internal = researchRows\n  .filter(r => inWindow(r.created_at || r.generated_at || r.requested_at))\n  .filter(r => r.newsletter_candidate === undefined || r.newsletter_candidate === '' || truthy(r.newsletter_candidate))\n  .map((r,i)=>{\n    const raw=parseJson(r.raw_json || r.report_json || r.result_json);\n    const eb=raw.executive_brief || {};\n    // research_results 시트에는 원문 URL이 'source_urls'라는 별도 컬럼으로 저장되지 않고,\n    // raw_json(=raw) 안의 source_summaries 배열(각 항목에 title/url)에 들어있다.\n    // (뉴스 크롤링 2단계 워크플로우의 '8. Code - AI 응답 JSON 정리' 참고)\n    // 예전 코드가 존재하지 않는 raw.source_urls를 찾고 있어서 내부 리서치 결과에 링크가 비어 있었다.\n    return {\n      candidate_id: txt(r.research_id || `RES-${i+1}`),\n      section:'RESEARCH_ON_INSIGHT',\n      title: txt(r.keyword || raw.keyword || `내부 리서치 ${i+1}`),\n      summary: txt(r.one_line_conclusion || eb.one_line_conclusion).slice(0,900),\n      implication: txt(eb.relevance_to_organization || eb.recommended_action).slice(0,500),\n      source_urls: urls(r.source_urls || raw.source_urls || (Array.isArray(raw.source_summaries) ? raw.source_summaries.map(s => s && s.url) : [])),\n      priority: Number(r.newsletter_priority || 50),\n      evidence_level:'INTERNAL',\n      target:'', keyword:txt(r.keyword || raw.keyword)\n    };\n  })\n  .filter(x => x.title || x.summary)\n  .sort((a,b)=>b.priority-a.priority);\n\nconst groupedCandidates = {\n  client_watch: external.filter(x=>x.section==='CLIENT_WATCH').slice(0,maxPerSection),\n  research_on_insight: internal.slice(0,maxPerSection),\n  business_work: external.filter(x=>x.section==='BUSINESS_WORK').slice(0,maxPerSection),\n  people_culture: external.filter(x=>x.section==='PEOPLE_CULTURE').slice(0,maxPerSection)\n};\nconst candidateCount = Object.values(groupedCandidates).reduce((s,a)=>s+a.length,0);\nif(!candidateCount) throw new Error(`최근 ${days}일간 웹에 표시할 뉴스레터 후보가 없습니다.`);\n\nlet docJson={};\ntry { docJson=$('A1. Google Docs - 회사 맥락 읽기').first().json || {}; } catch {}\nconst companyContext = getDocText(docJson) || '회사 맥락 문서를 불러오지 못했습니다. 후보에 있는 사실만 사용합니다.';\n\nconst prompt = `너는 BPO사업본부 주간 뉴스레터의 후보 문구 편집자다.\n아래 후보를 웹페이지에 모두 보여줘야 한다. 후보를 선택·삭제·통합하거나 순서를 임의로 바꾸지 마라.\n각 candidate_id마다 정확히 하나의 편집 결과를 만들고 candidate_id를 그대로 복사하라.\n관리자가 웹에서 후보를 검토한 뒤 섹션별 최종 1건을 선택하므로, 너는 선택 판단을 하지 않는다.\n\n[편집 원칙 - 1차 독자는 CL4 이상 보직자(센터장·그룹장·사업부장·임원)다]\n- 바쁜 보직자가 이 항목만 읽고도 핵심과 맥락을 파악해 회의나 의사결정에 참고할 수 있는 수준으로 다듬는다. 짧게 쓰되 알맹이(수치·시점·구체적 근거)는 절대 빼지 않는다.\n- title: 원문 제목을 그대로 복사하지 말고 핵심을 15~25자 내외로 다시 쓴다.\n- summary: 후보의 구체적 숫자·고유명사·행동을 살려 2~3문장으로 정리한다. 후보에 이미 있는 구체성(수치·시점·기업명 등)을 절대 생략하거나 뭉뚱그리지 않는다.\n- implication: CLIENT WATCH, RESEARCH ON INSIGHT, BUSINESS & WORK, PEOPLE & CULTURE 네 섹션 모두 반드시 작성한다. \"~할 기회입니다\" 같은 상투적 한 줄로 끝내지 말고, 이 사안이 BPO사업본부 운영·사업에 어떤 의미인지와 보직자가 무엇을 검토·논의해야 하는지를 담아 1~2문장으로 정리한다. PEOPLE & CULTURE의 implication은 채용·유지·조직문화·세대 간 소통·복리후생 설계 관점에서 작성한다. 후보에 이미 implication/organization_view가 있다면 절대 비우거나 삭제하지 말고, 문장을 다듬어 최대한 살린다.\n- executive_brief.headline과 summary는 후보 중 중요도가 가장 높아 보이는 이슈 1~2개를 중심으로, 보직자가 이번 주 가장 먼저 알아야 할 것이 무엇인지 드러나게 작성한다. 관리자가 최종 후보를 고른 뒤 다시 다듬을 임시 초안이니 지금은 후보 전체를 보고 가장 비중 있어 보이는 것 위주로 작성하면 된다.\n- 후보에 없는 사실은 절대 추가하지 않는다.\n- source_urls는 출력하지 않는다. 시스템이 candidate_id를 기준으로 원본 URL을 다시 붙인다.\n- 반드시 JSON 객체만 출력한다.\n\n[회사 업무 맥락 - 우선순위와 문체 참고용]\n${companyContext}\n\n[기간]\n${periodStart} ~ ${periodEnd}\n\n[후보]\n${JSON.stringify(groupedCandidates)}\n\n[출력 형식]\n{\n  \"issue_title\":\"후보 검토용 주간 브리핑 제목\",\n  \"executive_brief\":{\"headline\":\"후보 전체를 관통하는 임시 헤드라인\",\"summary\":\"관리자가 선택 후 수정할 수 있는 임시 요약\"},\n  \"sections\":{\n    \"client_watch\":[{\"candidate_id\":\"\",\"title\":\"\",\"summary\":\"\",\"implication_label\":\"시사점\",\"implication\":\"\"}],\n    \"research_on_insight\":[{\"candidate_id\":\"\",\"title\":\"\",\"summary\":\"\",\"implication_label\":\"시사점\",\"implication\":\"\"}],\n    \"business_work\":[{\"candidate_id\":\"\",\"title\":\"\",\"summary\":\"\",\"implication_label\":\"시사점\",\"implication\":\"\"}],\n    \"people_culture\":[{\"candidate_id\":\"\",\"title\":\"\",\"summary\":\"\",\"implication_label\":\"시사점\",\"implication\":\"\"}]\n  },\n  \"people_culture_view\":\"후보 전체를 본 임시 종합 코멘트\",\n  \"editor_note\":\"Human in the loop 후보 초안\"\n}`;\n\nreturn [{json:{\n  issue_id:`DRAFT-${periodEnd.replace(/-/g,'')}-${Math.random().toString(36).slice(2,7).toUpperCase()}`,\n  generated_at:now.toISOString(), period_start:periodStart, period_end:periodEnd,\n  grouped_candidates:groupedCandidates, candidate_count:candidateCount,\n  editor_prompt:prompt\n}}];"
+      },
+      "id": "56801be6-55b0-40b7-b1d4-b40764f53fac",
+      "name": "A4. Code - 후보 정규화 + 후보별 편집 프롬프트",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        45280,
+        1360
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.editor_prompt }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "후보를 선택하거나 삭제하지 말고 각 후보를 웹 표시용 문구로만 편집하여 JSON 객체만 출력한다."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "ff3ba324-5f90-46fc-9da4-959ca49572bd",
+      "name": "A5. Basic LLM Chain - 후보 문구 편집",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        45552,
+        1360
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "id": "acb51061-6a41-41b5-a19b-fae3d11cb4cf",
+      "name": "Google Gemini - 후보 문구 편집",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        45552,
+        1568
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "UmQBA3vsLpvPlcZz",
+          "name": "Google Gemini 90일 무료(7/14~)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// AI 결과를 파싱하되 후보 누락·URL 환각을 차단하고 웹페이지 구조로 변환\nconst base=$('A4. Code - 후보 정규화 + 후보별 편집 프롬프트').first().json;\nconst raw=$json.text || $json.output || $json.response || $json.content || $json.result || '';\nfunction txt(v){return v===null||v===undefined?'':String(v).trim();}\nfunction arr(v){return Array.isArray(v)?v:[];}\nfunction parse(v){\n  if(v && typeof v==='object') return v;\n  let s=String(v||'').replace(/^```json\\s*/i,'').replace(/^```\\s*/,'').replace(/```$/,'').trim();\n  const a=s.indexOf('{'), b=s.lastIndexOf('}'); if(a>=0&&b>=a) s=s.slice(a,b+1);\n  s=s.replace(/,\\s*([}\\]])/g,'$1');\n  try{return JSON.parse(s);}catch{return {};}\n}\nconst ai=parse(raw);\nconst groups=base.grouped_candidates || {};\n\nfunction normalizeGroup(key, hasImplication){\n  const originals=arr(groups[key]);\n  const aiItems=arr(ai.sections?.[key]);\n  const byId=new Map(aiItems.map(x=>[txt(x.candidate_id),x]));\n  return originals.map((o,idx)=>{\n    const x=byId.get(txt(o.candidate_id)) || {};\n    return {\n      title:txt(x.title || o.title || `후보 ${idx+1}`),\n      summary:txt(x.summary || o.summary),\n      implication_label:hasImplication ? txt(x.implication_label || '시사점') : '',\n      implication:hasImplication ? txt(x.implication || o.implication) : '',\n      source_urls:arr(o.source_urls).map(txt).filter(u=>/^https?:\\/\\//i.test(u)).slice(0,4)\n    };\n  }).filter(x=>x.title || x.summary);\n}\nconst sections={\n  client_watch:normalizeGroup('client_watch',true),\n  research_on_insight:normalizeGroup('research_on_insight',true),\n  business_work:normalizeGroup('business_work',true),\n  people_culture:normalizeGroup('people_culture',true),\n  people_culture_view:txt(ai.people_culture_view)\n};\nconst newsletter={\n  newsletter_title:'Research On Weekly',\n  issue_title:txt(ai.issue_title || `${base.period_start} ~ ${base.period_end} 주간 브리핑`),\n  period:`${base.period_start} ~ ${base.period_end}`,\n  executive_brief:{\n    headline:txt(ai.executive_brief?.headline || '이번 주 후보 자료 검토'),\n    summary:txt(ai.executive_brief?.summary || '섹션별 후보를 검토하고 최종 발송 항목을 남겨주세요.')\n  },\n  sections,\n  editor_note:txt(ai.editor_note || 'Human in the loop 후보 초안')\n};\nreturn [{json:{\n  success:true, mode:'HUMAN_REVIEW', issue_id:base.issue_id,\n  generated_at:base.generated_at, period_start:base.period_start, period_end:base.period_end,\n  candidate_count:base.candidate_count, newsletter\n}}];"
+      },
+      "id": "68ca92e5-0e5d-40f8-96a7-da0a6acb5165",
+      "name": "A7. Code - 후보 초안 JSON 정리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        45808,
+        1360
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "4173f1a3-c70c-4fa4-8347-9314898a105a",
+      "name": "A8. Respond to Webhook - 후보 초안 반환",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        46064,
+        1360
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "newsletter/queue",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "60df9430-adbc-4270-939e-824d4e621756",
+      "name": "B0. Webhook - 관리자 승인 및 발송 예약",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        44320,
+        2048
+      ],
+      "webhookId": "newsletter-queue-hitl"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 웹에서 관리자가 승인한 뉴스레터를 검증하고 예약 데이터로 정규화\nconst data=$json.body || $json;\nconst input=data.newsletter || {};\nfunction txt(v){return v===null||v===undefined?'':String(v).trim();}\nfunction arr(v){return Array.isArray(v)?v:[];}\nfunction safeUrls(v){return arr(v).map(txt).filter(u=>/^https?:\\/\\//i.test(u)).slice(0,4);}\nfunction cleanItem(x,hasImplication){\n  return {\n    title:txt(x?.title), summary:txt(x?.summary),\n    implication_label:hasImplication?txt(x?.implication_label||'시사점'):'',\n    implication:hasImplication?txt(x?.implication):'',\n    source_urls:safeUrls(x?.source_urls)\n  };\n}\nconst warnings=[];\n// 웹 화면(HITL 검토)에서 관리자가 섹션별로 남겨둔 항목을 '전부' 예약한다.\n// 한 섹션에 비정상적으로 많은 항목이 남아있을 경우를 대비해 섹션당 최대 6개(웹 화면의 최대 노출 개수와 동일)로만 안전장치를 둔다.\nconst MAX_PER_SECTION=6;\nfunction selectItems(key,hasImplication){\n  const valid=arr(input.sections?.[key]).map(x=>cleanItem(x,hasImplication)).filter(x=>x.title||x.summary);\n  if(valid.length>MAX_PER_SECTION) warnings.push(`${key}: ${valid.length}개 중 상위 ${MAX_PER_SECTION}개만 발송에 포함했습니다.`);\n  return valid.slice(0,MAX_PER_SECTION);\n}\nconst sections={\n  client_watch:selectItems('client_watch',true),\n  research_on_insight:selectItems('research_on_insight',true),\n  business_work:selectItems('business_work',true),\n  people_culture:selectItems('people_culture',true),\n  people_culture_view:txt(input.sections?.people_culture_view)\n};\nconst selectedCount=['client_watch','research_on_insight','business_work','people_culture'].reduce((s,k)=>s+sections[k].length,0);\nif(!selectedCount) throw new Error('최종 발송 항목이 없습니다. 섹션별로 최소 1개 후보를 남겨주세요.');\n\nconst now=new Date();\n// 다음 월요일 08:00 KST를 UTC ISO로 계산\nconst kstNow=new Date(now.getTime()+9*3600000);\nconst day=kstNow.getUTCDay();\nconst daysUntilMonday=(8-day)%7 || 7;\nconst targetUtcMs=Date.UTC(kstNow.getUTCFullYear(),kstNow.getUTCMonth(),kstNow.getUTCDate()+daysUntilMonday,8,0,0)-9*3600000;\nconst scheduledFor=new Date(targetUtcMs).toISOString();\nconst period=txt(input.period);\nconst periodEnd=txt(data.period_end || input.period_end || (period.match(/(20\\d{2}-\\d{2}-\\d{2})\\s*$/)||[])[1] || now.toISOString().slice(0,10));\nconst periodStart=txt((period.match(/^(20\\d{2}-\\d{2}-\\d{2})/)||[])[1]);\nconst newsletter={\n  newsletter_title:'Research On Weekly',\n  issue_title:txt(input.issue_title || `${periodEnd} 주간 브리핑`),\n  period:period || `${periodStart} ~ ${periodEnd}`,\n  executive_brief:{headline:txt(input.executive_brief?.headline),summary:txt(input.executive_brief?.summary)},\n  sections,\n  editor_note:txt(input.editor_note)\n};\nconst recipient=txt(data.recipient || 'bpo.dsplan1@gmail.com');\nif(!recipient) throw new Error('수신 이메일이 없습니다.');\nreturn [{json:{\n  issue_id:`NLQ-${periodEnd.replace(/-/g,'')}-${Math.random().toString(36).slice(2,7).toUpperCase()}`,\n  generated_at:now.toISOString(), queued_at:now.toISOString(), scheduled_for:scheduledFor,\n  period_start:periodStart, period_end:periodEnd, recipient,\n  selected_count:selectedCount, warnings, newsletter,\n  subject:txt(data.subject || `[Research On Weekly] ${periodEnd} 주간 뉴스레터`)\n}}];"
+      },
+      "id": "b241609f-b71d-48d6-8786-8af37299e906",
+      "name": "B1. Code - 승인본 검증 + 섹션별 항목 확정",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        44592,
+        2048
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// =============================================\n// 상세 HTML 템플릿 렌더링\n// =============================================\n\nconst data = $json;\nconst nl = data.newsletter || {};\nconst sections = nl.sections || {};\n\nfunction e(v) {\n  return String(v ?? '')\n    .replace(/&/g,'&amp;')\n    .replace(/</g,'&lt;')\n    .replace(/>/g,'&gt;')\n    .replace(/\"/g,'&quot;')\n    .replace(/'/g,'&#039;');\n}\nfunction p(v) {\n  return e(v)\n    .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')\n    .replace(/\\n/g,'<br>');\n}\n// 인스타그램/틱톡/X/Threads 등은 자기 페이지가 다른 사이트의 iframe 안에 뜨는 걸 서버 차원에서 막는다.\n// 이런 도메인만 새 탭으로 열고, 그 외 일반 기사 링크는 관리자 미리보기(iframe) 안에서 그대로 열리게 둔다.\nconst NEW_TAB_DOMAINS = ['instagram.com','tiktok.com','x.com','twitter.com','threads.net','facebook.com','youtube.com'];\nfunction needsNewTab(url) {\n  try { const host = new URL(url).hostname.replace(/^www\\./, ''); return NEW_TAB_DOMAINS.some(d => host === d || host.endsWith('.' + d)); }\n  catch (e) { return false; }\n}\nfunction sourceLinks(urls = []) {\n  const safe = Array.isArray(urls) ? urls.filter(Boolean).slice(0,4) : [];\n  if (!safe.length) return '';\n  const links = safe.map((url, idx) => {\n    const attr = needsNewTab(url) ? ' target=\"_blank\" rel=\"noopener noreferrer\"' : '';\n    return `<a href=\"${e(url)}\"${attr} style=\"color:#64748B;text-decoration:underline;\">원문 ${idx+1}</a>`;\n  }).join('&nbsp;&nbsp;');\n  return `<div style=\"margin-top:13px;font-size:12px;line-height:19px;color:#64748B;\">${links}</div>`;\n}\nfunction divider() {\n  return `<tr><td style=\"padding:0 40px;\"><table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td style=\"border-top:1px solid #E5E7EB;font-size:1px;line-height:1px;\">&nbsp;</td></tr></table></td></tr>`;\n}\nfunction itemBlock(item, culture = false, last = false) {\n  const bg = culture ? '#F2F7F4' : '#EEF3FF';\n  const labelColor = culture ? '#2F6B4F' : '#274690';\n  const textColor = culture ? '#3F5B4C' : '#35415E';\n  // 모든 섹션(PEOPLE & CULTURE 포함)에서 시사점이 있으면 박스를 그린다.\n  // (예전에는 PEOPLE & CULTURE는 무조건 숨기고 섹션 전체 종합 코멘트만 보여줬으나,\n  //  CL4 이상 보직자용으로 항목별 조직 운영 시사점을 반드시 채우도록 프롬프트를 바꿨다.)\n  const implicationHtml = item.implication ? `\n    <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"margin-top:16px;border-collapse:collapse;\">\n      <tr>\n        <td style=\"padding:15px 17px;background-color:${bg};\">\n          <div style=\"font-size:12px;line-height:18px;font-weight:bold;color:${labelColor};\">${e(item.implication_label || '시사점')}</div>\n          <div style=\"margin-top:5px;font-size:14px;line-height:24px;color:${textColor};\">${p(item.implication)}</div>\n        </td>\n      </tr>\n    </table>` : '';\n  const block = `\n<tr>\n  <td style=\"padding:26px 40px ${last ? '32px' : '26px'};\">\n    <div style=\"font-size:20px;line-height:30px;font-weight:bold;color:#111827;\">\n      ${e(item.title)}\n    </div>\n    <div style=\"margin-top:12px;font-size:15px;line-height:26px;color:#3F4652;\">\n      ${p(item.summary)}\n    </div>\n    ${implicationHtml}\n    ${sourceLinks(item.source_urls)}\n  </td>\n</tr>`;\n  return block + (last ? '' : divider());\n}\nfunction cultureViewBlock(view) {\n  if (!view) return '';\n  return `\n<tr>\n  <td style=\"padding:0 40px 32px;\">\n    <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;\">\n      <tr>\n        <td style=\"padding:15px 17px;background-color:#F2F7F4;\">\n          <div style=\"font-size:12px;line-height:18px;font-weight:bold;color:#2F6B4F;\">종합 코멘트</div>\n          <div style=\"margin-top:5px;font-size:14px;line-height:24px;color:#3F5B4C;\">${p(view)}</div>\n        </td>\n      </tr>\n    </table>\n  </td>\n</tr>`;\n}\nfunction sectionBlock(no, code, title, description, items, culture = false, trailingView = '') {\n  if (!Array.isArray(items) || !items.length) return '';\n  const hasTrailing = culture && !!trailingView;\n  const lastIdx = items.length - 1;\n  const itemsHtml = items\n    .map((x, i) => itemBlock(x, culture, hasTrailing ? false : i === lastIdx))\n    .join('');\n  const trailingHtml = hasTrailing ? cultureViewBlock(trailingView) : '';\n  return `\n<tr>\n  <td style=\"padding:26px 40px 12px;background-color:#F8FAFC;border-top:1px solid #E5E7EB;\">\n    <div style=\"font-size:12px;line-height:18px;letter-spacing:1.2px;font-weight:bold;color:#274690;\">${no} · ${e(code)}</div>\n    <div style=\"margin-top:7px;font-size:22px;line-height:32px;font-weight:bold;color:#111827;\">${e(title)}</div>\n    <div style=\"margin-top:8px;font-size:14px;line-height:23px;color:#6B7280;\">${e(description)}</div>\n  </td>\n</tr>\n${itemsHtml}${trailingHtml}`;\n}\n\nconst sectionHtml = [\n  sectionBlock('01','CLIENT WATCH','주요 클라이언트와 고객 산업 동향',\n    '핵심 고객사의 사업·조직·AI·운영 변화를 중심으로 정리했습니다.',\n    sections.client_watch || [], false),\n  sectionBlock('02','RESEARCH ON INSIGHT','지난주 내부 리서치에서 발견한 핵심 흐름',\n    '사용자들이 직접 수행한 리서치에서 반복적으로 나타난 관심사를 정리했습니다.',\n    sections.research_on_insight || [], false),\n  sectionBlock('03','BUSINESS & WORK','BPO·AI·조직 운영의 주요 변화',\n    '본부 사업과 운영에 영향을 줄 수 있는 외부 변화를 정리했습니다.',\n    sections.business_work || [], false),\n  sectionBlock('04','PEOPLE & CULTURE','요즘 구성원은 무엇에 반응하는가',\n    '젊은 세대의 행동과 가치관을 조직 운영 관점에서 해석했습니다.',\n    sections.people_culture || [], true, sections.people_culture_view || '')\n].join('');\n\nconst subject = `[Research On Weekly] ${data.period_end} 주간 뉴스레터`;\n\nconst html = `<!DOCTYPE html>\n<html lang=\"ko\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>${e(subject)}</title>\n</head>\n<body style=\"margin:0;padding:0;background-color:#F3F4F6;font-family:Arial,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;color:#111827;word-break:keep-all;overflow-wrap:break-word;\">\n  <div style=\"display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;line-height:1px;font-size:1px;\">\n    클라이언트 동향, 내부 리서치 인사이트, BPO·AI 변화, 구성원 문화 트렌드를 정리했습니다.\n  </div>\n  <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"width:100%;margin:0;padding:0;background-color:#F3F4F6;border-collapse:collapse;\">\n    <tr>\n      <td align=\"center\" style=\"padding:24px 12px;\">\n        <table role=\"presentation\" width=\"680\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"width:100%;max-width:680px;background-color:#FFFFFF;border-collapse:collapse;\">\n          <tr>\n            <td style=\"padding:34px 40px 30px;background-color:#111827;\">\n              <div style=\"font-size:12px;line-height:18px;letter-spacing:1.4px;font-weight:bold;color:#AAB4C4;\">RESEARCH ON WEEKLY</div>\n              <div style=\"margin-top:12px;font-size:30px;line-height:41px;font-weight:bold;color:#FFFFFF;\">${e(nl.issue_title)}</div>\n              <div style=\"margin-top:14px;font-size:13px;line-height:20px;color:#C9D1DD;\">${e(nl.period)}</div>\n            </td>\n          </tr>\n\n          <tr>\n            <td style=\"padding:34px 40px 30px;\">\n              <div style=\"font-size:12px;line-height:18px;letter-spacing:1.2px;font-weight:bold;color:#274690;\">EXECUTIVE BRIEF</div>\n              <div style=\"margin-top:10px;font-size:23px;line-height:34px;font-weight:bold;color:#111827;\">${e(nl.executive_brief?.headline || '')}</div>\n              <div style=\"margin-top:14px;font-size:15px;line-height:26px;color:#3F4652;\">${p(nl.executive_brief?.summary || '')}</div>\n            </td>\n          </tr>\n\n          ${sectionHtml}\n\n          <tr>\n            <td style=\"padding:28px 40px;background-color:#111827;\">\n              <div style=\"font-size:13px;line-height:20px;font-weight:bold;color:#FFFFFF;\">Research On</div>\n              <div style=\"margin-top:8px;font-size:12px;line-height:20px;color:#AAB4C4;\">\n                본 뉴스레터는 내부 리서치 결과와 뉴스레터 전용 모니터링 자료를 바탕으로 작성되었습니다.\n              </div>\n              <div style=\"margin-top:12px;font-size:11px;line-height:18px;color:#7F8A9B;\">\n                AI가 생성한 시사점은 제공된 자료를 기반으로 한 해석이며, 주요 의사결정 전 원문 확인이 필요합니다.\n              </div>\n            </td>\n          </tr>\n        </table>\n      </td>\n    </tr>\n  </table>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    issue_id: data.issue_id,\n    generated_at: data.generated_at,\n    period_start: data.period_start,\n    period_end: data.period_end,\n    status: 'QUEUED',\n    subject: data.subject || subject,\n    issue_title: nl.issue_title,\n    research_count: data.selected_count,\n    newsletter_json: JSON.stringify({\n      newsletter: nl,\n      delivery: {\n        recipient: data.recipient,\n        queued_at: data.queued_at,\n        scheduled_for: data.scheduled_for,\n        warnings: data.warnings || []\n      }\n    }),\n    newsletter_html: html,\n    editor_note: nl.editor_note || '',\n    recipient: data.recipient,\n    scheduled_for: data.scheduled_for,\n    selected_count: data.selected_count,\n    warnings: data.warnings || []\n  }\n}];"
+      },
+      "id": "0a8b6126-712d-426b-b108-5fb329dc7cba",
+      "name": "B2. Code - 승인본 HTML 렌더링 + QUEUED 행 생성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        44848,
+        2048
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
+          "mode": "list",
+          "cachedResultName": "Research On DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1094582586,
+          "mode": "list",
+          "cachedResultName": "newsletters",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=1094582586"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "issue_id",
+              "displayName": "issue_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "generated_at",
+              "displayName": "generated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "period_start",
+              "displayName": "period_start",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "period_end",
+              "displayName": "period_end",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "subject",
+              "displayName": "subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "issue_title",
+              "displayName": "issue_title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "research_count",
+              "displayName": "research_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "newsletter_json",
+              "displayName": "newsletter_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "newsletter_html",
+              "displayName": "newsletter_html",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "editor_note",
+              "displayName": "editor_note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "threadId",
+              "displayName": "threadId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "labelIds",
+              "displayName": "labelIds",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "e237f08f-a1fd-4b75-8e11-cc28086d4482",
+      "name": "B3. Google Sheets - newsletters 예약 저장",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        45120,
+        2048
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F55rrvsZtvhOvoA3",
+          "name": "Google Sheets(7/14)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const q=$('B2. Code - 승인본 HTML 렌더링 + QUEUED 행 생성').first().json;\nreturn [{json:{\n  success:true,\n  status:'QUEUED',\n  message:'관리자 승인본을 발송 대기열에 저장했습니다. 다음 Schedule Trigger 실행 시 발송됩니다.',\n  issue_id:q.issue_id,\n  subject:q.subject,\n  scheduled_for:q.scheduled_for,\n  selected_count:q.selected_count,\n  warnings:q.warnings || []\n}}];"
+      },
+      "id": "b134f035-7757-4f93-ba67-38b1526480c0",
+      "name": "B4. Code - 예약 접수 응답",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        45392,
+        2048
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "0d275241-3193-441e-9e47-b9f80ad8a052",
+      "name": "B5. Respond to Webhook - 예약 결과 반환",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        45648,
+        2048
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "5652bfb0-af99-469e-975a-a821546ad5fb",
+      "name": "C0. Schedule Trigger - 매주 월요일 08시 발송",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        44320,
+        2688
+      ],
+      "notes": "웹에서 발송하기를 눌러 QUEUED로 저장된 승인본만 발송합니다. 워크플로우 timezone은 Asia/Seoul입니다."
+    },
+    {
+      "parameters": {},
+      "id": "be679ba7-1dec-4033-a512-0bf7de2fcfd6",
+      "name": "C0-M. Manual Trigger - 예약 발송 테스트",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        44320,
+        2848
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
+          "mode": "list",
+          "cachedResultName": "Research On DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1094582586,
+          "mode": "list",
+          "cachedResultName": "newsletters",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=1094582586"
+        },
+        "options": {}
+      },
+      "id": "1ce4209b-94d5-4ea6-8a75-da60d4e51e5f",
+      "name": "C1. Google Sheets - newsletters 대기열 조회",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        44592,
+        2688
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F55rrvsZtvhOvoA3",
+          "name": "Google Sheets(7/14)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// QUEUED 상태이며 예약시각이 지난 승인본만 발송 대상으로 분리\nconst rows=$input.all().map(x=>x.json||{});\nconst now=Date.now();\nfunction txt(v){return v===null||v===undefined?'':String(v).trim();}\nfunction parse(v){try{return v&&typeof v==='object'?v:JSON.parse(v||'{}');}catch{return {};}}\nconst seen=new Set();\nconst out=[];\nfor(const r of rows){\n  if(txt(r.status).toUpperCase()!=='QUEUED') continue;\n  const issueId=txt(r.issue_id); if(!issueId || seen.has(issueId)) continue;\n  const wrap=parse(r.newsletter_json);\n  const delivery=wrap.delivery || {};\n  const when=new Date(delivery.scheduled_for || r.generated_at || 0).getTime();\n  if(Number.isFinite(when) && when>now) continue;\n  const html=txt(r.newsletter_html); if(!html) continue;\n  seen.add(issueId);\n  out.push({json:{\n    issue_id:issueId,\n    generated_at:txt(r.generated_at),\n    period_start:txt(r.period_start), period_end:txt(r.period_end),\n    subject:txt(r.subject), issue_title:txt(r.issue_title),\n    newsletter_html:html, newsletter_json:txt(r.newsletter_json),\n    editor_note:txt(r.editor_note), research_count:r.research_count,\n    recipient:txt(delivery.recipient || 'bpo.dsplan1@gmail.com')\n  }});\n}\nreturn out;"
+      },
+      "id": "d5621d49-a73f-4596-8aa9-59e470ad9613",
+      "name": "C2. Code - QUEUED 승인본 발송 대상 분리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        44848,
+        2688
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.recipient }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.newsletter_html }}",
+        "options": {}
+      },
+      "id": "89753b28-487a-4348-a280-3aa8c8b74a26",
+      "name": "C3. Gmail - 승인 뉴스레터 발송",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        45104,
+        2688
+      ],
+      "webhookId": "d708f195-ded6-4fec-84c4-d6679ba6e281",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "qa6HS0nnuLRBT7uR",
+          "name": "Gmail(7/14)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const q=$('C2. Code - QUEUED 승인본 발송 대상 분리').item.json;\nreturn [{json:{...q,status:'SENT',gmail_message_id:$json.id||$json.messageId||'',threadId:$json.threadId||''}}];"
+      },
+      "id": "5ecf4f96-1c39-4f1c-93a9-569d539cd3dd",
+      "name": "C4. Code - 발송 결과와 대기열 행 병합",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        45360,
+        2688
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
+          "mode": "list",
+          "cachedResultName": "Research On DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1094582586,
+          "mode": "list",
+          "cachedResultName": "newsletters",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=1094582586"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "issue_id": "={{ $json.issue_id }}",
+            "status": "SENT",
+            "threadId": "={{ $json.threadId }}"
+          },
+          "matchingColumns": [
+            "issue_id"
+          ],
+          "schema": [
+            {
+              "id": "issue_id",
+              "displayName": "issue_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "generated_at",
+              "displayName": "generated_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "period_start",
+              "displayName": "period_start",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "period_end",
+              "displayName": "period_end",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "status",
+              "displayName": "status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "subject",
+              "displayName": "subject",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "issue_title",
+              "displayName": "issue_title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "research_count",
+              "displayName": "research_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "newsletter_json",
+              "displayName": "newsletter_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "newsletter_html",
+              "displayName": "newsletter_html",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "editor_note",
+              "displayName": "editor_note",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "threadId",
+              "displayName": "threadId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "labelIds",
+              "displayName": "labelIds",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "d2b9c2e3-11c3-45dd-998a-594c579add8d",
+      "name": "C5. Google Sheets - status SENT 업데이트",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        45632,
+        2688
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F55rrvsZtvhOvoA3",
+          "name": "Google Sheets(7/14)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{json:{success:true,message:'관리자 승인 뉴스레터 발송 완료',issue_id:$json.issue_id||'',status:'SENT'}}];"
+      },
+      "id": "8e6afe93-733f-4b08-b74b-46ef7d83b143",
+      "name": "C6. Code - 예약 발송 완료",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        45888,
+        2688
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 1,
+        "unit": "minutes"
+      },
+      "id": "b1fa2607-f340-423e-9334-6b5bd37ff0c3",
+      "name": "B-T. Wait - 승인 후 1분 대기 (테스트용)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        44864,
+        2384
+      ],
+      "webhookId": "35a63d3e-af5d-4396-b7aa-d0b2178b76c7",
+      "notes": "테스트 전용 경로입니다. 실제 서비스에서는 C0(매주 월요일 08시) 스케줄로 발송되지만, 테스트 중에는 관리자가 '발송 예약'을 누르면 이 노드에서 1분만 기다렸다가 바로 C1(대기열 조회)로 넘어가 실제 Gmail 발송까지 진행됩니다. 운영 전환 시 이 노드와 아래 연결을 제거(또는 비활성화)하세요."
+    },
+    {
+      "parameters": {
+        "jsCode": "// 테스트 전용: 실제 발송 예약시각(다음 월요일 08시) 대신, 지금 시각으로 강제 조정한 newsletter_json을 만든다.\nconst b2 = $('B2. Code - 승인본 HTML 렌더링 + QUEUED 행 생성').item.json;\nconst wrap = JSON.parse(b2.newsletter_json);\nwrap.delivery = wrap.delivery || {};\nwrap.delivery.scheduled_for = new Date().toISOString();\nreturn [{json:{\n  issue_id: b2.issue_id,\n  newsletter_json: JSON.stringify(wrap)\n}}];"
+      },
+      "id": "4712bd67-9b3d-49e0-bf53-d7a01f5a1e9d",
+      "name": "B-T0. Code - 테스트용 발송시각 즉시화",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        44864,
+        2224
+      ],
+      "notes": "테스트 전용: C2의 '예약시각이 지난 것만 발송' 필터를 통과시키기 위해 scheduled_for를 지금 시각으로 임시 재작성합니다."
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
+          "mode": "list",
+          "cachedResultName": "Research On DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1094582586,
+          "mode": "list",
+          "cachedResultName": "newsletters",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=1094582586"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "issue_id"
+          ],
+          "schema": [
+            {
+              "id": "issue_id",
+              "displayName": "issue_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "newsletter_json",
+              "displayName": "newsletter_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "ff8b24fc-b7e1-4534-b1cc-8e929a253105",
+      "name": "B-T1. Google Sheets - 예약시각 테스트용 갱신",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        44864,
+        2304
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F55rrvsZtvhOvoA3",
+          "name": "Google Sheets(7/14)"
+        }
+      },
+      "notes": "B-T0에서 만든 newsletter_json(scheduled_for=지금)으로 방금 저장한 행을 issue_id 기준으로 덮어씁니다."
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "newsletter/force-send",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "7e8d9eda-9261-41fb-b2ca-88c9bc745285",
+      "name": "D0. Webhook - 개별 구독자 강제 발송",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        44320,
+        3120
+      ],
+      "webhookId": "newsletter-force-send"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 뉴스레터 구독 관리 화면에서 관리자가 특정 구독자에게 \"뉴스레터 발송\" 버튼을 눌렀을 때 들어오는 요청 검증.\n// 최소한의 방어장치로 프론트엔드(index.html)와 동일한 관리자 액션 토큰을 대조한다.\n// (주의: 이 토큰은 프론트엔드 JS에 그대로 노출되므로 완전한 인증 수단은 아니다.)\nconst data = $json.body || $json;\nfunction txt(v){ return v===null||v===undefined?'':String(v).trim(); }\n\nconst ADMIN_ACTION_TOKEN = 'ro-admin-8f2c1d9e41';\n\nconst email = txt(data.email);\nconst name = txt(data.name);\nconst adminToken = txt(data.admin_token);\n\nif (adminToken !== ADMIN_ACTION_TOKEN) throw new Error('관리자 인증 토큰이 올바르지 않습니다.');\nif (!email) throw new Error('email이 필요합니다.');\n\nreturn [{ json: { email, name } }];\n"
+      },
+      "id": "48b5d08a-60f5-4a83-9733-723f47340b12",
+      "name": "D1. Code - 입력 검증 + 관리자 토큰 확인",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        44592,
+        3120
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
+          "mode": "list",
+          "cachedResultName": "Research On DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1094582586,
+          "mode": "list",
+          "cachedResultName": "newsletters",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=1094582586"
+        },
+        "options": {}
+      },
+      "id": "7f50df77-3962-45f1-abfd-89d5b22334ad",
+      "name": "D2. Google Sheets - newsletters 전체 조회",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        44848,
+        3120
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F55rrvsZtvhOvoA3",
+          "name": "Google Sheets(7/14)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// 발송 이력(SENT)이 있으면 그중 가장 최근 호를, 없으면 예약 중(QUEUED)인 가장 최근 호를 골라\n// 해당 구독자 1인에게 즉시 재발송할 뉴스레터로 사용한다.\nconst rows = $input.all().map(x => x.json || {});\nconst ctx = $('D1. Code - 입력 검증 + 관리자 토큰 확인').first().json;\nfunction txt(v){ return v===null||v===undefined?'':String(v).trim(); }\n\nconst sent = rows.filter(r => txt(r.status).toUpperCase() === 'SENT');\nconst queued = rows.filter(r => txt(r.status).toUpperCase() === 'QUEUED');\n\nfunction latest(list){\n  if (!list.length) return null;\n  return list.slice().sort((a, b) => new Date(b.generated_at || 0) - new Date(a.generated_at || 0))[0];\n}\n\nconst pick = latest(sent) || latest(queued);\nif (!pick || !txt(pick.newsletter_html)) {\n  throw new Error('발송할 뉴스레터가 없습니다. 먼저 뉴스레터를 발송했거나 예약(QUEUED)해주세요.');\n}\n\nreturn [{\n  json: {\n    issue_id: txt(pick.issue_id),\n    subject: txt(pick.subject) || '[Research On] 뉴스레터',\n    newsletter_html: txt(pick.newsletter_html),\n    recipient: ctx.email,\n    recipient_name: ctx.name\n  }\n}];\n"
+      },
+      "id": "9febf141-1ab2-4ce1-af58-986226b3ee49",
+      "name": "D3. Code - 최신 발송본 선택",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        45104,
+        3120
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.recipient }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.newsletter_html }}",
+        "options": {}
+      },
+      "id": "38f9c555-bb1b-45e2-a689-3c5ad279ad0b",
+      "name": "D4. Gmail - 개별 구독자 강제 발송",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        45360,
+        3120
+      ],
+      "webhookId": "13c50111-cde2-47c9-82ce-dc9adeb0073a",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "qa6HS0nnuLRBT7uR",
+          "name": "Gmail(7/14)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const g = $json;\nconst q = $('D3. Code - 최신 발송본 선택').first().json;\nreturn [{\n  json: {\n    success: true,\n    message: `${q.recipient_name || q.recipient}님(${q.recipient})에게 최신 뉴스레터를 발송했습니다.`,\n    issue_id: q.issue_id,\n    subject: q.subject,\n    recipient: q.recipient,\n    gmail_message_id: g.id || g.messageId || ''\n  }\n}];\n"
+      },
+      "id": "9c37c4a7-16d3-418d-9031-6e5d9cb3d81c",
+      "name": "D5. Code - 발송 결과 정리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        45616,
+        3120
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "d1ab3b7e-6de6-4ceb-b772-e2690329ef67",
+      "name": "D6. Respond to Webhook - 강제 발송 결과 반환",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        45872,
+        3120
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "A0. Webhook - 뉴스레터 후보 초안 조회": {
+      "main": [
+        [
+          {
+            "node": "A1. Google Docs - 회사 맥락 읽기",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A1. Google Docs - 회사 맥락 읽기": {
+      "main": [
+        [
+          {
+            "node": "A2. Google Sheets - newsletter_research 후보 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A2. Google Sheets - newsletter_research 후보 조회": {
+      "main": [
+        [
+          {
+            "node": "A3. Google Sheets - research_results 후보 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A3. Google Sheets - research_results 후보 조회": {
+      "main": [
+        [
+          {
+            "node": "A4. Code - 후보 정규화 + 후보별 편집 프롬프트",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A4. Code - 후보 정규화 + 후보별 편집 프롬프트": {
+      "main": [
+        [
+          {
+            "node": "A5. Basic LLM Chain - 후보 문구 편집",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A5. Basic LLM Chain - 후보 문구 편집": {
+      "main": [
+        [
+          {
+            "node": "A7. Code - 후보 초안 JSON 정리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini - 후보 문구 편집": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "A5. Basic LLM Chain - 후보 문구 편집",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A7. Code - 후보 초안 JSON 정리": {
+      "main": [
+        [
+          {
+            "node": "A8. Respond to Webhook - 후보 초안 반환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B0. Webhook - 관리자 승인 및 발송 예약": {
+      "main": [
+        [
+          {
+            "node": "B1. Code - 승인본 검증 + 섹션별 항목 확정",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B1. Code - 승인본 검증 + 섹션별 항목 확정": {
+      "main": [
+        [
+          {
+            "node": "B2. Code - 승인본 HTML 렌더링 + QUEUED 행 생성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B2. Code - 승인본 HTML 렌더링 + QUEUED 행 생성": {
+      "main": [
+        [
+          {
+            "node": "B3. Google Sheets - newsletters 예약 저장",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B3. Google Sheets - newsletters 예약 저장": {
+      "main": [
+        [
+          {
+            "node": "B4. Code - 예약 접수 응답",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "B-T0. Code - 테스트용 발송시각 즉시화",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B4. Code - 예약 접수 응답": {
+      "main": [
+        [
+          {
+            "node": "B5. Respond to Webhook - 예약 결과 반환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C0. Schedule Trigger - 매주 월요일 08시 발송": {
+      "main": [
+        [
+          {
+            "node": "C1. Google Sheets - newsletters 대기열 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C0-M. Manual Trigger - 예약 발송 테스트": {
+      "main": [
+        [
+          {
+            "node": "C1. Google Sheets - newsletters 대기열 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C1. Google Sheets - newsletters 대기열 조회": {
+      "main": [
+        [
+          {
+            "node": "C2. Code - QUEUED 승인본 발송 대상 분리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C2. Code - QUEUED 승인본 발송 대상 분리": {
+      "main": [
+        [
+          {
+            "node": "C3. Gmail - 승인 뉴스레터 발송",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C3. Gmail - 승인 뉴스레터 발송": {
+      "main": [
+        [
+          {
+            "node": "C4. Code - 발송 결과와 대기열 행 병합",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C4. Code - 발송 결과와 대기열 행 병합": {
+      "main": [
+        [
+          {
+            "node": "C5. Google Sheets - status SENT 업데이트",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C5. Google Sheets - status SENT 업데이트": {
+      "main": [
+        [
+          {
+            "node": "C6. Code - 예약 발송 완료",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B-T. Wait - 승인 후 1분 대기 (테스트용)": {
+      "main": [
+        [
+          {
+            "node": "C1. Google Sheets - newsletters 대기열 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B-T0. Code - 테스트용 발송시각 즉시화": {
+      "main": [
+        [
+          {
+            "node": "B-T1. Google Sheets - 예약시각 테스트용 갱신",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "B-T1. Google Sheets - 예약시각 테스트용 갱신": {
+      "main": [
+        [
+          {
+            "node": "B-T. Wait - 승인 후 1분 대기 (테스트용)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D0. Webhook - 개별 구독자 강제 발송": {
+      "main": [
+        [
+          {
+            "node": "D1. Code - 입력 검증 + 관리자 토큰 확인",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D1. Code - 입력 검증 + 관리자 토큰 확인": {
+      "main": [
+        [
+          {
+            "node": "D2. Google Sheets - newsletters 전체 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D2. Google Sheets - newsletters 전체 조회": {
+      "main": [
+        [
+          {
+            "node": "D3. Code - 최신 발송본 선택",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D3. Code - 최신 발송본 선택": {
+      "main": [
+        [
+          {
+            "node": "D4. Gmail - 개별 구독자 강제 발송",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D4. Gmail - 개별 구독자 강제 발송": {
+      "main": [
+        [
+          {
+            "node": "D5. Code - 발송 결과 정리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D5. Code - 발송 결과 정리": {
+      "main": [
+        [
+          {
+            "node": "D6. Respond to Webhook - 강제 발송 결과 반환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "2b3714aa-3005-4856-b148-efdb26ba72a8",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1dbf02fc19e4bfd97b9fe74c58b21c46219b2aed60e7d66cdce419ae0a4d7f7e"
+  },
+  "id": "dDQ1XRb812TceO3i",
+  "tags": []
+}

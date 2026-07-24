@@ -7,7 +7,7 @@
 <style>
 :root{--bg:#f4f7fb;--surface:#fff;--ink:#172033;--muted:#697386;--line:#e5eaf2;--primary:#2563eb;--primary2:#1d4ed8;--soft:#eaf1ff;--green:#0f766e;--greenSoft:#e6fffb;--orange:#f97316;--orangeSoft:#fff7ed;--purple:#7c3aed;--purpleSoft:#f3e8ff;--red:#dc2626;--redSoft:#fee2e2;--amberSoft:#fef3c7;--pinkSoft:#fce7f3;--shadow:0 16px 40px rgba(15,23,42,.08);--radius:22px}
 *{box-sizing:border-box;word-break:keep-all;overflow-wrap:break-word} body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Apple SD Gothic Neo",Arial,sans-serif;background:radial-gradient(circle at top left,rgba(37,99,235,.14),transparent 27%),radial-gradient(circle at top right,rgba(15,118,110,.1),transparent 32%),var(--bg);color:var(--ink);line-height:1.55} button,input,select,textarea{font:inherit} button{cursor:pointer} a{color:inherit;text-decoration:none}
-.app{min-height:100vh}.app.sidebar-collapsed{}.sidebar{position:fixed;top:0;left:0;width:292px;height:100vh;z-index:20;background:rgba(255,255,255,.92);backdrop-filter:blur(18px);border-right:1px solid var(--line);padding:24px 18px;display:flex;flex-direction:column;gap:20px;overflow:visible;transition:width .18s ease,padding .18s ease}.sidebar>nav{flex:1;min-height:0;overflow-y:auto;overflow-x:visible}.main{margin-left:292px;padding:24px 28px 48px;min-width:0;transition:margin-left .18s ease}.app.sidebar-collapsed .sidebar{width:76px}.app.sidebar-collapsed .main{margin-left:76px}.sidebar-toggle-btn{width:32px;height:32px;border:1px solid var(--line);background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#475569;font-weight:900;flex-shrink:0;transition:.16s}.sidebar-toggle-btn:hover{background:#f1f5f9;color:var(--primary)}.sidebar.collapsed{padding:18px 10px;align-items:center;gap:10px;overflow:visible}.sidebar.collapsed .sidebar-toggle-btn{align-self:center}.sidebar.collapsed .sidebar-header{flex-direction:column;gap:8px;padding:2px 0 14px;border-bottom-color:transparent}.sidebar.collapsed .user-info-text{display:none}.sidebar.collapsed .sidebar-header-actions{flex-direction:column}.sidebar.collapsed .sidebar-logout-btn{padding:10px}.sidebar.collapsed .sidebar-logout-btn .logout-label{display:none}.sidebar.collapsed .nav-section{width:100%;margin-top:0;display:flex;flex-direction:column;gap:4px}.sidebar.collapsed .nav-title{display:none}.sidebar.collapsed .nav-item{justify-content:center;padding:9px;position:relative}.sidebar.collapsed .nav-item:hover{transform:none}.sidebar.collapsed .nav-item>span.nav-label{display:none}.sidebar.collapsed .nav-icon{width:22px;height:22px}.sidebar.collapsed .nav-section:not(:first-child){border-top:1px solid var(--line);padding-top:10px;margin-top:6px}.sidebar-header{display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid var(--line);padding:4px 4px 18px}.user-info-text{min-width:0;flex:1}.user-info-welcome{margin:0;font-size:13px;font-weight:800;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.user-info-welcome strong{font-weight:950}.user-info-sub{margin:2px 0 0;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sidebar-header-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}.sidebar-icon-btn{width:32px;height:32px;border:1px solid var(--line);background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#475569;font-size:15px;transition:.16s}.sidebar-icon-btn:hover{background:#f1f5f9;color:var(--primary)}.sidebar-logout-btn{flex-shrink:0;width:100%;border:0;background:var(--redSoft);color:var(--red);font-weight:900;font-size:14px;padding:12px;border-radius:14px;display:flex;align-items:center;justify-content:center;gap:8px;transition:.16s}
+.app{min-height:100vh}.app.sidebar-collapsed{}.sidebar{position:fixed;top:0;left:0;width:292px;height:100vh;height:100dvh;z-index:20;background:rgba(255,255,255,.92);backdrop-filter:blur(18px);border-right:1px solid var(--line);padding:24px 18px;display:flex;flex-direction:column;gap:20px;overflow:visible;transition:width .18s ease,padding .18s ease}.sidebar>nav{flex:1;min-height:0;overflow-y:auto;overflow-x:visible}.main{margin-left:292px;padding:24px 28px 48px;min-width:0;transition:margin-left .18s ease}.app.sidebar-collapsed .sidebar{width:76px}.app.sidebar-collapsed .main{margin-left:76px}.sidebar-toggle-btn{width:32px;height:32px;border:1px solid var(--line);background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#475569;font-weight:900;flex-shrink:0;transition:.16s}.sidebar-toggle-btn:hover{background:#f1f5f9;color:var(--primary)}.sidebar.collapsed{padding:18px 10px;align-items:center;gap:10px;overflow:visible}.sidebar.collapsed .sidebar-toggle-btn{align-self:center}.sidebar.collapsed .sidebar-header{flex-direction:column;gap:8px;padding:2px 0 14px;border-bottom-color:transparent}.sidebar.collapsed .user-info-text{display:none}.sidebar.collapsed .sidebar-header-actions{flex-direction:column}.sidebar.collapsed .sidebar-logout-btn{padding:10px}.sidebar.collapsed .sidebar-logout-btn .logout-label{display:none}.sidebar.collapsed .nav-section{width:100%;margin-top:0;display:flex;flex-direction:column;gap:4px}.sidebar.collapsed .nav-title{display:none}.sidebar.collapsed .nav-item{justify-content:center;padding:9px;position:relative}.sidebar.collapsed .nav-item:hover{transform:none}.sidebar.collapsed .nav-item>span.nav-label{display:none}.sidebar.collapsed .nav-icon{width:22px;height:22px}.sidebar.collapsed .nav-section:not(:first-child){border-top:1px solid var(--line);padding-top:10px;margin-top:6px}.sidebar-header{display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid var(--line);padding:4px 4px 18px}.user-info-text{min-width:0;flex:1}.user-info-welcome{margin:0;font-size:13px;font-weight:800;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.user-info-welcome strong{font-weight:950}.user-info-sub{margin:2px 0 0;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.sidebar-header-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}.sidebar-icon-btn{width:32px;height:32px;border:1px solid var(--line);background:#fff;border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#475569;font-size:15px;transition:.16s}.sidebar-icon-btn:hover{background:#f1f5f9;color:var(--primary)}.sidebar-logout-btn{flex-shrink:0;width:100%;border:0;background:var(--redSoft);color:var(--red);font-weight:900;font-size:14px;padding:12px;border-radius:14px;display:flex;align-items:center;justify-content:center;gap:8px;transition:.16s}
 .sidebar-logout-btn:hover{background:var(--red);color:#fff}.nav-section{margin-top:4px}.nav-title{font-size:12px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;padding:0 10px 8px}.nav-item{width:100%;border:0;background:transparent;color:#475569;display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:14px;font-size:14px;font-weight:800;text-align:left;transition:.16s}.nav-item:hover{background:#f1f5f9;color:var(--primary);transform:translateX(2px)}.nav-item.active{background:linear-gradient(135deg,#eaf1ff,#fff);color:var(--primary2);box-shadow:inset 0 0 0 1px rgba(37,99,235,.15)}.nav-icon{width:26px;height:26px;display:grid;place-items:center;border-radius:10px;background:#eef2ff;flex-shrink:0}
 .main{padding:24px 28px 48px;min-width:0}.topbar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:22px;width:100%}.mobile-menu{display:none;border:1px solid var(--line);background:#fff;border-radius:14px;height:44px;padding:0 12px;font-weight:900}.search{flex:1;max-width:680px;position:relative}.search input{width:100%;height:48px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.86);padding:0 18px 0 46px;outline:none;box-shadow:0 8px 28px rgba(15,23,42,.04)}.search:before{content:"⌕";position:absolute;left:17px;top:6px;color:#94a3b8;font-size:27px;pointer-events:none}
 .page{display:none;animation:fade .18s ease}.page.active{display:block}@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}.hero{position:relative;overflow:hidden;border-radius:28px;background:linear-gradient(135deg,#0f172a 0%,#1d4ed8 52%,#0f766e 100%);color:#fff;padding:34px;box-shadow:0 24px 70px rgba(15,23,42,.22);margin-bottom:22px}.hero:after{content:"";position:absolute;width:320px;height:320px;border-radius:50%;background:rgba(255,255,255,.12);right:-80px;top:-90px}.hero>*{position:relative;z-index:1}.hero h2{margin:8px 0 10px;font-size:34px;line-height:1.2;letter-spacing:-.04em}.hero p{margin:0 0 20px;color:rgba(255,255,255,.86);max-width:760px}.eyebrow{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,.15);font-size:13px;font-weight:900}.dash-search-wrap{max-width:720px;margin:0 auto;text-align:center;padding:22px 0 20px}.dash-brand{max-width:1040px;margin:0 auto;text-align:center;padding:44px 0 8px}.dash-brand-row{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:6px}.dash-brand-icon{width:60px;height:60px;border-radius:18px;background:linear-gradient(135deg,#1d4ed8,#0f766e);display:grid;place-items:center;font-size:26px}.dash-brand-word{font-size:60px;font-weight:950;letter-spacing:-.03em;background:linear-gradient(135deg,#1d4ed8,#0f766e);-webkit-background-clip:text;background-clip:text;color:transparent}.dash-brand p{font-size:13px;color:var(--muted);font-weight:800;margin:0}.dash-search-wrap p{font-size:15px;color:var(--muted);font-weight:800;margin:0 0 14px}.dash-search-box{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:999px;padding:8px 8px 8px 24px;background:#fff;box-shadow:var(--shadow)}.dash-search-box span{font-size:19px;color:#94a3b8}.dash-search-box input{border:0;flex:1;height:48px;font-size:16px}.dash-search-box input:focus{outline:0}.dash-search-box button{border-radius:999px;padding:0 26px;height:48px;font-size:15px}.dash-shortcuts{max-width:1040px;margin:0 auto;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:14px;padding:8px 0 36px}.dash-shortcut{display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer;border:1px solid var(--line);background:rgba(255,255,255,.85);border-radius:20px;padding:22px 10px 18px;font:inherit}.dash-shortcut-icon{width:60px;height:60px;border-radius:18px;display:grid;place-items:center;font-size:27px;transition:.16s}.dash-shortcut:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(15,23,42,.09);border-color:rgba(37,99,235,.28)}.dash-shortcut:hover .dash-shortcut-icon{transform:translateY(-2px)}.dash-shortcut span{font-size:13.5px;color:#334155;font-weight:800}.dash-widget-grid{max-width:1040px;margin:0 auto;display:grid;grid-template-columns:1.3fr 1fr;gap:18px;padding-bottom:40px}.dash-widget-grid .card{padding:24px 26px}#dashSuggestChips .chip{padding:12px 20px;font-size:15px;border-radius:999px;box-shadow:0 4px 12px rgba(15,23,42,.04)}#dashSuggestChips .chip:hover{box-shadow:0 6px 16px rgba(37,99,235,.12)}.row-flash{animation:rowflash 1.6s ease}@keyframes rowflash{0%{background:var(--soft)}100%{background:transparent}}.export-menu-item{width:100%;display:flex;align-items:center;gap:8px;padding:11px 16px;font-size:13px;font-weight:800;background:transparent;border:0;text-align:left;cursor:pointer;transition:.12s;color:var(--ink)}.export-menu-item:hover{background:var(--soft)}.ai-insight-box{background:linear-gradient(135deg,#f5f3ff,#eff6ff);border:1px solid #c4b5fd;border-radius:18px;padding:18px 20px;margin-bottom:16px}
@@ -199,12 +199,42 @@ th:nth-child(4),td:nth-child(4){display:none}
     <!-- 회원가입 패널 -->
     <div class="auth-panel" id="panel-signup">
       <div class="auth-field"><label>소속</label>
-        <select id="signup-affiliation">
+        <select id="signup-affiliation" onchange="updateDeptPathPreview('signup-affiliation','signup-affiliation-preview')">
           <option value="" disabled selected>소속을 선택하세요</option>
-          <option value="BW센터 1팀">BW센터 1팀</option>
-          <option value="BW센터 2팀">BW센터 2팀</option>
-          <option value="WS센터 1팀">WS센터 1팀</option>
-          <option value="WS센터 2팀">WS센터 2팀</option>
+          <option value="BPO사업본부">BPO사업본부</option>
+          <option value="BPO사업본부 > BPO지원그룹">　BPO지원그룹</option>
+          <option value="BPO사업본부 > DS지원사업부">　DS지원사업부</option>
+          <option value="BPO사업본부 > DS지원사업부 > GA센터">　　GA센터</option>
+          <option value="BPO사업본부 > DS지원사업부 > GA센터 > 1팀">　　　1팀</option>
+          <option value="BPO사업본부 > DS지원사업부 > GA센터 > 2팀">　　　2팀</option>
+          <option value="BPO사업본부 > DS지원사업부 > GA센터 > 3팀">　　　3팀</option>
+          <option value="BPO사업본부 > DS지원사업부 > BW센터">　　BW센터</option>
+          <option value="BPO사업본부 > DS지원사업부 > BW센터 > 1팀">　　　1팀</option>
+          <option value="BPO사업본부 > DS지원사업부 > BW센터 > 2팀">　　　2팀</option>
+          <option value="BPO사업본부 > DS지원사업부 > POC센터">　　POC센터</option>
+          <option value="BPO사업본부 > DS지원사업부 > POC센터 > 평택지원팀">　　　평택지원팀</option>
+          <option value="BPO사업본부 > DS지원사업부 > POC센터 > 온양천안지원팀">　　　온양천안지원팀</option>
+          <option value="BPO사업본부 > DS지원사업부 > POC센터 > 세메스지원팀">　　　세메스지원팀</option>
+          <option value="BPO사업본부 > ESOP사업부">　ESOP사업부</option>
+          <option value="BPO사업본부 > ESOP사업부 > ESOP워크센터">　　ESOP워크센터</option>
+          <option value="BPO사업본부 > ESOP사업부 > ESOP워크센터 > 1팀">　　　1팀</option>
+          <option value="BPO사업본부 > ESOP사업부 > ESOP워크센터 > 2팀">　　　2팀</option>
+          <option value="BPO사업본부 > ESOP사업부 > ESOP에듀센터">　　ESOP에듀센터</option>
+          <option value="BPO사업본부 > ESOP사업부 > ESOP에듀센터 > 1팀">　　　1팀</option>
+          <option value="BPO사업본부 > ESOP사업부 > ESOP에듀센터 > 2팀">　　　2팀</option>
+        </select>
+        <div class="dept-path-preview" id="signup-affiliation-preview" style="display:none;margin-top:6px;font-size:12px;color:var(--muted)"></div>
+      </div>
+      <div class="auth-field"><label>직위</label>
+        <select id="signup-position">
+          <option value="">선택 안 함</option>
+          <option value="본부장">본부장</option>
+          <option value="사업부장">사업부장</option>
+          <option value="센터장">센터장</option>
+          <option value="그룹장">그룹장</option>
+          <option value="팀장">팀장</option>
+          <option value="프로">프로</option>
+          <option value="인턴">인턴</option>
         </select>
       </div>
       <div class="auth-field"><label>이름</label><input type="text" id="signup-name" placeholder="홍길동" autocomplete="name" /></div>
@@ -701,29 +731,30 @@ th:nth-child(4),td:nth-child(4){display:none}
         <div class="field">
           <label>부서</label>
           <div class="profile-static" data-field="dept" id="profileDeptStatic">—</div>
-          <select class="profile-input" data-field="dept" id="acctDept">
+          <select class="profile-input" data-field="dept" id="acctDept" onchange="updateDeptPathPreview('acctDept','acctDept-preview')">
             <option value="BPO사업본부">BPO사업본부</option>
-            <option value="BPO사업본부 > BPO지원그룹">　- BPO지원그룹</option>
-            <option value="BPO사업본부 > DS지원사업부">　- DS지원사업부</option>
-            <option value="BPO사업본부 > DS지원사업부 > GA센터">　　. GA센터</option>
-            <option value="BPO사업본부 > DS지원사업부 > GA센터 > 1팀">　　　* 1팀</option>
-            <option value="BPO사업본부 > DS지원사업부 > GA센터 > 2팀">　　　* 2팀</option>
-            <option value="BPO사업본부 > DS지원사업부 > GA센터 > 3팀">　　　* 3팀</option>
-            <option value="BPO사업본부 > DS지원사업부 > BW센터">　　. BW센터</option>
-            <option value="BPO사업본부 > DS지원사업부 > BW센터 > 1팀">　　　* 1팀</option>
-            <option value="BPO사업본부 > DS지원사업부 > BW센터 > 2팀">　　　* 2팀</option>
-            <option value="BPO사업본부 > DS지원사업부 > POC센터">　　. POC센터</option>
-            <option value="BPO사업본부 > DS지원사업부 > POC센터 > 평택지원팀">　　　* 평택지원팀</option>
-            <option value="BPO사업본부 > DS지원사업부 > POC센터 > 온양천안지원팀">　　　* 온양천안지원팀</option>
-            <option value="BPO사업본부 > DS지원사업부 > POC센터 > 세메스지원팀">　　　* 세메스지원팀</option>
-            <option value="BPO사업본부 > ESOP사업부">　- ESOP사업부</option>
-            <option value="BPO사업본부 > ESOP사업부 > ESOP워크센터">　　. ESOP워크센터</option>
-            <option value="BPO사업본부 > ESOP사업부 > ESOP워크센터 > 1팀">　　　* 1팀</option>
-            <option value="BPO사업본부 > ESOP사업부 > ESOP워크센터 > 2팀">　　　* 2팀</option>
-            <option value="BPO사업본부 > ESOP사업부 > ESOP에듀센터">　　. ESOP에듀센터</option>
-            <option value="BPO사업본부 > ESOP사업부 > ESOP에듀센터 > 1팀">　　　* 1팀</option>
-            <option value="BPO사업본부 > ESOP사업부 > ESOP에듀센터 > 2팀">　　　* 2팀</option>
+            <option value="BPO사업본부 > BPO지원그룹">　BPO지원그룹</option>
+            <option value="BPO사업본부 > DS지원사업부">　DS지원사업부</option>
+            <option value="BPO사업본부 > DS지원사업부 > GA센터">　　GA센터</option>
+            <option value="BPO사업본부 > DS지원사업부 > GA센터 > 1팀">　　　1팀</option>
+            <option value="BPO사업본부 > DS지원사업부 > GA센터 > 2팀">　　　2팀</option>
+            <option value="BPO사업본부 > DS지원사업부 > GA센터 > 3팀">　　　3팀</option>
+            <option value="BPO사업본부 > DS지원사업부 > BW센터">　　BW센터</option>
+            <option value="BPO사업본부 > DS지원사업부 > BW센터 > 1팀">　　　1팀</option>
+            <option value="BPO사업본부 > DS지원사업부 > BW센터 > 2팀">　　　2팀</option>
+            <option value="BPO사업본부 > DS지원사업부 > POC센터">　　POC센터</option>
+            <option value="BPO사업본부 > DS지원사업부 > POC센터 > 평택지원팀">　　　평택지원팀</option>
+            <option value="BPO사업본부 > DS지원사업부 > POC센터 > 온양천안지원팀">　　　온양천안지원팀</option>
+            <option value="BPO사업본부 > DS지원사업부 > POC센터 > 세메스지원팀">　　　세메스지원팀</option>
+            <option value="BPO사업본부 > ESOP사업부">　ESOP사업부</option>
+            <option value="BPO사업본부 > ESOP사업부 > ESOP워크센터">　　ESOP워크센터</option>
+            <option value="BPO사업본부 > ESOP사업부 > ESOP워크센터 > 1팀">　　　1팀</option>
+            <option value="BPO사업본부 > ESOP사업부 > ESOP워크센터 > 2팀">　　　2팀</option>
+            <option value="BPO사업본부 > ESOP사업부 > ESOP에듀센터">　　ESOP에듀센터</option>
+            <option value="BPO사업본부 > ESOP사업부 > ESOP에듀센터 > 1팀">　　　1팀</option>
+            <option value="BPO사업본부 > ESOP사업부 > ESOP에듀센터 > 2팀">　　　2팀</option>
           </select>
+          <div class="dept-path-preview" id="acctDept-preview" style="display:none;margin-top:6px;font-size:12px;color:var(--muted)"></div>
         </div>
         <div class="field">
           <label>직위</label>
@@ -1004,30 +1035,31 @@ th:nth-child(4),td:nth-child(4){display:none}
         </div>
         <div class="field">
           <label>부서</label>
-          <select id="newAcctDept">
+          <select id="newAcctDept" onchange="updateDeptPathPreview('newAcctDept','newAcctDept-preview')">
             <option value="" disabled selected>부서를 선택하세요</option>
             <option value="BPO사업본부">BPO사업본부</option>
-            <option value="BPO사업본부 > BPO지원그룹">　- BPO지원그룹</option>
-            <option value="BPO사업본부 > DS지원사업부">　- DS지원사업부</option>
-            <option value="BPO사업본부 > DS지원사업부 > GA센터">　　. GA센터</option>
-            <option value="BPO사업본부 > DS지원사업부 > GA센터 > 1팀">　　　* 1팀</option>
-            <option value="BPO사업본부 > DS지원사업부 > GA센터 > 2팀">　　　* 2팀</option>
-            <option value="BPO사업본부 > DS지원사업부 > GA센터 > 3팀">　　　* 3팀</option>
-            <option value="BPO사업본부 > DS지원사업부 > BW센터">　　. BW센터</option>
-            <option value="BPO사업본부 > DS지원사업부 > BW센터 > 1팀">　　　* 1팀</option>
-            <option value="BPO사업본부 > DS지원사업부 > BW센터 > 2팀">　　　* 2팀</option>
-            <option value="BPO사업본부 > DS지원사업부 > POC센터">　　. POC센터</option>
-            <option value="BPO사업본부 > DS지원사업부 > POC센터 > 평택지원팀">　　　* 평택지원팀</option>
-            <option value="BPO사업본부 > DS지원사업부 > POC센터 > 온양천안지원팀">　　　* 온양천안지원팀</option>
-            <option value="BPO사업본부 > DS지원사업부 > POC센터 > 세메스지원팀">　　　* 세메스지원팀</option>
-            <option value="BPO사업본부 > ESOP사업부">　- ESOP사업부</option>
-            <option value="BPO사업본부 > ESOP사업부 > ESOP워크센터">　　. ESOP워크센터</option>
-            <option value="BPO사업본부 > ESOP사업부 > ESOP워크센터 > 1팀">　　　* 1팀</option>
-            <option value="BPO사업본부 > ESOP사업부 > ESOP워크센터 > 2팀">　　　* 2팀</option>
-            <option value="BPO사업본부 > ESOP사업부 > ESOP에듀센터">　　. ESOP에듀센터</option>
-            <option value="BPO사업본부 > ESOP사업부 > ESOP에듀센터 > 1팀">　　　* 1팀</option>
-            <option value="BPO사업본부 > ESOP사업부 > ESOP에듀센터 > 2팀">　　　* 2팀</option>
+            <option value="BPO사업본부 > BPO지원그룹">　BPO지원그룹</option>
+            <option value="BPO사업본부 > DS지원사업부">　DS지원사업부</option>
+            <option value="BPO사업본부 > DS지원사업부 > GA센터">　　GA센터</option>
+            <option value="BPO사업본부 > DS지원사업부 > GA센터 > 1팀">　　　1팀</option>
+            <option value="BPO사업본부 > DS지원사업부 > GA센터 > 2팀">　　　2팀</option>
+            <option value="BPO사업본부 > DS지원사업부 > GA센터 > 3팀">　　　3팀</option>
+            <option value="BPO사업본부 > DS지원사업부 > BW센터">　　BW센터</option>
+            <option value="BPO사업본부 > DS지원사업부 > BW센터 > 1팀">　　　1팀</option>
+            <option value="BPO사업본부 > DS지원사업부 > BW센터 > 2팀">　　　2팀</option>
+            <option value="BPO사업본부 > DS지원사업부 > POC센터">　　POC센터</option>
+            <option value="BPO사업본부 > DS지원사업부 > POC센터 > 평택지원팀">　　　평택지원팀</option>
+            <option value="BPO사업본부 > DS지원사업부 > POC센터 > 온양천안지원팀">　　　온양천안지원팀</option>
+            <option value="BPO사업본부 > DS지원사업부 > POC센터 > 세메스지원팀">　　　세메스지원팀</option>
+            <option value="BPO사업본부 > ESOP사업부">　ESOP사업부</option>
+            <option value="BPO사업본부 > ESOP사업부 > ESOP워크센터">　　ESOP워크센터</option>
+            <option value="BPO사업본부 > ESOP사업부 > ESOP워크센터 > 1팀">　　　1팀</option>
+            <option value="BPO사업본부 > ESOP사업부 > ESOP워크센터 > 2팀">　　　2팀</option>
+            <option value="BPO사업본부 > ESOP사업부 > ESOP에듀센터">　　ESOP에듀센터</option>
+            <option value="BPO사업본부 > ESOP사업부 > ESOP에듀센터 > 1팀">　　　1팀</option>
+            <option value="BPO사업본부 > ESOP사업부 > ESOP에듀센터 > 2팀">　　　2팀</option>
           </select>
+          <div class="dept-path-preview" id="newAcctDept-preview" style="display:none;margin-top:6px;font-size:12px;color:var(--muted)"></div>
         </div>
         <div class="field">
           <label>직위</label>
@@ -1120,6 +1152,19 @@ const frontKeys = [['target','대상 키워드'],['scope','범위 키워드'],['
 const backKeys = [['intent','의도 키워드'],['content','콘텐츠 유형 키워드']];
 
 function esc(s){ return String(s).replace(/[&<>'"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
+// 부서 select는 목록을 훑어보기 편하도록 옵션 텍스트를 들여쓰기된 짧은 이름("1팀")으로만 표시하는데,
+// 그러면 선택 후 닫힌 select 박스에도 "1팀"만 보여서 어느 센터 소속인지 알 수 없다.
+// select의 value에는 이미 전체 경로("BPO사업본부 > DS지원사업부 > GA센터 > 1팀")가 들어있으므로,
+// select 아래 작은 미리보기 텍스트로 그 값을 그대로 보여준다.
+function updateDeptPathPreview(selectId, previewId){
+  const sel = document.getElementById(selectId);
+  const prev = document.getElementById(previewId);
+  if(!sel || !prev) return;
+  const v = sel.value;
+  if(!v){ prev.style.display = 'none'; prev.innerHTML = ''; return; }
+  prev.style.display = 'block';
+  prev.innerHTML = '선택됨: <b style="color:var(--primary2)">' + esc(v) + '</b>';
+}
 // 네이버 등 일부 API가 제목/요약에 &quot; 같은 HTML 엔티티를 인코딩된 채로 내려보내는 경우가 있어
 // 화면에 그대로 노출되지 않도록 디코딩한다. (n8n 쪽에서도 정리하지만, 프론트에서도 한 번 더 방어)
 function decodeHtmlEntities(s){
@@ -1999,21 +2044,32 @@ function renderResultsDetail(){
   $('#resultsDetailSub').textContent = `${h.date}${h.time?' '+h.time:''} · ${(h.docs||[]).length}건`;
   $('#resultsDetailList').innerHTML = (h.docs||[]).length ? h.docs.map((d,li)=>{
     const gi = globalDocIndex(hidx, li);
-    return `<div class="list-item" style="cursor:default" onclick="event.stopPropagation()">
+    return `<div class="list-item" data-gi="${gi}" onclick="handleResultCardClick(event, this)">
       <input type="checkbox" class="detail-chk" data-gi="${gi}" style="margin-top:4px;flex-shrink:0" />
       <div class="list-icon">📄</div>
       <div style="flex:1">
-        <h4 style="cursor:pointer" onclick="openDocModal(${gi},'result')">${esc(d.title)}</h4>
+        <h4>${esc(d.title)}</h4>
         <p>${esc(d.desc||'')}</p>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;gap:10px;flex-wrap:wrap">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><small style="color:var(--muted)">${esc(d.source||'출처 미확인')}</small>${d.publishedDate?`<small style="color:var(--muted)">· ${esc(formatPublishedDate(d.publishedDate))}</small>`:''}${relevanceBadge(d.score||0)}</div>
-          ${d.status==='success'?`<button class="btn soft" type="button" onclick="saveResultDoc(${gi})">저장</button>`:'<span class="badge red">수집 실패</span>'}
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <button class="btn line" type="button" onclick="openDocModal(${gi},'result')">상세보기</button>
+            ${d.status==='success'?`<button class="btn soft" type="button" onclick="saveResultDoc(${gi})">저장</button>`:'<span class="badge red">수집 실패</span>'}
+          </div>
         </div>
       </div>
     </div>`;
   }).join('') : '<div class="empty-state"><h3>결과가 없습니다</h3></div>';
   const selectAll = $('#selectAllDetail'); if(selectAll) selectAll.checked = false;
   renderAllChipSelects();
+}
+// 카드(체크박스/버튼 이외 영역) 클릭 시 체크박스를 토글한다.
+// 작은 체크박스를 정확히 클릭해야 하는 번거로움을 없애기 위함 — input/button/a 요소 자체 클릭은
+// 각자의 동작(체크박스 직접 토글, 상세보기, 저장)이 우선이므로 여기서는 건드리지 않는다.
+function handleResultCardClick(e, card){
+  if(e.target.closest('input,button,a')) return;
+  const chk = card.querySelector('.detail-chk');
+  if(chk) chk.checked = !chk.checked;
 }
 function getSelectedDetailDocs(){
   return $$('.detail-chk:checked').map(c=>displayedDocs[+c.dataset.gi]).filter(Boolean);
@@ -2188,7 +2244,7 @@ function reportTabsPrintHtml(report){
   const body = report.tabs.map(tab=>{
     if(tab.type==='executive_brief'){
       const c = tab.content||{};
-      return `<div style="margin-bottom:20px;padding-bottom:18px;border-bottom:1px solid #e5eaf2">
+      return `<div class="print-block" style="margin-bottom:20px;padding-bottom:18px;border-bottom:1px solid #e5eaf2">
         <div style="font-weight:900;font-size:13px;color:#1d4ed8;margin-bottom:9px;letter-spacing:.02em">${esc(tab.tab_label||'')}</div>
         ${c.one_line_conclusion?`<p style="margin:0 0 11px;font-weight:800;font-size:16px;line-height:1.5;color:#0f172a">${esc(c.one_line_conclusion)}</p>`:''}
         <div style="margin-bottom:11px">
@@ -2201,33 +2257,39 @@ function reportTabsPrintHtml(report){
       </div>`;
     }
     if(tab.type==='sections'){
-      const secs = (tab.sections||[]).map(s=>`
-        <div style="margin-bottom:13px">
+      // 소제목(예: "기회 요인", "리스크")마다 하나의 print-block으로 감싸서, PDF로 내보낼 때
+      // 이 블록 중간에서 페이지가 끊기지 않고 통째로 다음 페이지로 넘어가게 한다.
+      // 탭 제목(tab_label)은 첫 번째 소제목과 한 블록으로 묶어 헤더만 페이지 하단에 혼자 남지 않게 한다.
+      const list = tab.sections||[];
+      const secs = list.map((s,idx)=>{
+        const secHtml = `<div style="margin-bottom:13px">
           <div style="font-weight:800;font-size:12.5px;color:#1e293b;margin-bottom:6px">${esc(s.title||'')}</div>
           <ul style="margin:0;padding-left:18px;font-size:12px;line-height:1.8;color:#334155">${(s.items||[]).map(it=>`<li style="margin-bottom:4px">${esc(it)}</li>`).join('')}</ul>
-        </div>`).join('');
-      return `<div style="margin-bottom:20px;padding-bottom:18px;border-bottom:1px solid #e5eaf2">
-        <div style="font-weight:900;font-size:13px;color:#1d4ed8;margin-bottom:9px;letter-spacing:.02em">${esc(tab.tab_label||'')}</div>
-        ${secs}
-      </div>`;
+        </div>`;
+        const header = idx===0 ? `<div style="font-weight:900;font-size:13px;color:#1d4ed8;margin-bottom:9px;letter-spacing:.02em">${esc(tab.tab_label||'')}</div>` : '';
+        return `<div class="print-block">${header}${secHtml}</div>`;
+      }).join('');
+      return `<div style="margin-bottom:20px;padding-bottom:18px;border-bottom:1px solid #e5eaf2">${secs}</div>`;
     }
     if(tab.type==='sources'){
-      const items = (tab.items||[]).map(s=>`
-        <div style="border-top:1px solid #e5eaf2;padding-top:10px;margin-top:10px">
+      // 참고자료도 자료 1건 단위로 print-block을 나눠, 제목/요약/URL이 페이지 경계에서 갈라지지 않게 한다.
+      const list = tab.items||[];
+      const items = list.map((s,idx)=>{
+        const itemHtml = `<div style="border-top:1px solid #e5eaf2;padding-top:10px;margin-top:10px">
           <div style="font-weight:800;font-size:12px;color:#0f172a">${esc(s.title||'')}</div>
           ${s.summary?`<p style="margin:4px 0;font-size:11.5px;line-height:1.7;color:#475569">${esc(s.summary)}</p>`:''}
           ${s.url?`<div style="font-size:10.5px;color:#1d4ed8;word-break:break-all">${esc(s.url)}</div>`:''}
-        </div>`).join('');
-      return `<div style="margin-bottom:20px">
-        <div style="font-weight:900;font-size:13px;color:#1d4ed8;margin-bottom:9px;letter-spacing:.02em">${esc(tab.tab_label||'')}</div>
-        ${items}
-      </div>`;
+        </div>`;
+        const header = idx===0 ? `<div style="font-weight:900;font-size:13px;color:#1d4ed8;margin-bottom:9px;letter-spacing:.02em">${esc(tab.tab_label||'')}</div>` : '';
+        return `<div class="print-block">${header}${itemHtml}</div>`;
+      }).join('');
+      return `<div style="margin-bottom:20px">${items}</div>`;
     }
     return '';
   }).join('');
   const nextSearch = (report.recommended_next_search&&report.recommended_next_search.length)
-    ? `<p style="margin:0 0 7px;font-size:11.5px;color:#697386"><b>다음 추천 검색어:</b> ${report.recommended_next_search.map(esc).join(', ')}</p>` : '';
-  const limitations = report.limitations ? `<p style="margin:0;font-size:11.5px;color:#697386"><b>한계:</b> ${esc(report.limitations)}</p>` : '';
+    ? `<div class="print-block"><p style="margin:0 0 7px;font-size:11.5px;color:#697386"><b>다음 추천 검색어:</b> ${report.recommended_next_search.map(esc).join(', ')}</p></div>` : '';
+  const limitations = report.limitations ? `<div class="print-block"><p style="margin:0;font-size:11.5px;color:#697386"><b>한계:</b> ${esc(report.limitations)}</p></div>` : '';
   return body + nextSearch + limitations;
 }
 async function retryKwSearch(hidx){
@@ -2468,7 +2530,16 @@ async function exportReportPdf(){
       ${reportTabsPrintHtml(currentReport)}`;
     document.body.appendChild(wrap);
 
-    const canvas = await html2canvas(wrap, { scale:2, useCORS:true, allowTaint:true, backgroundColor:'#ffffff', logging:false });
+    // PDF 페이지 경계가 섹션(예: "기회 요인", "리스크") 중간을 지나가지 않도록,
+    // reportTabsPrintHtml()이 표시해둔 print-block 하나하나의 세로 위치를 미리 재둔다.
+    // html2canvas의 scale 옵션(2)만큼 캔버스 픽셀 좌표로 환산해서 저장.
+    const SCALE = 2;
+    const blocks = Array.from(wrap.querySelectorAll('.print-block')).map(el => ({
+      top: el.offsetTop * SCALE,
+      bottom: (el.offsetTop + el.offsetHeight) * SCALE
+    }));
+
+    const canvas = await html2canvas(wrap, { scale:SCALE, useCORS:true, allowTaint:true, backgroundColor:'#ffffff', logging:false });
     document.body.removeChild(wrap);
 
     const { jsPDF } = window.jspdf;
@@ -2484,21 +2555,34 @@ async function exportReportPdf(){
     const pxToMm = pageW / canvas.width;
     const sliceH = Math.floor(pageH / pxToMm);
 
-    let y = 5;
-    let remaining = canvas.height;
+    // 페이지를 나눌 때, 원래 자르려던 지점(naiveEnd)이 어떤 print-block 중간을 지나가면
+    // 그 블록 시작 지점에서 페이지를 끊어 블록 전체를 다음 페이지로 넘긴다.
+    // (블록 하나가 페이지 한 장보다 큰 극단적인 경우는 어쩔 수 없이 그대로 자른다 — 무한루프 방지)
+    function nextSliceEnd(cursor, canvasHeight){
+      const naiveEnd = Math.min(cursor + sliceH, canvasHeight);
+      for(const b of blocks){
+        if(b.top > cursor && b.top < naiveEnd && b.bottom > naiveEnd){
+          return b.top;
+        }
+      }
+      return naiveEnd;
+    }
 
+    let y = 5;
+    let cursor = 0;
     let page = 0;
-    while(remaining > 0){
+    while(cursor < canvas.height){
       if(page > 0) doc.addPage();
-      const srcY = page * sliceH;
-      const thisSlice = Math.min(sliceH, remaining);
+      const srcY = cursor;
+      const end = nextSliceEnd(cursor, canvas.height);
+      const thisSlice = end - srcY;
       const sliceCanvas = document.createElement('canvas');
       sliceCanvas.width = canvas.width;
       sliceCanvas.height = thisSlice;
       sliceCanvas.getContext('2d').drawImage(canvas, 0, srcY, canvas.width, thisSlice, 0, 0, canvas.width, thisSlice);
       const sliceH_mm = pageW * thisSlice / canvas.width;
       doc.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', 5, y, pageW, sliceH_mm);
-      remaining -= thisSlice;
+      cursor = end;
       page++;
     }
 
@@ -3242,6 +3326,7 @@ async function handleProfileEditClick(){
     // 보기 → 수정 모드 전환: 현재 값을 드롭다운에 채워넣는다 (이름·이메일은 항상 읽기전용이라 건드리지 않음)
     $('#acctDept').value = currentUserProfile.affiliation || '';
     $('#acctPosition').value = currentUserProfile.position || '';
+    updateDeptPathPreview('acctDept','acctDept-preview');
     profileEditing = true;
     setProfileEditUI(true);
     return;
@@ -3781,6 +3866,7 @@ async function handleLogin(){
 // ── 회원가입 ──
 async function handleSignup(){
   const affiliation = document.getElementById('signup-affiliation').value;
+  const position = document.getElementById('signup-position').value;
   const name  = document.getElementById('signup-name').value.trim();
   const email = document.getElementById('signup-email').value.trim().toLowerCase();
   const userId= document.getElementById('signup-id').value.trim();
@@ -3801,7 +3887,7 @@ async function handleSignup(){
     const { data:authData, error:authErr } = await _sb.auth.signUp({ email, password:pw });
     if(authErr)        throw new Error('계정 생성 실패: '+authErr.message);
     if(!authData.user) throw new Error('계정 생성에 실패했습니다. 다시 시도해주세요.');
-    const { error:insertErr } = await _sb.from('profiles').insert({ id:authData.user.id, email, name, affiliation, user_id:userId, role:'user' });
+    const { error:insertErr } = await _sb.from('profiles').insert({ id:authData.user.id, email, name, affiliation, position, user_id:userId, role:'user' });
     if(insertErr) throw new Error('프로필 저장 실패: '+insertErr.message);
     showAuthStatus('signup-status','success','회원가입 완료! 로그인해주세요.');
     setTimeout(()=>switchAuthTab('login'), 1500);
@@ -4107,6 +4193,7 @@ function openCreateAccountModal(){
   $('#newAcctEmailLocal').value = '';
   $('#newAcctDept').value = '';
   $('#newAcctPosition').value = '';
+  updateDeptPathPreview('newAcctDept','newAcctDept-preview');
   $('#newAcctRole').value = 'user';
   $('#newAcctPw').value = 'dlxmsjtm1!';
   $('#createAccountStatus').className = 'auth-status';

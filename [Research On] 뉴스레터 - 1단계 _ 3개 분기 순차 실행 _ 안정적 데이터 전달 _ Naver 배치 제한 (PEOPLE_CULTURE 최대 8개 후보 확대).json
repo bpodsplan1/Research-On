@@ -1,0 +1,2098 @@
+{
+  "name": "[Research On] 뉴스레터 - 1단계 : 3개 분기 순차 실행 / 안정적 데이터 전달 / Naver 배치 제한 (PEOPLE_CULTURE 최대 8개 후보 확대)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "275c71cc-d263-4963-9828-e8638f578b3c",
+      "name": "0-A. Manual Trigger - 테스트",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        288240,
+        94800
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                4
+              ],
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "cc87d931-c719-40a3-8fb0-93ad65c186f1",
+      "name": "0-B. Schedule Trigger - 매주 목요일 08시",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        288240,
+        94992
+      ],
+      "notes": "매주 목요일 오전 8시 실행. 운영 일정에 맞게 변경하세요."
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "documentURL": "https://docs.google.com/document/d/10luJfq6C_GEanpIIYq5lbotZbqwnRzsGCUqjvbBnaPU/edit?usp=drivesdk"
+      },
+      "id": "14773458-db89-4f76-bdb7-5ad8832e9585",
+      "name": "0-C. Google Docs - 회사 맥락 문서 읽기",
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        288496,
+        94896
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "cL4GHzurJWdHGv4W",
+          "name": "Google Docs(7/14)"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "웹 후보 평가 / PEOPLE&CULTURE 분석 시 관련성 판단 기준으로 쓸 회사 맥락 문서를 읽습니다. 2단계 워크플로우의 4-A 노드와 동일한 문서입니다. 오류가 나도 fallback 문맥으로 진행합니다."
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
+          "mode": "list",
+          "cachedResultName": "Research On DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 101230155,
+          "mode": "list",
+          "cachedResultName": "newsletter_keywords",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=101230155"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "active",
+              "lookupValue": "true"
+            },
+            {
+              "lookupColumn": "section",
+              "lookupValue": "CLIENT_WATCH"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "e63fee10-34c1-4cfa-8cbe-56c9e5517891",
+      "name": "3-A-1. Google Sheets - CLIENT_WATCH 키워드 조회",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        288768,
+        94416
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F55rrvsZtvhOvoA3",
+          "name": "Google Sheets(7/14)"
+        }
+      },
+      "notes": "newsletter_keywords 시트에서 active=true AND section=CLIENT_WATCH 행만 조회합니다."
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(x => x.json || {});\nconst now = new Date();\nconst from = new Date(now);\nfrom.setDate(now.getDate() - 7);\n\nfunction truthy(v) {\n  if (v === true || v === 1) return true;\n  return ['true','1','y','yes','예','o'].includes(String(v ?? '').trim().toLowerCase());\n}\nfunction split(v) {\n  if (Array.isArray(v)) return v.map(String).map(x => x.trim()).filter(Boolean);\n  return String(v ?? '').split(/[,，\\n]+/).map(x => x.trim()).filter(Boolean);\n}\nfunction toMDY(d) {\n  return `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`;\n}\n\nconst allowed = new Set(['CLIENT_WATCH']);\nconst activeRows = rows.filter(r => {\n  const active = r.active === '' || r.active === undefined ? true : truthy(r.active);\n  return active &&\n    allowed.has(String(r.section || '').trim().toUpperCase()) &&\n    String(r.keyword || '').trim();\n});\n\nconst jobs = activeRows.map((row, idx) => {\n  const section = String(row.section).trim().toUpperCase();\n  const category = String(row.category || '').trim();\n  const target = String(row.target || '').trim();\n  const keyword = String(row.keyword || '').trim();\n  const includeTerms = split(row.include_terms);\n  const excludeTerms = split(row.exclude_terms);\n\n  // 실제 검색어에는 target + keyword만 사용\n  const q = [target, keyword].filter(Boolean).join(' ').trim();\n\n  return {\n    job_id: `CW-${idx+1}`,\n    section,\n    category,\n    target,\n    keyword,\n    include_terms: includeTerms,\n    exclude_terms: excludeTerms,\n    q,\n    gl: 'kr',\n    hl: 'ko',\n    num: 20,\n    tbs: `cdr:1,cd_min:${toMDY(from)},cd_max:${toMDY(now)}`,\n    naver_display: 30,\n    naver_sort: 'date',\n    period_start: from.toISOString().slice(0,10),\n    period_end: now.toISOString().slice(0,10)\n  };\n});\n\nif (!jobs.length) throw new Error('활성화된 CLIENT_WATCH 키워드가 없습니다.');\nreturn jobs.map(job => ({ json: job }));"
+      },
+      "id": "e93a9409-7096-4c2c-a3f7-e4fc94992d46",
+      "name": "3-A-2. Code - CLIENT_WATCH 검색 Job 생성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        289040,
+        94416
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://openapi.naver.com/v1/search/news.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.q }}"
+            },
+            {
+              "name": "display",
+              "value": "={{ $json.naver_display }}"
+            },
+            {
+              "name": "start",
+              "value": "1"
+            },
+            {
+              "name": "sort",
+              "value": "={{ $json.naver_sort }}"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 5,
+              "batchInterval": 1200
+            }
+          }
+        }
+      },
+      "id": "f776ef85-e6e4-4de3-bc81-a73a11c00193",
+      "name": "3-A-4. HTTP Request - CLIENT_WATCH Naver News",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        289296,
+        94416
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "f995YWhME6zw2vSb",
+          "name": "Header Auth account 2"
+        },
+        "httpCustomAuth": {
+          "id": "CK5Tvh9XsDnzPcUZ",
+          "name": "Naver API"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "키워드별 Wait 노드는 사용하지 않습니다. Naver 요청만 5개 단위로 처리하고 배치 사이 1.2초 대기합니다. 실패 시 3초 간격으로 최대 3회 재시도합니다."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const jobs = $('3-A-2. Code - CLIENT_WATCH 검색 Job 생성').all();\nconst job = jobs[$itemIndex]?.json || {};\n\nif (!job.job_id || job.section !== 'CLIENT_WATCH') {\n  throw new Error(\n    'CLIENT_WATCH Job 복원 실패: 입력 인덱스 ' + $itemIndex +\n    ', 조회된 Job=' + JSON.stringify(job).slice(0, 500)\n  );\n}\n\nreturn {\n  json: {\n    job,\n    naver_response: $json || {}\n  },\n  pairedItem: { item: $itemIndex }\n};"
+      },
+      "id": "287884ed-19d0-4188-9215-3d16b870ecff",
+      "name": "3-A-5. Code - CLIENT_WATCH Naver 결과 + Job 보존",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        289552,
+        94416
+      ],
+      "notes": "이전 노드의 .item 연결에 의존하지 않고 $itemIndex 기준으로 Job을 복원하며 pairedItem을 명시합니다."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/news",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ q: $json.job.q, gl: $json.job.gl, hl: $json.job.hl, num: $json.job.num, tbs: $json.job.tbs }) }}",
+        "options": {}
+      },
+      "id": "0b18ebbf-84c9-4e1f-a627-44e0eef0da3d",
+      "name": "3-A-7. HTTP Request - CLIENT_WATCH Serper News",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        289792,
+        94416
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "f995YWhME6zw2vSb",
+          "name": "Header Auth account 2"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "CLIENT_WATCH Naver 결과와 동일한 키워드로 Serper를 지연 없이 처리합니다. 실패할 때만 재시도합니다."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const packedItems = $('3-A-5. Code - CLIENT_WATCH Naver 결과 + Job 보존').all();\nconst packed = packedItems[$itemIndex]?.json || {};\n\nif (!packed.job?.job_id || packed.job.section !== 'CLIENT_WATCH') {\n  throw new Error(\n    'CLIENT_WATCH Naver 결과와 Serper 결과 통합 실패: 입력 인덱스 ' + $itemIndex +\n    ', 보존 데이터=' + JSON.stringify(packed).slice(0, 700)\n  );\n}\n\nreturn {\n  json: {\n    job: packed.job,\n    naver_response: packed.naver_response || {},\n    serper_response: $json || {}\n  },\n  pairedItem: { item: $itemIndex }\n};"
+      },
+      "id": "c3da1ead-b11a-4f01-87fc-3caf346c2385",
+      "name": "3-A-8. Code - CLIENT_WATCH Naver + Serper 통합",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        290048,
+        94416
+      ],
+      "notes": "Naver 보존 결과를 $itemIndex로 직접 매칭하여 Serper 결과와 결합합니다. .item 참조 유실로 후보가 []가 되는 문제를 방지합니다."
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputs = $input.all().map(x => x.json || {});\nconst candidates = [];\nconst branchSection = 'CLIENT_WATCH';\n\nif (!inputs.length) {\n  throw new Error(branchSection + ' 통합 입력이 0건입니다. Naver/Serper 통합 노드 연결을 확인하세요.');\n}\n\nconst invalidInputs = inputs.filter(x => !x.job?.job_id || x.job.section !== branchSection);\nif (invalidInputs.length) {\n  throw new Error(\n    branchSection + ' 데이터 전달 오류: 전체 ' + inputs.length + '건 중 ' +\n    invalidInputs.length + '건에 유효한 Job이 없습니다. 샘플=' +\n    JSON.stringify(invalidInputs[0]).slice(0, 900)\n  );\n}\n\nconst naverErrorCount = inputs.filter(x => x.naver_response?.error).length;\nconst serperErrorCount = inputs.filter(x => x.serper_response?.error).length;\n\nfunction stripHtml(v) {\n  return String(v || '')\n    .replace(/<script[\\s\\S]*?<\\/script>/gi, ' ')\n    .replace(/<style[\\s\\S]*?<\\/style>/gi, ' ')\n    .replace(/<[^>]+>/g, ' ')\n    .replace(/&quot;/g, '\"')\n    .replace(/&amp;/g, '&')\n    .replace(/&#39;/g, \"'\")\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\nfunction norm(v) {\n  return stripHtml(v).toLowerCase();\n}\nfunction contains(text, term) {\n  const t = norm(term);\n  return t ? norm(text).includes(t) : false;\n}\nfunction daysAgo(v) {\n  if (!v) return 99;\n  const d = new Date(v);\n  if (isNaN(d.getTime())) return 99;\n  return Math.floor((Date.now() - d.getTime()) / 86400000);\n}\nfunction dateValue(v) {\n  const d = new Date(v || 0);\n  return isNaN(d.getTime()) ? 0 : d.getTime();\n}\n\nconst STOP = new Set([\n  '삼성전자','삼성','전자','기업','관련','대한','이번','최근','통해','위해','있는','한다',\n  '했다','밝혔다','추진','계획','사업','시장','산업','정부','국내','글로벌','뉴스',\n  '기자','단독','속보','전망','발표','확대','강화','지원','구축','운영','전환'\n]);\n\nfunction tokens(v) {\n  return norm(v)\n    .replace(/[^0-9a-z가-힣%]/g, ' ')\n    .split(/\\s+/)\n    .map(x => x.trim())\n    .filter(x => x.length >= 2 && !STOP.has(x));\n}\nfunction tokenSet(v) {\n  return new Set(tokens(v));\n}\nfunction jaccard(a, b) {\n  const A = a instanceof Set ? a : tokenSet(a);\n  const B = b instanceof Set ? b : tokenSet(b);\n  if (!A.size || !B.size) return 0;\n  let inter = 0;\n  for (const x of A) if (B.has(x)) inter++;\n  const union = A.size + B.size - inter;\n  return union ? inter / union : 0;\n}\nfunction sharedCount(a, b) {\n  let n = 0;\n  for (const x of a) if (b.has(x)) n++;\n  return n;\n}\nfunction importantTokens(v) {\n  return tokens(v).filter(x =>\n    /\\d/.test(x) || x.length >= 3\n  );\n}\nfunction sameIssue(a, b) {\n  if (a.section !== b.section) return false;\n  if ((a.target || '') !== (b.target || '')) return false;\n  if ((a.category || '') !== (b.category || '')) return false;\n\n  const A = tokenSet(`${a.title} ${a.summary}`);\n  const B = tokenSet(`${b.title} ${b.summary}`);\n  const titleSim = jaccard(a.title, b.title);\n  const allSim = jaccard(A, B);\n  const shared = sharedCount(A, B);\n\n  const impA = new Set(importantTokens(a.title));\n  const impB = new Set(importantTokens(b.title));\n  const sharedImportant = sharedCount(impA, impB);\n\n  // 같은 사건 판단:\n  // - 제목 유사도 0.42 이상\n  // - 전체 토큰 유사도 0.34 이상\n  // - 또는 중요 고유어·숫자 3개 이상 공유\n  return titleSim >= 0.42 || allSim >= 0.34 || sharedImportant >= 3 || shared >= 5;\n}\n\nfunction processResults(job, source, results) {\n  for (const r of results) {\n    if (!r.title || !r.url) continue;\n    const text = `${r.title} ${r.summary}`;\n\n    if ((job.exclude_terms || []).some(term => contains(text, term))) continue;\n\n    // CLIENT WATCH: target이 제목 또는 요약에 반드시 있어야 함\n    if (job.section === 'CLIENT_WATCH' && job.target && !contains(text, job.target)) continue;\n\n    // BUSINESS_WORK 관련성 강화:\n    // 제목에 keyword/include term이 있거나, 전체 문장에서 관련어 2개 이상\n    if (job.section === 'BUSINESS_WORK') {\n      const titleKeyword = contains(r.title, job.keyword);\n      const titleIncludeHits = (job.include_terms || []).filter(term => contains(r.title, term)).length;\n      const bodyHits = [\n        contains(text, job.keyword) ? job.keyword : null,\n        ...(job.include_terms || []).filter(term => contains(text, term))\n      ].filter(Boolean).length;\n\n      if (!titleKeyword && titleIncludeHits === 0 && bodyHits < 2) continue;\n    }\n\n    let score = 0;\n\n    if (job.target) {\n      if (contains(r.title, job.target)) score += 45;\n      else if (contains(r.summary, job.target)) score += 25;\n    }\n\n    if (job.keyword) {\n      if (contains(r.title, job.keyword)) score += 30;\n      else if (contains(r.summary, job.keyword)) score += 16;\n    }\n\n    let includeHitCount = 0;\n    for (const term of (job.include_terms || [])) {\n      if (contains(text, term)) {\n        includeHitCount += 1;\n        score += contains(r.title, term) ? 9 : 5;\n      }\n    }\n\n    const age = daysAgo(r.published_at);\n    // 검색엔진(Naver/Serper)의 날짜 필터가 항상 정확하게 걸러주는 게 아니라서\n    // (오래된 기사가 재노출·재인덱싱되며 최근 검색 결과에 섞여 들어오는 경우가 있음),\n    // 발행일이 확인되고 그게 분명히 대상 기간(최근 7일)을 크게 벗어나면\n    // 점수와 무관하게 후보 자체에서 제외한다. 발행일을 못 읽은 경우(0)는 배제하지 않는다.\n    if (r.published_at && age > 10) continue;\n    if (age <= 2) score += 18;\n    else if (age <= 4) score += 12;\n    else if (age <= 7) score += 6;\n\n    score += Math.max(0, 15 - Number(r.position || 99));\n    if (source === 'NAVER' && job.section === 'CLIENT_WATCH') score += 8;\n\n    candidates.push({\n      job_id: job.job_id,\n      section: job.section,\n      category: job.category,\n      target: job.target,\n      keyword: job.keyword,\n      title: r.title,\n      url: r.url,\n      summary: r.summary,\n      published_at: r.published_at,\n      source_name: r.source_name,\n      search_source: source,\n      include_hit_count: includeHitCount,\n      score,\n      period_start: job.period_start,\n      period_end: job.period_end\n    });\n  }\n}\n\nfor (const input of inputs) {\n  const job = input.job || {};\n  const naver = input.naver_response || {};\n  const serper = input.serper_response || {};\n\n  const naverResults = (Array.isArray(naver.items) ? naver.items : []).map((r, idx) => ({\n    title: stripHtml(r.title),\n    url: String(r.originallink || r.link || '').trim(),\n    summary: stripHtml(r.description),\n    published_at: r.pubDate || null,\n    source_name: 'Naver News',\n    position: idx + 1\n  }));\n\n  const serperResults = (Array.isArray(serper.news) ? serper.news :\n                         Array.isArray(serper.organic) ? serper.organic : [])\n    .map((r, idx) => ({\n      title: stripHtml(r.title),\n      url: String(r.link || r.url || '').trim(),\n      summary: stripHtml(r.snippet || r.description),\n      published_at: r.date || null,\n      source_name: r.source || '',\n      position: Number(r.position || idx + 1)\n    }));\n\n  processResults(job, 'NAVER', naverResults);\n  processResults(job, 'SERPER', serperResults);\n}\n\nfunction normUrl(u) {\n  return String(u || '')\n    .replace(/#.*$/, '')\n    .replace(/[?&](utm_[^=&]+|nclick)=[^&]*/gi, '')\n    .replace(/[?&]$/, '')\n    .replace(/\\/$/, '');\n}\nfunction exactTitleKey(t) {\n  return norm(t).replace(/[^0-9a-z가-힣]/g, '').slice(0, 70);\n}\n\n// 1차: URL·거의 동일 제목 제거\nconst exactMap = new Map();\nfor (const c of candidates.sort((a,b) => b.score - a.score)) {\n  const key = `${c.section}|${normUrl(c.url)}|${exactTitleKey(c.title)}`;\n  if (!exactMap.has(key)) {\n    exactMap.set(key, {...c, found_in_sources: [c.search_source]});\n  } else {\n    const cur = exactMap.get(key);\n    if (!cur.found_in_sources.includes(c.search_source)) {\n      cur.found_in_sources.push(c.search_source);\n      cur.score += 15;\n    }\n  }\n}\nconst exactDeduped = [...exactMap.values()];\n\n// 2차: 동일 사건 클러스터링\nconst clusters = [];\nfor (const article of exactDeduped.sort((a,b) => b.score - a.score)) {\n  let cluster = clusters.find(c => sameIssue(c.representative, article));\n  if (!cluster) {\n    cluster = {\n      representative: article,\n      articles: [],\n      urls: [],\n      titles: [],\n      sources: new Set(),\n      total_score: 0\n    };\n    clusters.push(cluster);\n  }\n\n  cluster.articles.push(article);\n  cluster.urls.push(article.url);\n  cluster.titles.push(article.title);\n  cluster.sources.add(article.source_name || article.search_source);\n  cluster.total_score += article.score;\n\n  if (article.score > cluster.representative.score) {\n    cluster.representative = article;\n  }\n}\n\nconst allTopicItems = clusters.map((c, idx) => {\n  const r = c.representative;\n  const uniqueUrls = [...new Set(c.urls)].slice(0, 5);\n  const uniqueTitles = [...new Set(c.titles)].slice(0, 5);\n  const articleCount = c.articles.length;\n  const sourceCount = c.sources.size;\n\n  // 대표 요약은 점수가 높은 기사 2개의 요약을 중복 없이 결합\n  const summaries = [...new Set(\n    c.articles\n      .sort((a,b) => b.score - a.score)\n      .map(x => x.summary)\n      .filter(Boolean)\n  )].slice(0,2);\n\n  return {\n    topic_id: `${r.section}-${r.category || 'GENERAL'}-${String(idx+1).padStart(2,'0')}`,\n    section: r.section,\n    category: r.category,\n    target: r.target,\n    keyword: r.keyword,\n    representative_title: r.title,\n    combined_summary: summaries.join(' / ').slice(0, 200),\n    article_count: articleCount,\n    source_count: sourceCount,\n    source_urls: uniqueUrls,\n    source_titles: uniqueTitles,\n    published_at: r.published_at,\n    score: r.score + Math.min(20, (articleCount - 1) * 6) + Math.min(12, (sourceCount - 1) * 4),\n    period_start: r.period_start,\n    period_end: r.period_end,\n    selection_basis: 'SCORE_PASS'\n  };\n}).sort((a,b) => b.score - a.score);\n\n// 기본 품질 기준을 통과한 토픽\nconst qualifiedTopicItems = allTopicItems\n  .filter(x => x.section !== 'CLIENT_WATCH' || x.score >= 55)\n  .filter(x => x.section !== 'BUSINESS_WORK' || x.score >= 25)\n  .sort((a,b) => b.score - a.score);\n\n// 중요: 기존 버전은 \"키워드별 후보 보장\"이 점수 필터 뒤에서 작동해\n// 점수 기준을 넘지 못한 키워드는 후보 풀에서 완전히 사라졌다.\n// 이번 버전은 하드 관련성 필터를 통과한 allTopicItems에서 keyword별 최고 후보를\n// 보완하되, 지나치게 약한 후보는 낮춘 fallback 점수 기준으로 한 번 더 제한한다.\nfunction addKeywordFallbacks(qualified, allItems) {\n  const result = [...qualified];\n  const topicIds = new Set(result.map(x => x.topic_id));\n  const represented = new Set(result.map(x => `${x.section}|${x.keyword}`));\n  const bestBySectionKeyword = new Map();\n\n  for (const item of allItems) {\n    const key = `${item.section}|${item.keyword}`;\n    if (!bestBySectionKeyword.has(key)) bestBySectionKeyword.set(key, item);\n  }\n\n  for (const [key, item] of bestBySectionKeyword.entries()) {\n    if (represented.has(key) || topicIds.has(item.topic_id)) continue;\n\n    const fallbackFloor = item.section === 'CLIENT_WATCH' ? 38 : 15;\n    if (item.score < fallbackFloor) continue;\n\n    result.push({ ...item, selection_basis: 'KEYWORD_FALLBACK' });\n    represented.add(key);\n    topicIds.add(item.topic_id);\n  }\n\n  return result.sort((a,b) => b.score - a.score);\n}\n\nconst topicItems = addKeywordFallbacks(qualifiedTopicItems, allTopicItems);\n\n// 3차: keyword·category 다양성 제한\nfunction selectDiverse(items, maxTotal, maxPerKeyword, maxPerCategory) {\n  const sorted = [...items].sort((a, b) => b.score - a.score);\n  const selected = [];\n  const selectedTopicIds = new Set();\n  const keywordCounts = new Map();\n  const categoryCounts = new Map();\n\n  function addItem(item) {\n    if (!item || selected.length >= maxTotal) return false;\n\n    const topicId = item.topic_id || '';\n    const keyword = item.keyword || 'NONE';\n    const category = item.category || 'NONE';\n\n    if (topicId && selectedTopicIds.has(topicId)) return false;\n    if ((keywordCounts.get(keyword) || 0) >= maxPerKeyword) return false;\n    if ((categoryCounts.get(category) || 0) >= maxPerCategory) return false;\n\n    selected.push(item);\n    if (topicId) selectedTopicIds.add(topicId);\n    keywordCounts.set(keyword, (keywordCounts.get(keyword) || 0) + 1);\n    categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);\n    return true;\n  }\n\n  // 1차: 검색 결과가 존재하는 각 keyword의 최고 점수 후보를 1개씩 우선 확보한다.\n  // 후보가 없는 keyword는 억지로 생성하지 않는다.\n  const bestByKeyword = new Map();\n  for (const item of sorted) {\n    const keyword = item.keyword || 'NONE';\n    if (!bestByKeyword.has(keyword)) bestByKeyword.set(keyword, item);\n  }\n  for (const item of bestByKeyword.values()) {\n    if (selected.length >= maxTotal) break;\n    addItem(item);\n  }\n\n  // 2차: 남은 자리는 전체 점수 순으로 채워 경쟁시킨다.\n  for (const item of sorted) {\n    if (selected.length >= maxTotal) break;\n    addItem(item);\n  }\n\n  return selected;\n}\n\nfunction candidatePoolSize(items) {\n  const keywordCount = new Set(\n    items.map(x => String(x.keyword || '').trim()).filter(Boolean)\n  ).size;\n\n  // 기존 16개 상한은 유지하되, 활성 keyword가 더 많으면 최대 24개까지 확장한다.\n  // 12개 CLIENT_WATCH / 20개 BUSINESS_WORK 구성에서는 각각 16개 / 20개 수준이다.\n  return Math.min(24, Math.max(16, keywordCount));\n}\n\n\n// ─────────────────────────────────────────────\n// 회사 맥락 문서(Google Docs) 읽기 - \"2단계\" 워크플로우와 동일 로직\n// ─────────────────────────────────────────────\nfunction extractTextFromGoogleDocsBody(body) {\n  const chunks = [];\n  const walk = (node) => {\n    if (!node || typeof node !== 'object') return;\n    if (node.textRun && typeof node.textRun.content === 'string') {\n      chunks.push(node.textRun.content);\n      return;\n    }\n    for (const key of Object.keys(node)) {\n      const value = node[key];\n      if (Array.isArray(value)) value.forEach(walk);\n      else if (value && typeof value === 'object') walk(value);\n    }\n  };\n  walk(body);\n  return chunks.join('');\n}\n\nfunction pickGoogleDocText(obj) {\n  if (typeof obj === 'string') return obj;\n  if (!obj || typeof obj !== 'object') return '';\n  if (typeof obj.content === 'string') return obj.content;\n  if (typeof obj.text === 'string') return obj.text;\n  if (typeof obj.data === 'string') return obj.data;\n  if (typeof obj.body === 'string') return obj.body;\n  if (obj.body && Array.isArray(obj.body.content)) return extractTextFromGoogleDocsBody(obj.body);\n  if (Array.isArray(obj.content)) return extractTextFromGoogleDocsBody({ content: obj.content });\n  return JSON.stringify(obj);\n}\n\nfunction cleanCompanyContext(text) {\n  return String(text || '')\n    .replace(/\\r/g, '\\n')\n    .replace(/\\n{3,}/g, '\\n\\n')\n    .replace(/[ \\t]+/g, ' ')\n    .trim()\n    .slice(0, 2000);\n}\n\nfunction looksLikeGoogleErrorOrHtml(text) {\n  const s = String(text || '').slice(0, 2000);\n  return (\n    s.includes(\"window['ppConfig']\") ||\n    s.includes('페이지를 찾을 수 없음') ||\n    s.includes('현재 파일을 열 수 없습니다') ||\n    s.includes('<!DOCTYPE html') ||\n    s.includes('<html') ||\n    s.includes('Bad request') ||\n    s.includes('The resource you are requesting could not be found')\n  );\n}\n\nlet googleDocJson = {};\ntry {\n  googleDocJson = $('0-C. Google Docs - 회사 맥락 문서 읽기').item.json || {};\n} catch (e) {\n  googleDocJson = {};\n}\n\nconst googleDocsNodeFailed = !!(googleDocJson.error || String(googleDocJson.message || '').includes('Bad request'));\nlet companyContextRaw = googleDocsNodeFailed ? '' : pickGoogleDocText(googleDocJson);\nif (looksLikeGoogleErrorOrHtml(companyContextRaw)) companyContextRaw = '';\n\nconst companyContext = cleanCompanyContext(companyContextRaw) || `[회사 업무 맥락]\n- 회사 맥락 문서를 불러오지 못했습니다. 이 경우 후보 자체의 사실관계만 기준으로 평가합니다.\n- Google Docs 노드에 접근 권한이 있는 OAuth2 credential이 연결되어 있는지 확인하세요.`;\n\n// 검색·평가 단계에서는 최종 뉴스레터 게재 수보다 넓게 DB에 축적한다.\n// 후보가 충분한 경우 이 분기에서 최대 8개를 저장하고, 실제 뉴스레터 생성 단계에서 다시 4~6개로 압축한다.\nconst branchItems = topicItems.filter(x => x.section === branchSection);\n\nconst grouped = { CLIENT_WATCH: [], BUSINESS_WORK: [] };\ngrouped[branchSection] = selectDiverse(\n  branchItems,\n  candidatePoolSize(branchItems),\n  3,\n  6\n);\n\nconst desiredCount = Math.min(8, grouped[branchSection].length);\n\nif (!grouped[branchSection].length) {\n  const firstJobForError = inputs.find(x => x.job?.job_id)?.job || {};\n  throw new Error(\n    branchSection + ' 통합 이슈 후보가 0건입니다. ' +\n    'Job 입력=' + inputs.length + '건, Naver 오류=' + naverErrorCount +\n    '건, Serper 오류=' + serperErrorCount + '건, 기간=' +\n    String(firstJobForError.period_start || '') + '~' + String(firstJobForError.period_end || '') +\n    '. 데이터 전달은 정상이며 검색 결과/기간/관련성 필터를 확인하세요.'\n  );\n}\n\nconst prompt = `너는 BPO사업본부 보직자를 위한 주간 뉴스레터 리서치 편집자다.\n입력은 기사 목록이 아니라 동일 사건을 통합한 '이슈(topic)' 목록이다.\n이번 분기에서는 ${branchSection} 섹션만 평가한다.\n\n[선택 원칙]\n- 동일 topic_id는 하나의 이슈이므로 중복 출력하지 않는다.\n- ${branchSection} 이슈를 반드시 정확히 ${desiredCount}개 선택한다.\n- 위 개수는 실제 후보 수를 반영해 계산된 값이다. 후보가 존재하는데 임의로 적은 수에서 멈추지 말고 지정된 개수를 모두 출력한다.\n- 지정 개수가 0이면 섹션 헤더만 출력하지 말고, 후보에 없는 사실이나 이슈도 만들지 않는다.\n- 동일 category는 최대 3개까지만 선택한다.\n- 가능하면 서로 다른 category와 keyword를 우선한다.\n- target 기업 자체가 사건의 실제 주체인 이슈만 선택한다. 계열사·자회사가 주체이고 target 기업이 비교·배경으로만 언급된 경우 제외한다.\n- target이 삼성전자인 경우 DS(디바이스솔루션·반도체) 부문 이슈를 우선한다. 반도체·파운드리·메모리·HBM·웨이퍼·시스템반도체 관련 이슈를 우선 채택한다.\n- TV·스마트폰·갤럭시·모바일·가전 등 DX 이슈는 DS와 명백히 무관하면 제외하고, DS 후보가 부족할 때만 보충한다.\n- TITLE은 입력된 기사 원제목을 그대로 베끼지 말고 핵심을 담아 새로 작성한다.\n- source_urls는 입력된 URL만 사용한다.\n- 기사 여러 개가 같은 사건을 보도한 경우 하나의 통합 이슈로 작성한다.\n\n[작성 수준 - 1차 독자는 CL4 이상 보직자(센터장·그룹장·사업부장·임원)다]\n- 실무자용 상세 리포트가 아니라, 바쁜 보직자가 이 항목만 읽고도 핵심을 파악해 회의나 의사결정에 바로 참고할 수 있는 수준으로 쓴다. 다만 짧다고 부실해도 된다는 뜻은 아니다.\n- SUMMARY는 1문장으로 끝내지 말고 2~3문장으로 작성한다. 가능하면 ①무슨 일이 일어났는지(주체·행동), ②규모·수치(투자금액, 인원, 비율, 생산량 등 원문에 있는 경우), ③시점(언제 발표·시행됐는지)을 구체적으로 담는다. \"가속화되고 있습니다\", \"확대되고 있습니다\" 같은 막연한 서술로만 끝내지 말고, 그 뒤에 원문에 있는 구체적 근거 문장을 반드시 덧붙인다. 원문에 수치·시점이 없으면 지어내지 말고 정성적 서술만 남긴다.\n- IMPLICATION은 \"~할 기회입니다\" 같은 상투적 한 줄로 끝내지 않는다. (1) 이 사안이 BPO사업본부 운영·사업에 구체적으로 어떤 의미인지, (2) 보직자가 무엇을 검토·논의해야 하는지를 담아 2문장 내외로 작성한다. 가능하면 관련 서비스 영역(Payroll, GA, Global Mobility, Shared Service Center, AI 거버넌스·컴플라이언스 등)을 구체적으로 짚는다. 여러 이슈의 IMPLICATION이 서로 비슷한 문장 구조나 표현으로 반복되지 않도록 각 사안의 실제 맥락에 맞게 쓴다.\n- 절대 JSON, 마크다운 코드블록, 중괄호 표시를 사용하지 마라.\n- 아래 [출력 형식]을 글자 그대로 지켜 일반 텍스트로만 출력한다.\n- 각 필드 값은 줄바꿈 없이 한 줄로 작성한다.\n- 값 안에 파이프 기호(|)는 사용하지 않는다.\n- SOURCE_URLS와 SOURCE_TITLES의 복수 값은 \" || \"로만 구분한다.\n- 이슈 사이는 반드시 한 줄에 @@@만 써서 구분한다.\n- 섹션 시작은 반드시 ##${branchSection} 한 줄로 표시한다.\n- 다른 섹션의 헤더나 항목은 출력하지 않는다.\n\n[출력 형식]\n##CLIENT_WATCH\nTOPIC_ID: CLIENT_WATCH-INVESTMENT-01\nTITLE: 여기에 제목\nSUMMARY: 여기에 요약\nIMPLICATION: 여기에 시사점\nPRIORITY: 1\nEVIDENCE_LEVEL: HIGH\nSOURCE_URLS: https://example.com/a || https://example.com/b\nSOURCE_TITLES: 기사제목1 || 기사제목2\nCATEGORY: INVESTMENT\nTARGET: 삼성전자\nKEYWORD: 투자\n@@@\n\n[회사 업무 맥락 / 내부 기준 문서]\n${companyContext}\n\n[회사 맥락 활용 지시]\n- 위 회사 업무 맥락은 각 후보가 우리 조직과 관련 있는지 판단하는 기준으로 활용하라.\n- 후보 자체에 없는 사실을 회사 맥락만으로 지어내지 말고 관련성 판단에만 사용하라.\n\n[통합 이슈 후보]\n${JSON.stringify(grouped[branchSection], null, 2)}`;\n\nconst first = topicItems[0] || {};\nconst firstJob = inputs.find(x => x.job?.job_id)?.job || {};\nreturn [{\n  json: {\n    branch_section: branchSection,\n    period_start: first.period_start || firstJob.period_start || '',\n    period_end: first.period_end || firstJob.period_end || '',\n    input_job_count: inputs.length,\n    naver_error_count: naverErrorCount,\n    serper_error_count: serperErrorCount,\n    original_article_count: candidates.length,\n    all_topic_count: allTopicItems.length,\n    qualified_topic_count: qualifiedTopicItems.length,\n    topic_count: topicItems.length,\n    grouped_candidate_count: {\n      CLIENT_WATCH: grouped.CLIENT_WATCH.length,\n      BUSINESS_WORK: grouped.BUSINESS_WORK.length\n    },\n    desired_output_count: { [branchSection]: desiredCount },\n    grouped_candidates: grouped,\n    prompt\n  }\n}];\n"
+      },
+      "id": "03b2f84c-d49f-4db7-9bba-aea9a9ec55e4",
+      "name": "3-A-10. Code - CLIENT_WATCH 후보 정리 + AI 평가 프롬프트",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        290288,
+        94416
+      ],
+      "notes": "CLIENT_WATCH Job 전달 상태와 Naver/Serper 오류 수를 먼저 검증합니다. 후보가 비었을 때 LLM에 []를 보내지 않고 원인을 명확히 표시합니다."
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "제공된 CLIENT_WATCH 후보만 평가하고 사용자 메시지의 정확한 선택 개수를 모두 출력한다. 반드시 ##CLIENT_WATCH로 시작하는 구분자 형식만 사용하고, 다른 섹션·JSON·마크다운 코드블록·설명문은 출력하지 마라."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "0cd79eb2-2126-41c4-b64d-ffc03614b25a",
+      "name": "3-A-11. Basic LLM Chain - CLIENT_WATCH 평가",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        290544,
+        94416
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        290544,
+        94608
+      ],
+      "id": "cc142693-10bb-4597-8405-b1a2555e9dfa",
+      "name": "Google Gemini - 3-A CLIENT_WATCH",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "UmQBA3vsLpvPlcZz",
+          "name": "Google Gemini 90일 무료(7/14~)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ========================================================\n// 3-A-6. 구분자 기반 출력 결과 정리 + 행 분리\n// JSON.parse를 아예 쓰지 않음 - 모델이 따옴표를 이스케이프할\n// 필요가 없는 텍스트 포맷(##섹션 / FIELD: 값 / @@@ 구분자)을\n// 줄 단위로 읽어서 파싱한다. JSON 문법 오류 자체가 발생할 수 없음.\n// ========================================================\n\nconst base = $('3-A-10. Code - CLIENT_WATCH 후보 정리 + AI 평가 프롬프트').first().json;\n\nconst FIELD_KEY_MAP = {\n  TOPIC_ID: 'topic_id',\n  TITLE: 'title',\n  SUMMARY: 'summary',\n  IMPLICATION: 'implication',\n  PRIORITY: 'priority',\n  EVIDENCE_LEVEL: 'evidence_level',\n  SOURCE_URLS: 'source_urls',\n  SOURCE_TITLES: 'source_titles',\n  CATEGORY: 'category',\n  TARGET: 'target',\n  KEYWORD: 'keyword'\n};\n\nfunction splitMulti(v) {\n  return String(v || '')\n    .split('||')\n    .map(x => x.trim())\n    .filter(Boolean);\n}\n\nfunction parseDelimitedOutput(rawText) {\n  let text = String(rawText || '').trim();\n\n  // 혹시 모델이 실수로 코드펜스를 붙였어도 무해하게 제거\n  text = text.replace(/^```[a-zA-Z]*\\s*/, '').replace(/```\\s*$/, '').trim();\n\n  const sections = { CLIENT_WATCH: [], BUSINESS_WORK: [] };\n  let currentSection = null;\n  let currentItem = null;\n  let currentField = null;\n\n  function flushItem() {\n    if (currentItem && currentSection && Object.keys(currentItem).length) {\n      sections[currentSection].push(currentItem);\n    }\n    currentItem = null;\n    currentField = null;\n  }\n\n  const lines = text.split(/\\r?\\n/);\n\n  for (const rawLine of lines) {\n    const line = rawLine.trim();\n    if (!line) continue;\n\n    const upper = line.toUpperCase();\n\n    if (upper === '##CLIENT_WATCH') {\n      flushItem();\n      currentSection = 'CLIENT_WATCH';\n      continue;\n    }\n    if (upper === '##BUSINESS_WORK') {\n      flushItem();\n      currentSection = 'BUSINESS_WORK';\n      continue;\n    }\n    if (line === '@@@') {\n      flushItem();\n      continue;\n    }\n\n    // \"FIELD_NAME: 값\" 형태 매칭 (콜론 앞은 대문자/언더바만 허용)\n    const m = line.match(/^([A-Z_]+)\\s*:\\s*(.*)$/);\n    if (m && FIELD_KEY_MAP[m[1]]) {\n      if (!currentSection) continue; // 섹션 밖 잡음은 무시\n      if (!currentItem) currentItem = {};\n      currentField = FIELD_KEY_MAP[m[1]];\n      currentItem[currentField] = m[2].trim();\n      continue;\n    }\n\n    // 모델이 긴 문장을 줄바꿈한 경우: 직전 필드에 이어붙임\n    if (currentItem && currentField) {\n      currentItem[currentField] =\n        `${currentItem[currentField]} ${line}`.trim();\n    }\n  }\n  flushItem();\n\n  function finalize(list) {\n    return list\n      .filter(it => it.title) // title 없는 항목은 파싱 실패로 간주\n      .map(it => ({\n        topic_id: it.topic_id || '',\n        title: it.title || '',\n        summary: it.summary || '',\n        implication: it.implication || '',\n        priority: it.priority || '',\n        evidence_level: it.evidence_level || '',\n        source_urls: splitMulti(it.source_urls),\n        source_titles: splitMulti(it.source_titles),\n        category: it.category || '',\n        target: it.target || '',\n        keyword: it.keyword || ''\n      }));\n  }\n\n  return {\n    client_watch: finalize(sections.CLIENT_WATCH),\n    business_work: finalize(sections.BUSINESS_WORK)\n  };\n}\n\nfunction getParsedOutput(json) {\n  const rawText = (typeof json?.text === 'string' && json.text)\n    ? json.text\n    : (typeof json === 'string' ? json : '');\n\n  if (!rawText) {\n    throw new Error(\n      'LLM 응답 텍스트를 찾지 못했습니다. ' +\n      `수신 데이터: ${JSON.stringify(json).slice(0, 800)}`\n    );\n  }\n\n  const parsed = parseDelimitedOutput(rawText);\n\n  if (!parsed.client_watch.length && !parsed.business_work.length) {\n    throw new Error(\n      '구분자 포맷 파싱 결과가 비어 있습니다(모델이 형식을 안 지켰을 수 있음). ' +\n      `원문(앞부분): ${rawText.slice(0, 800)}`\n    );\n  }\n\n  return parsed;\n}\n\nfunction arr(value) {\n  return Array.isArray(value) ? value : [];\n}\n\nfunction txt(value) {\n  if (value === null || value === undefined) return '';\n  return String(value).trim();\n}\n\nfunction num(value, fallback = 50) {\n  const parsed = Number(value);\n  return Number.isFinite(parsed) ? parsed : fallback;\n}\n\nfunction normalizeEvidence(value, urlCount = 0) {\n  const evidence = txt(value).toUpperCase();\n\n  if (['HIGH', 'MEDIUM', 'LOW'].includes(evidence)) {\n    return evidence;\n  }\n\n  return urlCount >= 2 ? 'HIGH' : 'MEDIUM';\n}\n\nfunction normalizeUrls(value) {\n  if (Array.isArray(value)) {\n    return [...new Set(\n      value.map(txt).filter(Boolean)\n    )].slice(0, 5);\n  }\n\n  if (typeof value === 'string') {\n    return [...new Set(\n      value\n        .split(/[\\n,]+/)\n        .map(x => x.trim())\n        .filter(Boolean)\n    )].slice(0, 5);\n  }\n\n  return [];\n}\n\nconst parsed = getParsedOutput($json);\n\n// 안전망: AI가 델리미터 포맷으로 URL을 다시 타이핑하는 과정에서\n// 지어낼 가능성에 대비해, 실제 후보(3-A-7이 만든 grouped_candidates)에\n// 있던 URL과 대조해서 없는 건 제거한다.\nconst verifiedUrlSet = new Set(\n  Object.values(base.grouped_candidates || {})\n    .flat()\n    .flatMap(c => Array.isArray(c?.source_urls) ? c.source_urls.map(u => String(u).trim()) : [])\n    .filter(Boolean)\n);\n\nfunction keepOnlyVerifiedUrls(urls) {\n  return urls.filter(u => verifiedUrlSet.has(String(u).trim()));\n}\n\nconst now = new Date().toISOString();\nconst periodStart = txt(base.period_start);\nconst periodEnd = txt(base.period_end);\nconst period = periodStart && periodEnd\n  ? `${periodStart}~${periodEnd}`\n  : '';\n\nconst output = [];\nconst usedTopicIds = new Set();\nconst categoryCounts = new Map();\n\nfunction pushItems(items, section) {\n  const sectionItems = arr(items).slice(0, 10);\n\n  for (let index = 0; index < sectionItems.length; index++) {\n    const item = sectionItems[index] || {};\n    const category = txt(item.category) || 'GENERAL';\n    const topicId =\n      txt(item.topic_id) ||\n      `${section}-${category}-${index + 1}`;\n\n    const categoryKey = `${section}|${category}`;\n\n    if (usedTopicIds.has(topicId)) continue;\n\n    const currentCategoryCount =\n      categoryCounts.get(categoryKey) || 0;\n\n    if (currentCategoryCount >= 3) continue;\n\n    const title = txt(item.title);\n    const summary = txt(item.summary);\n    const implication = txt(item.implication);\n\n    if (!title || (!summary && !implication)) continue;\n\n    const urls = keepOnlyVerifiedUrls(normalizeUrls(item.source_urls));\n\n    usedTopicIds.add(topicId);\n    categoryCounts.set(\n      categoryKey,\n      currentCategoryCount + 1\n    );\n\n    const sequence = output.length + 1;\n    const randomCode = Math.random()\n      .toString(36)\n      .slice(2, 6)\n      .toUpperCase();\n\n    const dateCode = periodEnd\n      ? periodEnd.replace(/-/g, '')\n      : new Date()\n          .toISOString()\n          .slice(0, 10)\n          .replace(/-/g, '');\n\n    const itemId =\n      `NLR-${dateCode}-${section}-${sequence}-${randomCode}`;\n\n    const normalizedEvidence = normalizeEvidence(\n      item.evidence_level,\n      urls.length\n    );\n\n    const rawRecord = {\n      topic_id: topicId,\n      title,\n      summary,\n      implication,\n      priority: num(item.priority),\n      evidence_level: normalizedEvidence,\n      source_urls: urls,\n      source_titles: arr(item.source_titles)\n        .map(txt)\n        .filter(Boolean)\n        .slice(0, 5),\n      category,\n      target: txt(item.target),\n      keyword: txt(item.keyword)\n    };\n\n    output.push({\n      json: {\n        item_id: itemId,\n        collected_at: now,\n        research_period: period,\n        section,\n        source_pipeline: 'WEB_RESEARCH_TOPIC_CLUSTER',\n        category,\n        target: txt(item.target),\n        keyword: txt(item.keyword),\n        title,\n        summary,\n        implication,\n        source_urls: urls.join('\\n'),\n        evidence_level: normalizedEvidence,\n        priority: num(item.priority),\n        raw_json: JSON.stringify(rawRecord)\n      }\n    });\n  }\n}\n\npushItems(parsed.client_watch, 'CLIENT_WATCH');\npushItems(parsed.business_work, 'BUSINESS_WORK');\n\nif (!output.length) {\n  throw new Error(\n    '파싱은 성공했지만 저장할 항목이 없습니다. ' +\n    `수신 데이터: ${JSON.stringify(parsed).slice(0, 1500)}`\n  );\n}\n\nreturn output;\n"
+      },
+      "id": "8dd642ee-d674-4cba-92b4-20c0a6bddb13",
+      "name": "3-A-12. Code - CLIENT_WATCH 평가 결과 정리 + 행 분리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        290800,
+        94416
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
+          "mode": "list",
+          "cachedResultName": "Research On DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1294785882,
+          "mode": "list",
+          "cachedResultName": "newsletter_research",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=1294785882"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "item_id",
+              "displayName": "item_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "collected_at",
+              "displayName": "collected_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "research_period",
+              "displayName": "research_period",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "section",
+              "displayName": "section",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_pipeline",
+              "displayName": "source_pipeline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "target",
+              "displayName": "target",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "keyword",
+              "displayName": "keyword",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "summary",
+              "displayName": "summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "implication",
+              "displayName": "implication",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_urls",
+              "displayName": "source_urls",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "evidence_level",
+              "displayName": "evidence_level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "priority",
+              "displayName": "priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "raw_json",
+              "displayName": "raw_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "042d39ec-7e08-45e7-a857-3db493805537",
+      "name": "3-A-13. Google Sheets - CLIENT_WATCH 저장",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        291040,
+        94416
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F55rrvsZtvhOvoA3",
+          "name": "Google Sheets(7/14)"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "newsletter_research 시트에 CLIENT_WATCH 항목만 저장합니다."
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "id": "daa2a9b8-e466-4aa9-9a1c-2ff8cadfdba0",
+      "name": "3-A-14. Wait - BUSINESS_WORK 분기 전 10초",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        291296,
+        94624
+      ],
+      "webhookId": "8fa4488f-bbbe-4884-9413-b75af0b765e3",
+      "notes": "CLIENT_WATCH 저장이 모두 완료된 뒤 BUSINESS_WORK 시작 전 10초 대기합니다."
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
+          "mode": "list",
+          "cachedResultName": "Research On DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 101230155,
+          "mode": "list",
+          "cachedResultName": "newsletter_keywords",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=101230155"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "active",
+              "lookupValue": "true"
+            },
+            {
+              "lookupColumn": "section",
+              "lookupValue": "BUSINESS_WORK"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a14e4fd6-8bfe-4161-b6de-8c110e880606",
+      "name": "3-B-1. Google Sheets - BUSINESS_WORK 키워드 조회",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        288768,
+        95056
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F55rrvsZtvhOvoA3",
+          "name": "Google Sheets(7/14)"
+        }
+      },
+      "notes": "newsletter_keywords 시트에서 active=true AND section=BUSINESS_WORK 행만 조회합니다."
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(x => x.json || {});\nconst now = new Date();\nconst from = new Date(now);\nfrom.setDate(now.getDate() - 7);\n\nfunction truthy(v) {\n  if (v === true || v === 1) return true;\n  return ['true','1','y','yes','예','o'].includes(String(v ?? '').trim().toLowerCase());\n}\nfunction split(v) {\n  if (Array.isArray(v)) return v.map(String).map(x => x.trim()).filter(Boolean);\n  return String(v ?? '').split(/[,，\\n]+/).map(x => x.trim()).filter(Boolean);\n}\nfunction toMDY(d) {\n  return `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`;\n}\n\nconst allowed = new Set(['BUSINESS_WORK']);\nconst activeRows = rows.filter(r => {\n  const active = r.active === '' || r.active === undefined ? true : truthy(r.active);\n  return active &&\n    allowed.has(String(r.section || '').trim().toUpperCase()) &&\n    String(r.keyword || '').trim();\n});\n\nconst jobs = activeRows.map((row, idx) => {\n  const section = String(row.section).trim().toUpperCase();\n  const category = String(row.category || '').trim();\n  const target = String(row.target || '').trim();\n  const keyword = String(row.keyword || '').trim();\n  const includeTerms = split(row.include_terms);\n  const excludeTerms = split(row.exclude_terms);\n\n  // 실제 검색어에는 target + keyword만 사용\n  const q = [target, keyword].filter(Boolean).join(' ').trim();\n\n  return {\n    job_id: `BW-${idx+1}`,\n    section,\n    category,\n    target,\n    keyword,\n    include_terms: includeTerms,\n    exclude_terms: excludeTerms,\n    q,\n    gl: 'kr',\n    hl: 'ko',\n    num: 20,\n    tbs: `cdr:1,cd_min:${toMDY(from)},cd_max:${toMDY(now)}`,\n    naver_display: 30,\n    naver_sort: 'date',\n    period_start: from.toISOString().slice(0,10),\n    period_end: now.toISOString().slice(0,10)\n  };\n});\n\nif (!jobs.length) throw new Error('활성화된 BUSINESS_WORK 키워드가 없습니다.');\nreturn jobs.map(job => ({ json: job }));"
+      },
+      "id": "40639d09-7779-4c8a-b2f7-c4351cf5f0df",
+      "name": "3-B-2. Code - BUSINESS_WORK 검색 Job 생성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        289040,
+        95056
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://openapi.naver.com/v1/search/news.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.q }}"
+            },
+            {
+              "name": "display",
+              "value": "={{ $json.naver_display }}"
+            },
+            {
+              "name": "start",
+              "value": "1"
+            },
+            {
+              "name": "sort",
+              "value": "={{ $json.naver_sort }}"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 5,
+              "batchInterval": 1200
+            }
+          }
+        }
+      },
+      "id": "feaa0551-6d9b-4861-bb5f-219bacb9e63e",
+      "name": "3-B-4. HTTP Request - BUSINESS_WORK Naver News",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        289296,
+        95056
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "f995YWhME6zw2vSb",
+          "name": "Header Auth account 2"
+        },
+        "httpCustomAuth": {
+          "id": "CK5Tvh9XsDnzPcUZ",
+          "name": "Naver API"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "키워드별 Wait 노드는 사용하지 않습니다. Naver 요청만 5개 단위로 처리하고 배치 사이 1.2초 대기합니다. 실패 시 3초 간격으로 최대 3회 재시도합니다."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const jobs = $('3-B-2. Code - BUSINESS_WORK 검색 Job 생성').all();\nconst job = jobs[$itemIndex]?.json || {};\n\nif (!job.job_id || job.section !== 'BUSINESS_WORK') {\n  throw new Error(\n    'BUSINESS_WORK Job 복원 실패: 입력 인덱스 ' + $itemIndex +\n    ', 조회된 Job=' + JSON.stringify(job).slice(0, 500)\n  );\n}\n\nreturn {\n  json: {\n    job,\n    naver_response: $json || {}\n  },\n  pairedItem: { item: $itemIndex }\n};"
+      },
+      "id": "cc25146a-f7ec-4b41-b31f-455a8c2e57b5",
+      "name": "3-B-5. Code - BUSINESS_WORK Naver 결과 + Job 보존",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        289552,
+        95056
+      ],
+      "notes": "이전 노드의 .item 연결에 의존하지 않고 $itemIndex 기준으로 Job을 복원하며 pairedItem을 명시합니다."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/news",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ q: $json.job.q, gl: $json.job.gl, hl: $json.job.hl, num: $json.job.num, tbs: $json.job.tbs }) }}",
+        "options": {}
+      },
+      "id": "af1b1d83-b499-4991-9344-eff6dcf6920b",
+      "name": "3-B-7. HTTP Request - BUSINESS_WORK Serper News",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        289792,
+        95056
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "f995YWhME6zw2vSb",
+          "name": "Header Auth account 2"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "BUSINESS_WORK Naver 결과와 동일한 키워드로 Serper를 지연 없이 처리합니다. 실패할 때만 재시도합니다."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const packedItems = $('3-B-5. Code - BUSINESS_WORK Naver 결과 + Job 보존').all();\nconst packed = packedItems[$itemIndex]?.json || {};\n\nif (!packed.job?.job_id || packed.job.section !== 'BUSINESS_WORK') {\n  throw new Error(\n    'BUSINESS_WORK Naver 결과와 Serper 결과 통합 실패: 입력 인덱스 ' + $itemIndex +\n    ', 보존 데이터=' + JSON.stringify(packed).slice(0, 700)\n  );\n}\n\nreturn {\n  json: {\n    job: packed.job,\n    naver_response: packed.naver_response || {},\n    serper_response: $json || {}\n  },\n  pairedItem: { item: $itemIndex }\n};"
+      },
+      "id": "d17613e7-7438-4db3-a340-28552621666a",
+      "name": "3-B-8. Code - BUSINESS_WORK Naver + Serper 통합",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        290048,
+        95056
+      ],
+      "notes": "Naver 보존 결과를 $itemIndex로 직접 매칭하여 Serper 결과와 결합합니다. .item 참조 유실로 후보가 []가 되는 문제를 방지합니다."
+    },
+    {
+      "parameters": {
+        "jsCode": "const inputs = $input.all().map(x => x.json || {});\nconst candidates = [];\nconst branchSection = 'BUSINESS_WORK';\n\nif (!inputs.length) {\n  throw new Error(branchSection + ' 통합 입력이 0건입니다. Naver/Serper 통합 노드 연결을 확인하세요.');\n}\n\nconst invalidInputs = inputs.filter(x => !x.job?.job_id || x.job.section !== branchSection);\nif (invalidInputs.length) {\n  throw new Error(\n    branchSection + ' 데이터 전달 오류: 전체 ' + inputs.length + '건 중 ' +\n    invalidInputs.length + '건에 유효한 Job이 없습니다. 샘플=' +\n    JSON.stringify(invalidInputs[0]).slice(0, 900)\n  );\n}\n\nconst naverErrorCount = inputs.filter(x => x.naver_response?.error).length;\nconst serperErrorCount = inputs.filter(x => x.serper_response?.error).length;\n\nfunction stripHtml(v) {\n  return String(v || '')\n    .replace(/<script[\\s\\S]*?<\\/script>/gi, ' ')\n    .replace(/<style[\\s\\S]*?<\\/style>/gi, ' ')\n    .replace(/<[^>]+>/g, ' ')\n    .replace(/&quot;/g, '\"')\n    .replace(/&amp;/g, '&')\n    .replace(/&#39;/g, \"'\")\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\nfunction norm(v) {\n  return stripHtml(v).toLowerCase();\n}\nfunction contains(text, term) {\n  const t = norm(term);\n  return t ? norm(text).includes(t) : false;\n}\nfunction daysAgo(v) {\n  if (!v) return 99;\n  const d = new Date(v);\n  if (isNaN(d.getTime())) return 99;\n  return Math.floor((Date.now() - d.getTime()) / 86400000);\n}\nfunction dateValue(v) {\n  const d = new Date(v || 0);\n  return isNaN(d.getTime()) ? 0 : d.getTime();\n}\n\nconst STOP = new Set([\n  '삼성전자','삼성','전자','기업','관련','대한','이번','최근','통해','위해','있는','한다',\n  '했다','밝혔다','추진','계획','사업','시장','산업','정부','국내','글로벌','뉴스',\n  '기자','단독','속보','전망','발표','확대','강화','지원','구축','운영','전환'\n]);\n\nfunction tokens(v) {\n  return norm(v)\n    .replace(/[^0-9a-z가-힣%]/g, ' ')\n    .split(/\\s+/)\n    .map(x => x.trim())\n    .filter(x => x.length >= 2 && !STOP.has(x));\n}\nfunction tokenSet(v) {\n  return new Set(tokens(v));\n}\nfunction jaccard(a, b) {\n  const A = a instanceof Set ? a : tokenSet(a);\n  const B = b instanceof Set ? b : tokenSet(b);\n  if (!A.size || !B.size) return 0;\n  let inter = 0;\n  for (const x of A) if (B.has(x)) inter++;\n  const union = A.size + B.size - inter;\n  return union ? inter / union : 0;\n}\nfunction sharedCount(a, b) {\n  let n = 0;\n  for (const x of a) if (b.has(x)) n++;\n  return n;\n}\nfunction importantTokens(v) {\n  return tokens(v).filter(x =>\n    /\\d/.test(x) || x.length >= 3\n  );\n}\nfunction sameIssue(a, b) {\n  if (a.section !== b.section) return false;\n  if ((a.target || '') !== (b.target || '')) return false;\n  if ((a.category || '') !== (b.category || '')) return false;\n\n  const A = tokenSet(`${a.title} ${a.summary}`);\n  const B = tokenSet(`${b.title} ${b.summary}`);\n  const titleSim = jaccard(a.title, b.title);\n  const allSim = jaccard(A, B);\n  const shared = sharedCount(A, B);\n\n  const impA = new Set(importantTokens(a.title));\n  const impB = new Set(importantTokens(b.title));\n  const sharedImportant = sharedCount(impA, impB);\n\n  // 같은 사건 판단:\n  // - 제목 유사도 0.42 이상\n  // - 전체 토큰 유사도 0.34 이상\n  // - 또는 중요 고유어·숫자 3개 이상 공유\n  return titleSim >= 0.42 || allSim >= 0.34 || sharedImportant >= 3 || shared >= 5;\n}\n\nfunction processResults(job, source, results) {\n  for (const r of results) {\n    if (!r.title || !r.url) continue;\n    const text = `${r.title} ${r.summary}`;\n\n    if ((job.exclude_terms || []).some(term => contains(text, term))) continue;\n\n    // CLIENT WATCH: target이 제목 또는 요약에 반드시 있어야 함\n    if (job.section === 'CLIENT_WATCH' && job.target && !contains(text, job.target)) continue;\n\n    // BUSINESS_WORK 관련성 판단:\n    // 긴 검색 문구 전체가 기사에 그대로 등장할 것을 요구하지 않는다.\n    // keyword의 핵심 토큰과 include_terms가 기사 제목/요약에 얼마나 겹치는지로 판단한다.\n    let businessKeywordTokenHits = 0;\n    let businessTitleTokenHits = 0;\n    let businessIncludeHits = 0;\n    let businessTitleIncludeHits = 0;\n\n    if (job.section === 'BUSINESS_WORK') {\n      const keywordTokens = [...new Set(tokens(job.keyword))]\n        .filter(t => !['기업', '고객', '업무', '도입', '동향', '혁신', '운영'].includes(t));\n\n      businessKeywordTokenHits = keywordTokens.filter(t => contains(text, t)).length;\n      businessTitleTokenHits = keywordTokens.filter(t => contains(r.title, t)).length;\n      businessIncludeHits = (job.include_terms || []).filter(term => contains(text, term)).length;\n      businessTitleIncludeHits = (job.include_terms || []).filter(term => contains(r.title, term)).length;\n\n      const titleSignal = businessTitleTokenHits >= 1 || businessTitleIncludeHits >= 1;\n      const bodySignal = businessKeywordTokenHits + businessIncludeHits;\n\n      // 제목에 핵심 신호가 하나라도 있거나, 제목+요약 전체에서 관련 신호가 2개 이상이면 통과.\n      if (!titleSignal && bodySignal < 2) continue;\n    }\n\n    let score = 0;\n\n    if (job.target) {\n      if (contains(r.title, job.target)) score += 45;\n      else if (contains(r.summary, job.target)) score += 25;\n    }\n\n    if (job.keyword) {\n      if (contains(r.title, job.keyword)) score += 30;\n      else if (contains(r.summary, job.keyword)) score += 16;\n    }\n\n    if (job.section === 'BUSINESS_WORK') {\n      score += Math.min(28, businessTitleTokenHits * 9 + businessKeywordTokenHits * 5);\n      score += Math.min(24, businessTitleIncludeHits * 10 + businessIncludeHits * 5);\n    }\n\n    let includeHitCount = 0;\n    for (const term of (job.include_terms || [])) {\n      if (contains(text, term)) {\n        includeHitCount += 1;\n        score += contains(r.title, term) ? 9 : 5;\n      }\n    }\n\n    const age = daysAgo(r.published_at);\n    // 검색엔진(Naver/Serper)의 날짜 필터가 항상 정확하게 걸러주는 게 아니라서\n    // (오래된 기사가 재노출·재인덱싱되며 최근 검색 결과에 섞여 들어오는 경우가 있음),\n    // 발행일이 확인되고 그게 분명히 대상 기간(최근 7일)을 크게 벗어나면\n    // 점수와 무관하게 후보 자체에서 제외한다. 발행일을 못 읽은 경우(0)는 배제하지 않는다.\n    if (r.published_at && age > 10) continue;\n    if (age <= 2) score += 18;\n    else if (age <= 4) score += 12;\n    else if (age <= 7) score += 6;\n\n    score += Math.max(0, 15 - Number(r.position || 99));\n    if (source === 'NAVER' && job.section === 'CLIENT_WATCH') score += 8;\n\n    candidates.push({\n      job_id: job.job_id,\n      section: job.section,\n      category: job.category,\n      target: job.target,\n      keyword: job.keyword,\n      title: r.title,\n      url: r.url,\n      summary: r.summary,\n      published_at: r.published_at,\n      source_name: r.source_name,\n      search_source: source,\n      include_hit_count: includeHitCount,\n      score,\n      period_start: job.period_start,\n      period_end: job.period_end\n    });\n  }\n}\n\nfor (const input of inputs) {\n  const job = input.job || {};\n  const naver = input.naver_response || {};\n  const serper = input.serper_response || {};\n\n  const naverResults = (Array.isArray(naver.items) ? naver.items : []).map((r, idx) => ({\n    title: stripHtml(r.title),\n    url: String(r.originallink || r.link || '').trim(),\n    summary: stripHtml(r.description),\n    published_at: r.pubDate || null,\n    source_name: 'Naver News',\n    position: idx + 1\n  }));\n\n  const serperResults = (Array.isArray(serper.news) ? serper.news :\n                         Array.isArray(serper.organic) ? serper.organic : [])\n    .map((r, idx) => ({\n      title: stripHtml(r.title),\n      url: String(r.link || r.url || '').trim(),\n      summary: stripHtml(r.snippet || r.description),\n      published_at: r.date || null,\n      source_name: r.source || '',\n      position: Number(r.position || idx + 1)\n    }));\n\n  processResults(job, 'NAVER', naverResults);\n  processResults(job, 'SERPER', serperResults);\n}\n\nfunction normUrl(u) {\n  return String(u || '')\n    .replace(/#.*$/, '')\n    .replace(/[?&](utm_[^=&]+|nclick)=[^&]*/gi, '')\n    .replace(/[?&]$/, '')\n    .replace(/\\/$/, '');\n}\nfunction exactTitleKey(t) {\n  return norm(t).replace(/[^0-9a-z가-힣]/g, '').slice(0, 70);\n}\n\n// 1차: URL·거의 동일 제목 제거\nconst exactMap = new Map();\nfor (const c of candidates.sort((a,b) => b.score - a.score)) {\n  const key = `${c.section}|${normUrl(c.url)}|${exactTitleKey(c.title)}`;\n  if (!exactMap.has(key)) {\n    exactMap.set(key, {...c, found_in_sources: [c.search_source]});\n  } else {\n    const cur = exactMap.get(key);\n    if (!cur.found_in_sources.includes(c.search_source)) {\n      cur.found_in_sources.push(c.search_source);\n      cur.score += 15;\n    }\n  }\n}\nconst exactDeduped = [...exactMap.values()];\n\n// 2차: 동일 사건 클러스터링\nconst clusters = [];\nfor (const article of exactDeduped.sort((a,b) => b.score - a.score)) {\n  let cluster = clusters.find(c => sameIssue(c.representative, article));\n  if (!cluster) {\n    cluster = {\n      representative: article,\n      articles: [],\n      urls: [],\n      titles: [],\n      sources: new Set(),\n      total_score: 0\n    };\n    clusters.push(cluster);\n  }\n\n  cluster.articles.push(article);\n  cluster.urls.push(article.url);\n  cluster.titles.push(article.title);\n  cluster.sources.add(article.source_name || article.search_source);\n  cluster.total_score += article.score;\n\n  if (article.score > cluster.representative.score) {\n    cluster.representative = article;\n  }\n}\n\nconst allTopicItems = clusters.map((c, idx) => {\n  const r = c.representative;\n  const uniqueUrls = [...new Set(c.urls)].slice(0, 5);\n  const uniqueTitles = [...new Set(c.titles)].slice(0, 5);\n  const articleCount = c.articles.length;\n  const sourceCount = c.sources.size;\n\n  // 대표 요약은 점수가 높은 기사 2개의 요약을 중복 없이 결합\n  const summaries = [...new Set(\n    c.articles\n      .sort((a,b) => b.score - a.score)\n      .map(x => x.summary)\n      .filter(Boolean)\n  )].slice(0,2);\n\n  return {\n    topic_id: `${r.section}-${r.category || 'GENERAL'}-${String(idx+1).padStart(2,'0')}`,\n    section: r.section,\n    category: r.category,\n    target: r.target,\n    keyword: r.keyword,\n    representative_title: r.title,\n    combined_summary: summaries.join(' / ').slice(0, 200),\n    article_count: articleCount,\n    source_count: sourceCount,\n    source_urls: uniqueUrls,\n    source_titles: uniqueTitles,\n    published_at: r.published_at,\n    score: r.score + Math.min(20, (articleCount - 1) * 6) + Math.min(12, (sourceCount - 1) * 4),\n    period_start: r.period_start,\n    period_end: r.period_end,\n    selection_basis: 'SCORE_PASS'\n  };\n}).sort((a,b) => b.score - a.score);\n\n// 기본 품질 기준을 통과한 토픽\nconst qualifiedTopicItems = allTopicItems\n  .filter(x => x.section !== 'CLIENT_WATCH' || x.score >= 55)\n  .filter(x => x.section !== 'BUSINESS_WORK' || x.score >= 25)\n  .sort((a,b) => b.score - a.score);\n\n// 중요: 기존 버전은 \"키워드별 후보 보장\"이 점수 필터 뒤에서 작동해\n// 점수 기준을 넘지 못한 키워드는 후보 풀에서 완전히 사라졌다.\n// 이번 버전은 하드 관련성 필터를 통과한 allTopicItems에서 keyword별 최고 후보를\n// 보완하되, 지나치게 약한 후보는 낮춘 fallback 점수 기준으로 한 번 더 제한한다.\nfunction addKeywordFallbacks(qualified, allItems) {\n  const result = [...qualified];\n  const topicIds = new Set(result.map(x => x.topic_id));\n  const represented = new Set(result.map(x => `${x.section}|${x.keyword}`));\n  const bestBySectionKeyword = new Map();\n\n  for (const item of allItems) {\n    const key = `${item.section}|${item.keyword}`;\n    if (!bestBySectionKeyword.has(key)) bestBySectionKeyword.set(key, item);\n  }\n\n  for (const [key, item] of bestBySectionKeyword.entries()) {\n    if (represented.has(key) || topicIds.has(item.topic_id)) continue;\n\n    const fallbackFloor = item.section === 'CLIENT_WATCH' ? 38 : 15;\n    if (item.score < fallbackFloor) continue;\n\n    result.push({ ...item, selection_basis: 'KEYWORD_FALLBACK' });\n    represented.add(key);\n    topicIds.add(item.topic_id);\n  }\n\n  return result.sort((a,b) => b.score - a.score);\n}\n\nconst topicItems = addKeywordFallbacks(qualifiedTopicItems, allTopicItems);\n\n// 3차: keyword·category 다양성 제한\nfunction selectDiverse(items, maxTotal, maxPerKeyword, maxPerCategory) {\n  const sorted = [...items].sort((a, b) => b.score - a.score);\n  const selected = [];\n  const selectedTopicIds = new Set();\n  const keywordCounts = new Map();\n  const categoryCounts = new Map();\n\n  function addItem(item) {\n    if (!item || selected.length >= maxTotal) return false;\n\n    const topicId = item.topic_id || '';\n    const keyword = item.keyword || 'NONE';\n    const category = item.category || 'NONE';\n\n    if (topicId && selectedTopicIds.has(topicId)) return false;\n    if ((keywordCounts.get(keyword) || 0) >= maxPerKeyword) return false;\n    if ((categoryCounts.get(category) || 0) >= maxPerCategory) return false;\n\n    selected.push(item);\n    if (topicId) selectedTopicIds.add(topicId);\n    keywordCounts.set(keyword, (keywordCounts.get(keyword) || 0) + 1);\n    categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1);\n    return true;\n  }\n\n  // 1차: 검색 결과가 존재하는 각 keyword의 최고 점수 후보를 1개씩 우선 확보한다.\n  // 후보가 없는 keyword는 억지로 생성하지 않는다.\n  const bestByKeyword = new Map();\n  for (const item of sorted) {\n    const keyword = item.keyword || 'NONE';\n    if (!bestByKeyword.has(keyword)) bestByKeyword.set(keyword, item);\n  }\n  for (const item of bestByKeyword.values()) {\n    if (selected.length >= maxTotal) break;\n    addItem(item);\n  }\n\n  // 2차: 남은 자리는 전체 점수 순으로 채워 경쟁시킨다.\n  for (const item of sorted) {\n    if (selected.length >= maxTotal) break;\n    addItem(item);\n  }\n\n  return selected;\n}\n\nfunction candidatePoolSize(items) {\n  const keywordCount = new Set(\n    items.map(x => String(x.keyword || '').trim()).filter(Boolean)\n  ).size;\n\n  // 기존 16개 상한은 유지하되, 활성 keyword가 더 많으면 최대 24개까지 확장한다.\n  // 12개 CLIENT_WATCH / 20개 BUSINESS_WORK 구성에서는 각각 16개 / 20개 수준이다.\n  return Math.min(24, Math.max(16, keywordCount));\n}\n\n\n// ─────────────────────────────────────────────\n// 회사 맥락 문서(Google Docs) 읽기 - \"2단계\" 워크플로우와 동일 로직\n// ─────────────────────────────────────────────\nfunction extractTextFromGoogleDocsBody(body) {\n  const chunks = [];\n  const walk = (node) => {\n    if (!node || typeof node !== 'object') return;\n    if (node.textRun && typeof node.textRun.content === 'string') {\n      chunks.push(node.textRun.content);\n      return;\n    }\n    for (const key of Object.keys(node)) {\n      const value = node[key];\n      if (Array.isArray(value)) value.forEach(walk);\n      else if (value && typeof value === 'object') walk(value);\n    }\n  };\n  walk(body);\n  return chunks.join('');\n}\n\nfunction pickGoogleDocText(obj) {\n  if (typeof obj === 'string') return obj;\n  if (!obj || typeof obj !== 'object') return '';\n  if (typeof obj.content === 'string') return obj.content;\n  if (typeof obj.text === 'string') return obj.text;\n  if (typeof obj.data === 'string') return obj.data;\n  if (typeof obj.body === 'string') return obj.body;\n  if (obj.body && Array.isArray(obj.body.content)) return extractTextFromGoogleDocsBody(obj.body);\n  if (Array.isArray(obj.content)) return extractTextFromGoogleDocsBody({ content: obj.content });\n  return JSON.stringify(obj);\n}\n\nfunction cleanCompanyContext(text) {\n  return String(text || '')\n    .replace(/\\r/g, '\\n')\n    .replace(/\\n{3,}/g, '\\n\\n')\n    .replace(/[ \\t]+/g, ' ')\n    .trim()\n    .slice(0, 2000);\n}\n\nfunction looksLikeGoogleErrorOrHtml(text) {\n  const s = String(text || '').slice(0, 2000);\n  return (\n    s.includes(\"window['ppConfig']\") ||\n    s.includes('페이지를 찾을 수 없음') ||\n    s.includes('현재 파일을 열 수 없습니다') ||\n    s.includes('<!DOCTYPE html') ||\n    s.includes('<html') ||\n    s.includes('Bad request') ||\n    s.includes('The resource you are requesting could not be found')\n  );\n}\n\nlet googleDocJson = {};\ntry {\n  googleDocJson = $('0-C. Google Docs - 회사 맥락 문서 읽기').item.json || {};\n} catch (e) {\n  googleDocJson = {};\n}\n\nconst googleDocsNodeFailed = !!(googleDocJson.error || String(googleDocJson.message || '').includes('Bad request'));\nlet companyContextRaw = googleDocsNodeFailed ? '' : pickGoogleDocText(googleDocJson);\nif (looksLikeGoogleErrorOrHtml(companyContextRaw)) companyContextRaw = '';\n\nconst companyContext = cleanCompanyContext(companyContextRaw) || `[회사 업무 맥락]\n- 회사 맥락 문서를 불러오지 못했습니다. 이 경우 후보 자체의 사실관계만 기준으로 평가합니다.\n- Google Docs 노드에 접근 권한이 있는 OAuth2 credential이 연결되어 있는지 확인하세요.`;\n\n// 검색·평가 단계에서는 최종 뉴스레터 게재 수보다 넓게 DB에 축적한다.\n// 후보가 충분한 경우 이 분기에서 최대 8개를 저장하고, 실제 뉴스레터 생성 단계에서 다시 4~6개로 압축한다.\nconst branchItems = topicItems.filter(x => x.section === branchSection);\n\nconst grouped = { CLIENT_WATCH: [], BUSINESS_WORK: [] };\ngrouped[branchSection] = selectDiverse(\n  branchItems,\n  candidatePoolSize(branchItems),\n  3,\n  6\n);\n\nconst desiredCount = Math.min(8, grouped[branchSection].length);\n\nif (!grouped[branchSection].length) {\n  const firstJobForError = inputs.find(x => x.job?.job_id)?.job || {};\n  throw new Error(\n    branchSection + ' 통합 이슈 후보가 0건입니다. ' +\n    'Job 입력=' + inputs.length + '건, Naver 오류=' + naverErrorCount +\n    '건, Serper 오류=' + serperErrorCount + '건, 기간=' +\n    String(firstJobForError.period_start || '') + '~' + String(firstJobForError.period_end || '') +\n    '. 데이터 전달은 정상이며 검색 결과/기간/관련성 필터를 확인하세요.'\n  );\n}\n\nconst prompt = `너는 BPO사업본부 보직자를 위한 주간 뉴스레터 리서치 편집자다.\n입력은 기사 목록이 아니라 동일 사건을 통합한 '이슈(topic)' 목록이다.\n이번 분기에서는 ${branchSection} 섹션만 평가한다.\n\n[선택 원칙]\n- 동일 topic_id는 하나의 이슈이므로 중복 출력하지 않는다.\n- ${branchSection} 이슈를 반드시 정확히 ${desiredCount}개 선택한다.\n- 위 개수는 실제 후보 수를 반영해 계산된 값이다. 후보가 존재하는데 임의로 적은 수에서 멈추지 말고 지정된 개수를 모두 출력한다.\n- 지정 개수가 0이면 섹션 헤더만 출력하지 말고, 후보에 없는 사실이나 이슈도 만들지 않는다.\n- 동일 category는 최대 3개까지만 선택한다.\n- 가능하면 서로 다른 category와 keyword를 우선한다.\n- BPO·AI·AX·조직 운영·경영지원 서비스와 직접 연결되는 이슈만 선택한다.\n- 총무·사내물류·정보보호·채용지원·외국인 임직원 지원·복리후생·사택·공유오피스·교육장·Payroll 등 실제 사업영역과 연결 가능성을 우선한다.\n- AI 자동화·문서 파싱·상담 분류·SLA 관리·데이터 연동의 사업기회와 도급·파견·개인정보·보안·국외이전·AI 책임 리스크를 함께 고려한다.\n- 단순 지역행정, 행사, 이전, 홍보 기사에서 AX가 부수적으로 언급된 경우 제외한다.\n- TITLE은 입력된 기사 원제목을 그대로 베끼지 말고 핵심을 담아 새로 작성한다.\n- source_urls는 입력된 URL만 사용한다.\n- 기사 여러 개가 같은 사건을 보도한 경우 하나의 통합 이슈로 작성한다.\n\n[작성 수준 - 1차 독자는 CL4 이상 보직자(센터장·그룹장·사업부장·임원)다]\n- 실무자용 상세 리포트가 아니라, 바쁜 보직자가 이 항목만 읽고도 핵심을 파악해 회의나 의사결정에 바로 참고할 수 있는 수준으로 쓴다. 다만 짧다고 부실해도 된다는 뜻은 아니다.\n- SUMMARY는 1문장으로 끝내지 말고 2~3문장으로 작성한다. 가능하면 ①무슨 일이 일어났는지(주체·행동), ②규모·수치(투자금액, 인원, 비율, 생산량 등 원문에 있는 경우), ③시점(언제 발표·시행됐는지)을 구체적으로 담는다. \"가속화되고 있습니다\", \"확대되고 있습니다\" 같은 막연한 서술로만 끝내지 말고, 그 뒤에 원문에 있는 구체적 근거 문장을 반드시 덧붙인다. 원문에 수치·시점이 없으면 지어내지 말고 정성적 서술만 남긴다.\n- IMPLICATION은 \"~할 기회입니다\" 같은 상투적 한 줄로 끝내지 않는다. (1) 이 사안이 BPO사업본부 운영·사업에 구체적으로 어떤 의미인지, (2) 보직자가 무엇을 검토·논의해야 하는지를 담아 2문장 내외로 작성한다. 가능하면 관련 서비스 영역(Payroll, GA, Global Mobility, Shared Service Center, AI 거버넌스·컴플라이언스 등)을 구체적으로 짚는다. 여러 이슈의 IMPLICATION이 서로 비슷한 문장 구조나 표현으로 반복되지 않도록 각 사안의 실제 맥락에 맞게 쓴다.\n- 절대 JSON, 마크다운 코드블록, 중괄호 표시를 사용하지 마라.\n- 아래 [출력 형식]을 글자 그대로 지켜 일반 텍스트로만 출력한다.\n- 각 필드 값은 줄바꿈 없이 한 줄로 작성한다.\n- 값 안에 파이프 기호(|)는 사용하지 않는다.\n- SOURCE_URLS와 SOURCE_TITLES의 복수 값은 \" || \"로만 구분한다.\n- 이슈 사이는 반드시 한 줄에 @@@만 써서 구분한다.\n- 섹션 시작은 반드시 ##${branchSection} 한 줄로 표시한다.\n- 다른 섹션의 헤더나 항목은 출력하지 않는다.\n\n[출력 형식]\n##BUSINESS_WORK\nTOPIC_ID: BUSINESS_WORK-AX-01\nTITLE: 여기에 제목\nSUMMARY: 여기에 요약\nIMPLICATION: 여기에 시사점\nPRIORITY: 1\nEVIDENCE_LEVEL: MEDIUM\nSOURCE_URLS: https://example.com/c\nSOURCE_TITLES: 기사제목3\nCATEGORY: AX\nTARGET: 기업 고객\nKEYWORD: 기업 AX 전환\n@@@\n\n[회사 업무 맥락 / 내부 기준 문서]\n${companyContext}\n\n[회사 맥락 활용 지시]\n- 위 회사 업무 맥락은 각 후보가 우리 조직과 관련 있는지 판단하는 기준으로 활용하라.\n- 후보 자체에 없는 사실을 회사 맥락만으로 지어내지 말고 관련성 판단에만 사용하라.\n\n[통합 이슈 후보]\n${JSON.stringify(grouped[branchSection], null, 2)}`;\n\nconst first = topicItems[0] || {};\nconst firstJob = inputs.find(x => x.job?.job_id)?.job || {};\nreturn [{\n  json: {\n    branch_section: branchSection,\n    period_start: first.period_start || firstJob.period_start || '',\n    period_end: first.period_end || firstJob.period_end || '',\n    input_job_count: inputs.length,\n    naver_error_count: naverErrorCount,\n    serper_error_count: serperErrorCount,\n    original_article_count: candidates.length,\n    all_topic_count: allTopicItems.length,\n    qualified_topic_count: qualifiedTopicItems.length,\n    topic_count: topicItems.length,\n    grouped_candidate_count: {\n      CLIENT_WATCH: grouped.CLIENT_WATCH.length,\n      BUSINESS_WORK: grouped.BUSINESS_WORK.length\n    },\n    desired_output_count: { [branchSection]: desiredCount },\n    grouped_candidates: grouped,\n    prompt\n  }\n}];\n"
+      },
+      "id": "64798eb2-db0a-4646-9e87-351f442d5591",
+      "name": "3-B-10. Code - BUSINESS_WORK 후보 정리 + AI 평가 프롬프트",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        290288,
+        95056
+      ],
+      "notes": "BUSINESS_WORK Job 전달 상태와 Naver/Serper 오류 수를 먼저 검증합니다. 후보가 비었을 때 LLM에 []를 보내지 않고 원인을 명확히 표시합니다. BUSINESS_WORK는 긴 키워드 문장 완전일치 대신 핵심 토큰 중첩으로 관련성을 판정합니다."
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "제공된 BUSINESS_WORK 후보만 평가하고 사용자 메시지의 정확한 선택 개수를 모두 출력한다. 반드시 ##BUSINESS_WORK로 시작하는 구분자 형식만 사용하고, 다른 섹션·JSON·마크다운 코드블록·설명문은 출력하지 마라."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "4facd233-fb7c-456d-895c-43b32e49c0e1",
+      "name": "3-B-11. Basic LLM Chain - BUSINESS_WORK 평가",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        290544,
+        95056
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        290544,
+        95248
+      ],
+      "id": "ee0a44c4-f729-48b1-bd37-acab3ffbe5bd",
+      "name": "Google Gemini - 3-B BUSINESS_WORK",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "UmQBA3vsLpvPlcZz",
+          "name": "Google Gemini 90일 무료(7/14~)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ========================================================\n// 3-A-6. 구분자 기반 출력 결과 정리 + 행 분리\n// JSON.parse를 아예 쓰지 않음 - 모델이 따옴표를 이스케이프할\n// 필요가 없는 텍스트 포맷(##섹션 / FIELD: 값 / @@@ 구분자)을\n// 줄 단위로 읽어서 파싱한다. JSON 문법 오류 자체가 발생할 수 없음.\n// ========================================================\n\nconst base = $('3-B-10. Code - BUSINESS_WORK 후보 정리 + AI 평가 프롬프트').first().json;\n\nconst FIELD_KEY_MAP = {\n  TOPIC_ID: 'topic_id',\n  TITLE: 'title',\n  SUMMARY: 'summary',\n  IMPLICATION: 'implication',\n  PRIORITY: 'priority',\n  EVIDENCE_LEVEL: 'evidence_level',\n  SOURCE_URLS: 'source_urls',\n  SOURCE_TITLES: 'source_titles',\n  CATEGORY: 'category',\n  TARGET: 'target',\n  KEYWORD: 'keyword'\n};\n\nfunction splitMulti(v) {\n  return String(v || '')\n    .split('||')\n    .map(x => x.trim())\n    .filter(Boolean);\n}\n\nfunction parseDelimitedOutput(rawText) {\n  let text = String(rawText || '').trim();\n\n  // 혹시 모델이 실수로 코드펜스를 붙였어도 무해하게 제거\n  text = text.replace(/^```[a-zA-Z]*\\s*/, '').replace(/```\\s*$/, '').trim();\n\n  const sections = { CLIENT_WATCH: [], BUSINESS_WORK: [] };\n  let currentSection = null;\n  let currentItem = null;\n  let currentField = null;\n\n  function flushItem() {\n    if (currentItem && currentSection && Object.keys(currentItem).length) {\n      sections[currentSection].push(currentItem);\n    }\n    currentItem = null;\n    currentField = null;\n  }\n\n  const lines = text.split(/\\r?\\n/);\n\n  for (const rawLine of lines) {\n    const line = rawLine.trim();\n    if (!line) continue;\n\n    const upper = line.toUpperCase();\n\n    if (upper === '##CLIENT_WATCH') {\n      flushItem();\n      currentSection = 'CLIENT_WATCH';\n      continue;\n    }\n    if (upper === '##BUSINESS_WORK') {\n      flushItem();\n      currentSection = 'BUSINESS_WORK';\n      continue;\n    }\n    if (line === '@@@') {\n      flushItem();\n      continue;\n    }\n\n    // \"FIELD_NAME: 값\" 형태 매칭 (콜론 앞은 대문자/언더바만 허용)\n    const m = line.match(/^([A-Z_]+)\\s*:\\s*(.*)$/);\n    if (m && FIELD_KEY_MAP[m[1]]) {\n      if (!currentSection) continue; // 섹션 밖 잡음은 무시\n      if (!currentItem) currentItem = {};\n      currentField = FIELD_KEY_MAP[m[1]];\n      currentItem[currentField] = m[2].trim();\n      continue;\n    }\n\n    // 모델이 긴 문장을 줄바꿈한 경우: 직전 필드에 이어붙임\n    if (currentItem && currentField) {\n      currentItem[currentField] =\n        `${currentItem[currentField]} ${line}`.trim();\n    }\n  }\n  flushItem();\n\n  function finalize(list) {\n    return list\n      .filter(it => it.title) // title 없는 항목은 파싱 실패로 간주\n      .map(it => ({\n        topic_id: it.topic_id || '',\n        title: it.title || '',\n        summary: it.summary || '',\n        implication: it.implication || '',\n        priority: it.priority || '',\n        evidence_level: it.evidence_level || '',\n        source_urls: splitMulti(it.source_urls),\n        source_titles: splitMulti(it.source_titles),\n        category: it.category || '',\n        target: it.target || '',\n        keyword: it.keyword || ''\n      }));\n  }\n\n  return {\n    client_watch: finalize(sections.CLIENT_WATCH),\n    business_work: finalize(sections.BUSINESS_WORK)\n  };\n}\n\nfunction getParsedOutput(json) {\n  const rawText = (typeof json?.text === 'string' && json.text)\n    ? json.text\n    : (typeof json === 'string' ? json : '');\n\n  if (!rawText) {\n    throw new Error(\n      'LLM 응답 텍스트를 찾지 못했습니다. ' +\n      `수신 데이터: ${JSON.stringify(json).slice(0, 800)}`\n    );\n  }\n\n  const parsed = parseDelimitedOutput(rawText);\n\n  if (!parsed.client_watch.length && !parsed.business_work.length) {\n    throw new Error(\n      '구분자 포맷 파싱 결과가 비어 있습니다(모델이 형식을 안 지켰을 수 있음). ' +\n      `원문(앞부분): ${rawText.slice(0, 800)}`\n    );\n  }\n\n  return parsed;\n}\n\nfunction arr(value) {\n  return Array.isArray(value) ? value : [];\n}\n\nfunction txt(value) {\n  if (value === null || value === undefined) return '';\n  return String(value).trim();\n}\n\nfunction num(value, fallback = 50) {\n  const parsed = Number(value);\n  return Number.isFinite(parsed) ? parsed : fallback;\n}\n\nfunction normalizeEvidence(value, urlCount = 0) {\n  const evidence = txt(value).toUpperCase();\n\n  if (['HIGH', 'MEDIUM', 'LOW'].includes(evidence)) {\n    return evidence;\n  }\n\n  return urlCount >= 2 ? 'HIGH' : 'MEDIUM';\n}\n\nfunction normalizeUrls(value) {\n  if (Array.isArray(value)) {\n    return [...new Set(\n      value.map(txt).filter(Boolean)\n    )].slice(0, 5);\n  }\n\n  if (typeof value === 'string') {\n    return [...new Set(\n      value\n        .split(/[\\n,]+/)\n        .map(x => x.trim())\n        .filter(Boolean)\n    )].slice(0, 5);\n  }\n\n  return [];\n}\n\nconst parsed = getParsedOutput($json);\n\n// 안전망: AI가 델리미터 포맷으로 URL을 다시 타이핑하는 과정에서\n// 지어낼 가능성에 대비해, 실제 후보(3-A-7이 만든 grouped_candidates)에\n// 있던 URL과 대조해서 없는 건 제거한다.\nconst verifiedUrlSet = new Set(\n  Object.values(base.grouped_candidates || {})\n    .flat()\n    .flatMap(c => Array.isArray(c?.source_urls) ? c.source_urls.map(u => String(u).trim()) : [])\n    .filter(Boolean)\n);\n\nfunction keepOnlyVerifiedUrls(urls) {\n  return urls.filter(u => verifiedUrlSet.has(String(u).trim()));\n}\n\nconst now = new Date().toISOString();\nconst periodStart = txt(base.period_start);\nconst periodEnd = txt(base.period_end);\nconst period = periodStart && periodEnd\n  ? `${periodStart}~${periodEnd}`\n  : '';\n\nconst output = [];\nconst usedTopicIds = new Set();\nconst categoryCounts = new Map();\n\nfunction pushItems(items, section) {\n  const sectionItems = arr(items).slice(0, 10);\n\n  for (let index = 0; index < sectionItems.length; index++) {\n    const item = sectionItems[index] || {};\n    const category = txt(item.category) || 'GENERAL';\n    const topicId =\n      txt(item.topic_id) ||\n      `${section}-${category}-${index + 1}`;\n\n    const categoryKey = `${section}|${category}`;\n\n    if (usedTopicIds.has(topicId)) continue;\n\n    const currentCategoryCount =\n      categoryCounts.get(categoryKey) || 0;\n\n    if (currentCategoryCount >= 3) continue;\n\n    const title = txt(item.title);\n    const summary = txt(item.summary);\n    const implication = txt(item.implication);\n\n    if (!title || (!summary && !implication)) continue;\n\n    const urls = keepOnlyVerifiedUrls(normalizeUrls(item.source_urls));\n\n    usedTopicIds.add(topicId);\n    categoryCounts.set(\n      categoryKey,\n      currentCategoryCount + 1\n    );\n\n    const sequence = output.length + 1;\n    const randomCode = Math.random()\n      .toString(36)\n      .slice(2, 6)\n      .toUpperCase();\n\n    const dateCode = periodEnd\n      ? periodEnd.replace(/-/g, '')\n      : new Date()\n          .toISOString()\n          .slice(0, 10)\n          .replace(/-/g, '');\n\n    const itemId =\n      `NLR-${dateCode}-${section}-${sequence}-${randomCode}`;\n\n    const normalizedEvidence = normalizeEvidence(\n      item.evidence_level,\n      urls.length\n    );\n\n    const rawRecord = {\n      topic_id: topicId,\n      title,\n      summary,\n      implication,\n      priority: num(item.priority),\n      evidence_level: normalizedEvidence,\n      source_urls: urls,\n      source_titles: arr(item.source_titles)\n        .map(txt)\n        .filter(Boolean)\n        .slice(0, 5),\n      category,\n      target: txt(item.target),\n      keyword: txt(item.keyword)\n    };\n\n    output.push({\n      json: {\n        item_id: itemId,\n        collected_at: now,\n        research_period: period,\n        section,\n        source_pipeline: 'WEB_RESEARCH_TOPIC_CLUSTER',\n        category,\n        target: txt(item.target),\n        keyword: txt(item.keyword),\n        title,\n        summary,\n        implication,\n        source_urls: urls.join('\\n'),\n        evidence_level: normalizedEvidence,\n        priority: num(item.priority),\n        raw_json: JSON.stringify(rawRecord)\n      }\n    });\n  }\n}\n\npushItems(parsed.client_watch, 'CLIENT_WATCH');\npushItems(parsed.business_work, 'BUSINESS_WORK');\n\nif (!output.length) {\n  throw new Error(\n    '파싱은 성공했지만 저장할 항목이 없습니다. ' +\n    `수신 데이터: ${JSON.stringify(parsed).slice(0, 1500)}`\n  );\n}\n\nreturn output;\n"
+      },
+      "id": "3714c784-d11b-4d9b-838d-f9790140bb95",
+      "name": "3-B-12. Code - BUSINESS_WORK 평가 결과 정리 + 행 분리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        290800,
+        95056
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
+          "mode": "list",
+          "cachedResultName": "Research On DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1294785882,
+          "mode": "list",
+          "cachedResultName": "newsletter_research",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=1294785882"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "item_id",
+              "displayName": "item_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "collected_at",
+              "displayName": "collected_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "research_period",
+              "displayName": "research_period",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "section",
+              "displayName": "section",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_pipeline",
+              "displayName": "source_pipeline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "target",
+              "displayName": "target",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "keyword",
+              "displayName": "keyword",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "summary",
+              "displayName": "summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "implication",
+              "displayName": "implication",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_urls",
+              "displayName": "source_urls",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "evidence_level",
+              "displayName": "evidence_level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "priority",
+              "displayName": "priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "raw_json",
+              "displayName": "raw_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "3249b772-5d09-4de3-a407-43956f9c40b0",
+      "name": "3-B-13. Google Sheets - BUSINESS_WORK 저장",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        291040,
+        95056
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F55rrvsZtvhOvoA3",
+          "name": "Google Sheets(7/14)"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "newsletter_research 시트에 BUSINESS_WORK 항목만 저장합니다."
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "id": "d364db1e-b162-48e5-97c0-82f4a15096da",
+      "name": "3-B-14. Wait - PEOPLE_CULTURE 분기 전 10초",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        291296,
+        95264
+      ],
+      "webhookId": "0977205c-4226-4139-a533-b7a3e507726a",
+      "notes": "BUSINESS_WORK 저장이 모두 완료된 뒤 PEOPLE_CULTURE 시작 전 10초 대기합니다."
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "returnAll": true,
+        "filters": {
+          "q": "newer_than:7d from:(whatsup@newneek.co OR newsletter@the-edit.co.kr OR careet@careet.net OR putputletter-gmail.com@send.stibee.com)"
+        }
+      },
+      "id": "fd65b27a-b695-4124-9865-da3f7db923db",
+      "name": "3-C-1. Gmail - 최근 7일 메일 목록 조회",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        288768,
+        95728
+      ],
+      "webhookId": "f38e0c6a-5b4a-4143-a326-66ba74fcfec3",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "qa6HS0nnuLRBT7uR",
+          "name": "Gmail(7/14)"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "이 노드는 메일 목록과 ID를 찾는 용도입니다. 실제 본문은 다음 Gmail 단건 조회 노드에서 가져옵니다."
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "messageId": "={{ $json.id }}",
+        "simple": false,
+        "options": {}
+      },
+      "id": "1e3d0c57-5adb-491e-80fb-7ba338d87217",
+      "name": "3-C-2. Gmail - 메일 전체 본문 조회",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        289040,
+        95728
+      ],
+      "webhookId": "269356c0-9f42-4ea8-84ed-df4d5ae4a6e3",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "qa6HS0nnuLRBT7uR",
+          "name": "Gmail(7/14)"
+        }
+      },
+      "notes": "앞 노드가 반환한 Gmail message id로 각 메일을 단건 조회합니다. Simplify/Simple은 OFF여야 payload.parts와 body.data가 반환됩니다."
+    },
+    {
+      "parameters": {
+        "jsCode": "const rawMails = $input.all().map(x => x.json || {});\n\nfunction decodeBase64Url(v) {\n  if (!v) return '';\n  try {\n    let s = String(v).replace(/-/g, '+').replace(/_/g, '/');\n    while (s.length % 4) s += '=';\n    return Buffer.from(s, 'base64').toString('utf8');\n  } catch {\n    return '';\n  }\n}\n\nfunction headerValue(headers, name) {\n  const target = String(name).toLowerCase();\n  const h = (Array.isArray(headers) ? headers : [])\n    .find(x => String(x.name || '').toLowerCase() === target);\n  return h ? String(h.value || '') : '';\n}\n\nfunction collectMimeParts(part, out = []) {\n  if (!part || typeof part !== 'object') return out;\n\n  const mime = String(part.mimeType || '').toLowerCase();\n  const data = part.body?.data;\n\n  if (data && (mime === 'text/plain' || mime === 'text/html')) {\n    out.push({ mime, text: decodeBase64Url(data) });\n  }\n\n  if (data && !mime && part.body) {\n    out.push({ mime: 'text/plain', text: decodeBase64Url(data) });\n  }\n\n  for (const child of (part.parts || [])) {\n    collectMimeParts(child, out);\n  }\n\n  return out;\n}\n\nfunction decodeEntities(v) {\n  return String(v || '')\n    .replace(/&nbsp;/gi, ' ')\n    .replace(/&amp;/gi, '&')\n    .replace(/&quot;/gi, '\"')\n    .replace(/&#39;/gi, \"'\")\n    .replace(/&lt;/gi, '<')\n    .replace(/&gt;/gi, '>');\n}\n\nfunction htmlToText(html) {\n  return decodeEntities(String(html || ''))\n    .replace(/<script[\\s\\S]*?<\\/script>/gi, ' ')\n    .replace(/<style[\\s\\S]*?<\\/style>/gi, ' ')\n    .replace(/<!--[\\s\\S]*?-->/g, ' ')\n    .replace(/<(br|\\/p|\\/div|\\/li|\\/tr|\\/h\\d|\\/td)>/gi, '\\n')\n    .replace(/<[^>]+>/g, ' ')\n    .replace(/\\r/g, '');\n}\n\nfunction cleanBody(text) {\n  let s = htmlToText(text)\n    .replace(/\\u200b/g, '')\n    .replace(/[ \\t]+/g, ' ')\n    .replace(/\\n[ \\t]+/g, '\\n')\n    .replace(/\\n{3,}/g, '\\n\\n')\n    .trim();\n\n  const footerPatterns = [\n    /\\n(?:수신거부|구독 해지|unsubscribe)\\b/i,\n    /\\n(?:이 메일은 발신 전용|본 메일은 발신 전용)/i,\n    /\\n(?:copyright|all rights reserved)\\b/i\n  ];\n\n  for (const re of footerPatterns) {\n    const m = re.exec(s);\n    if (m && m.index > 500) s = s.slice(0, m.index);\n  }\n\n  // 전체 본문은 디버깅·메타 추출용으로만 보존\n  return s.slice(0, 15000);\n}\n\nfunction extractForwardedMeta(body) {\n  return {\n    sender:\n      body.match(/(?:보낸사람|From)\\s*:\\s*([^\\n]+)/i)?.[1]?.trim() || '',\n    subject:\n      body.match(/(?:제목|Subject)\\s*:\\s*([^\\n]+)/i)?.[1]?.trim() || '',\n    date:\n      body.match(/(?:날짜|Date)\\s*:\\s*([^\\n]+)/i)?.[1]?.trim() || ''\n  };\n}\n\nfunction pickBody(m) {\n  const directPlain =\n    m.textPlain || m.text || m.bodyText || m.body?.text || '';\n  const directHtml =\n    m.textHtml || m.html || m.bodyHtml || m.body?.html || '';\n\n  if (String(directPlain).trim().length > 200) {\n    return {\n      body: cleanBody(directPlain),\n      html: String(directHtml || ''),\n      source: 'DIRECT_TEXT'\n    };\n  }\n\n  if (String(directHtml).trim().length > 200) {\n    return {\n      body: cleanBody(directHtml),\n      html: String(directHtml),\n      source: 'DIRECT_HTML'\n    };\n  }\n\n  const payload = m.payload || m.message?.payload || {};\n  const parts = collectMimeParts(payload);\n\n  const plains = parts\n    .filter(x => x.mime === 'text/plain')\n    .map(x => x.text)\n    .filter(Boolean);\n\n  const htmls = parts\n    .filter(x => x.mime === 'text/html')\n    .map(x => x.text)\n    .filter(Boolean);\n\n  const plainCombined = plains.join('\\n\\n');\n  const htmlCombined = htmls.join('\\n\\n');\n\n  if (plainCombined.trim().length > 200) {\n    return {\n      body: cleanBody(plainCombined),\n      html: htmlCombined,\n      source: 'GMAIL_PAYLOAD_TEXT'\n    };\n  }\n\n  if (htmlCombined.trim().length > 200) {\n    return {\n      body: cleanBody(htmlCombined),\n      html: htmlCombined,\n      source: 'GMAIL_PAYLOAD_HTML'\n    };\n  }\n\n  return {\n    body: cleanBody(m.snippet || m.message?.snippet || ''),\n    html: '',\n    source: 'SNIPPET_FALLBACK'\n  };\n}\n\nfunction normalizeLine(v) {\n  return String(v || '')\n    .replace(/^[\\s\\-–—•·▪■◆▶▷►※★☆✨🔥📌💡🧠🛒🎬📱]+/u, '')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nfunction isSystemLine(line) {\n  return /^(from|to|date|subject|cc|bcc|보낸사람|받는사람|날짜|제목)\\s*:/i.test(line) ||\n    /^(unsubscribe|수신거부|구독 해지|광고|copyright|all rights reserved)/i.test(line) ||\n    /^(---------- forwarded message ----------|전달된 메시지)/i.test(line);\n}\n\n// 이메일 본문에 흔한 긴 URL(구독 링크·클릭 트래킹 링크 등)은\n// 트렌드 판단에 도움이 안 되면서 토큰만 잡아먹으므로 LLM 전달용 텍스트에서만 제거한다.\nfunction stripUrlsForLLM(text) {\n  return String(text || '')\n    .split(/\\n+/)\n    .map(normalizeLine)\n    .filter(x => x && !isSystemLine(x))\n    .join('\\n')\n    .replace(/\\[?https?:\\/\\/[^\\s\\]\\)]+\\]?/gi, '')\n    .replace(/[ \\t]{2,}/g, ' ')\n    .replace(/\\n{3,}/g, '\\n\\n')\n    .trim();\n}\n\n// 청크 하나의 최대 길이. 메일 본문이 이보다 길면 여러 조각(-p2, -p3...)으로\n// 나눠서 전부 LLM에 전달한다(예산 안에서만 잘라 뒷부분을 통째로 버리지 않기 위함).\n// cleanBody() 자체가 15000자에서 한 번 더 상한을 두고 있어, 조각 개수는 최대 3개 안팎이다.\nconst CHUNK_SIZE = 6000;\n\n// 순수 관리성 메일(인증메일, 구독 감사 메일 등)은 트렌드 신호가 사실상 없는데도\n// 예산만 차지해서, 캐릿처럼 \"적은 수의 메일에 긴 트렌드가 몰려있는\" 포맷의\n// 뒷부분이 잘려나가는 원인이 된다. 이런 메일은 애초에 LLM 입력에서 제외한다.\nconst TRANSACTIONAL_SUBJECT_PATTERNS = [\n  /인증\\s*(메일|해\\s*주세요|하기)/,\n  /구독\\s*(해\\s*주셔서\\s*감사|을\\s*축하|신청.*완료)/,\n  /회원\\s*가입.*축하/,\n  /환영합니다/\n];\nfunction isTransactionalMail(subject) {\n  return TRANSACTIONAL_SUBJECT_PATTERNS.some(re => re.test(String(subject || '')));\n}\n\n// 뉴스레터에 흔한 협찬/광고성 콘텐츠 블록과, 링크에서 추출된 CTA 버튼 텍스트를\n// LLM에 넘기기 전에 코드에서 최대한 걷어낸다. 트렌드 본문(예: \"맥싱\", \"윔지\" 설명)은\n// 건드리지 않도록, 확실한 패턴(협찬 바이라인·구독자 이벤트 안내·짧은 버튼 문구)만 제거한다.\nfunction stripAdContent(text) {\n  let s = String(text || '');\n\n  // \"by. OOO\" 협찬 바이라인 블록 제거 (본인 에디터 바이라인 \"by. 에디터 OOO\"는 실제 콘텐츠라 제외)\n  // 종료 지점을 \"\\n\\n / © / 끝\"뿐 아니라 \"👉 CTA문구\" 줄도 인정한다 — 실제 데이터에서 추적용\n  // URL이 200자 이상으로 길어서, 500자 안에 빈 줄이 안 나와 매칭 자체가 실패하는 경우가 있었다.\n  s = s.replace(/by\\.\\s*(?!에디터)\\S[^\\n]{0,20}\\n([\\s\\S]{0,1500}?(?:👉[^\\n]{0,60}\\n|\\n\\n|©|$))/g, '\\n');\n\n  // 구독자 혜택 / 이벤트 응모 / 당첨자 발표 안내 블록 (같은 이유로 종료 조건 보강)\n  s = s.replace(/[^\\n]{0,20}(구독자\\s*혜택)[\\s\\S]{0,800}?(?:👉[^\\n]{0,60}\\n|\\n\\n|©|$)/g, '\\n');\n  s = s.replace(/(당첨자\\s*발표|신청\\s*방식\\s*:)[\\s\\S]{0,400}?(?:\\n\\n|©|$)/g, '\\n');\n\n  // 짧은 CTA 버튼 텍스트로 추정되는 단독 줄 (링크에서 추출된 버튼 문구, 문장부호로 안 끝남)\n  s = s.split('\\n').filter(line => {\n    const t = line.trim();\n    if (!t) return true;\n    const stripped = t.replace(/[👇🚀🎁🍿🍊✈️🍉🏊🎥📚⏰🔗]/g, '').trim();\n    const isShortCta = stripped.length <= 24 &&\n      /(받기|받아보기|가기|보기|배우기|신청하기|참여하기|다운받기|시작하기|만나요|살펴보기|눌러봐요?)$/.test(stripped) &&\n      !/[.!?]$/.test(stripped);\n    return !isShortCta;\n  }).join('\\n');\n\n  return s.replace(/\\n{3,}/g, '\\n\\n').trim();\n}\n\nconst cleaned = rawMails.map((m, idx) => {\n  const payload = m.payload || m.message?.payload || {};\n  const headers = payload.headers || [];\n  const picked = pickBody(m);\n  const forwarded = extractForwardedMeta(picked.body);\n\n  const subject = String(\n    headerValue(headers, 'Subject') ||\n    m.subject ||\n    forwarded.subject ||\n    ''\n  );\n\n  const from = String(\n    headerValue(headers, 'From') ||\n    m.from?.text ||\n    m.from?.value?.[0]?.address ||\n    m.sender ||\n    forwarded.sender ||\n    ''\n  );\n\n  const date = String(\n    headerValue(headers, 'Date') ||\n    m.date ||\n    m.internalDate ||\n    forwarded.date ||\n    ''\n  );\n\n  // 광고성 문구를 먼저 걷어낸 뒤 URL/시스템 라인을 제거한다. 청크 분할 전이라\n  // 여기서는 자르지 않고 전체(=cleanBody의 15000자 상한까지)를 보존한다.\n  const bodyForLlm = stripUrlsForLLM(stripAdContent(picked.body));\n\n  return {\n    mail_id: String(m.id || m.messageId || m.message?.id || idx + 1),\n    from,\n    subject,\n    date,\n    body_source: picked.source,\n    body_length: picked.body.length,\n    payload_mime_type: String(payload.mimeType || ''),\n    payload_part_count: Array.isArray(payload.parts) ? payload.parts.length : 0,\n    body_for_llm: bodyForLlm\n  };\n});\n\nconst usable = cleaned.filter(x => x.body_length >= 300 && x.body_for_llm.length >= 100 && !isTransactionalMail(x.subject));\n\nif (!cleaned.length) {\n  throw new Error('Gmail 단건 조회 결과가 없습니다.');\n}\n\nif (!usable.length) {\n  throw new Error(\n    '메일 본문은 조회됐지만 정제된 본문이 너무 짧습니다. DEBUG=' +\n    JSON.stringify(cleaned.map(x => ({\n      mail_id: x.mail_id,\n      subject: x.subject,\n      body_source: x.body_source,\n      body_length: x.body_length,\n      body_for_llm_length: x.body_for_llm.length\n    })))\n  );\n}\n\n// 광고를 걷어내고도 여전히 CHUNK_SIZE보다 긴 메일은, 뒷부분을 버리지 않고\n// 여러 조각(mail_id, mail_id-p2, mail_id-p3...)으로 나눠 전부 LLM에 전달한다.\n// LLM에는 각 조각이 서로 다른 mail_id처럼 보이지만, 같은 원본 메일의 연속된 부분임을\n// subject에 \"(본문 N/M)\"으로 표시해 문맥이 끊기지 않게 안내한다.\nconst llmMails = usable.flatMap(x => {\n  const total = Math.max(1, Math.ceil(x.body_for_llm.length / CHUNK_SIZE));\n  const parts = [];\n  for (let i = 0; i < total; i++) {\n    const chunkBody = x.body_for_llm.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);\n    parts.push({\n      mail_id: total > 1 ? `${x.mail_id}-p${i + 1}` : x.mail_id,\n      from: x.from,\n      subject: total > 1 ? `${x.subject} (본문 ${i + 1}/${total})` : x.subject,\n      body: chunkBody\n    });\n  }\n  return parts;\n});\n\nconst prompt = `너는 젊은 세대의 소비·콘텐츠·직장생활·가치관 변화를 탐색하는 트렌드 리서처다.\n아래 입력은 외부 트렌드 뉴스레터의 정제된 본문 전문이다(광고 링크, 구독 안내 등은 제거됨).\n\n[목표]\n- 이번 단계는 최종 뉴스레터 선별이 아니라, 2단계에서 사용자가 선택할 수 있도록 후보 풀을 넓게 구축하는 단계다.\n- 이메일 문장을 그대로 요약하지 말고 웹검색으로 검증할 트렌드 후보를 추출한다.\n- 메일 제목 하나만 보고 판단하지 말고 본문 내용을 함께 본다.\n- 제품 광고, 협찬, 단일 브랜드 캠페인, 정치·사건 속보처럼 명백한 잡음만 제외한다.\n- 행동·소비·콘텐츠 이용·직장생활·가치관·라이프스타일 변화와 연결되는 후보를 우선한다.\n- 같은 현상은 하나로 통합하되, 서로 다른 하위 행동이나 소비 방식은 별도 후보로 유지할 수 있다.\n- 서로 구분되는 후보가 8개 이상이면 정확히 8개를 제시한다. 8개 미만이면 확인되는 후보를 모두 제시한다.\n- 후보가 충분한데 임의로 1~2개에서 멈추지 않는다.\n- 웹 근거가 아직 약할 것으로 예상되더라도 메일에서 반복 언급되거나 구체적인 행동·상품·콘텐츠 사례가 있으면 LOW 근거 후보로 포함할 수 있다.\n- 가능하면 직장생활·조직문화, 소비·라이프스타일, 콘텐츠·SNS·여가, 세대 가치관·커리어 영역이 골고루 포함되도록 한다.\n- mentioned_mail_ids에는 실제 입력 mail_id만 사용한다.\n- search_query는 반드시 한국어로 작성한다. 트렌드 원어 명칭이 영어(예: Maxxing, Touch grass, Whimsy)여도 search_query에는 그 영어 문구를 그대로 쓰지 말고, 한국 뉴스가 이 트렌드를 다룰 때 실제로 쓸 법한 한국어 표현으로 번역·의역하거나 keyword의 한글 표기를 사용한다. (검색은 한국 뉴스 대상이라 영어 문구로는 결과가 거의 나오지 않는다.)\n- 반드시 JSON 객체만 출력한다.\\n- 배열의 객체 사이에는 반드시 쉼표를 넣는다.\\n- 문자열 안의 큰따옴표는 반드시 \\\\\\\"로 이스케이프한다.\\n- 후행 쉼표와 주석을 사용하지 않는다.\n\n[출력]\n{\n  \"trend_candidates\": [\n    {\n      \"keyword\": \"\",\n      \"search_query\": \"\",\n      \"what_is_happening\": \"\",\n      \"why_candidate\": \"\",\n      \"mentioned_mail_ids\": [\"\"],\n      \"initial_evidence_level\": \"HIGH|MEDIUM|LOW\"\n    }\n  ]\n}\n\n[뉴스레터 본문]\n${JSON.stringify(llmMails, null, 2)}`;\n\nreturn [{\n  json: {\n    mail_count: usable.length,\n    excluded_mail_count: cleaned.length - usable.length,\n    mails: llmMails,\n    mail_debug: cleaned.map(x => ({\n      mail_id: x.mail_id,\n      subject: x.subject,\n      body_source: x.body_source,\n      body_length: x.body_length,\n      body_for_llm_length: x.body_for_llm.length\n    })),\n    prompt\n  }\n}];\n"
+      },
+      "id": "476c164f-5742-4d64-8f9f-66c491e76293",
+      "name": "3-C-3. Code - 전체 메일 본문 정제 + 후보 추출 프롬프트",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        289296,
+        95728
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "이번 단계는 최종 선별이 아니라 후보 풀 구축 단계다. 입력에서 서로 구분되는 유효 후보가 충분하면 임의로 적은 수에서 멈추지 말고 최대 8개까지 추출한다. 외부 뉴스레터에서 검증할 트렌드 후보만 추출하고 반드시 JSON 객체만 출력한다. JSON 문법을 엄격히 지켜라. 배열의 객체 사이에는 반드시 쉼표를 넣고, 문자열 내부의 큰따옴표는 반드시 \\\"로 이스케이프하라. 후행 쉼표, 주석, 설명문, 마크다운 코드블록을 절대 출력하지 마라."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "d41d31c3-7310-4643-a04f-ce4f4c4c6e44",
+      "name": "3-C-4. Basic LLM Chain - 메일 트렌드 후보 추출",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        289552,
+        95728
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        289552,
+        95920
+      ],
+      "id": "3f894f6f-1ea4-4aea-966e-133c9738901e",
+      "name": "Google Gemini - 3-C 메일 후보 추출",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "UmQBA3vsLpvPlcZz",
+          "name": "Google Gemini 90일 무료(7/14~)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const base = $('3-C-3. Code - 전체 메일 본문 정제 + 후보 추출 프롬프트').first().json;\nconst raw = $json.text || $json.output || $json.response || $json.result || '';\n\n\nfunction repairJsonText(input) {\n  let s = String(input || '')\n    .replace(/^\\uFEFF/, '')\n    .replace(/^```json\\s*/i, '')\n    .replace(/^```\\s*/i, '')\n    .replace(/```$/i, '')\n    .trim();\n\n  const first = s.indexOf('{');\n  const last = s.lastIndexOf('}');\n  if (first >= 0 && last >= first) s = s.slice(first, last + 1);\n\n  // 흔한 LLM JSON 오류 정리\n  s = s\n    .replace(/\\bNone\\b/g, 'null')\n    .replace(/\\bTrue\\b/g, 'true')\n    .replace(/\\bFalse\\b/g, 'false')\n    .replace(/,\\s*([}\\]])/g, '$1')\n    .replace(/}\\s*{/g, '},{')\n    .replace(/]\\s*\\[/g, '],[')\n    .replace(/}\\s*\"/g, '},\"')\n    .replace(/]\\s*\"/g, '],\"')\n    .replace(/\"(\\s+)\"/g, '\",$1\"');\n\n  // 문자열 안의 실제 개행·탭을 JSON escape로 교체\n  let out = '';\n  let inString = false;\n  let escaped = false;\n\n  for (let i = 0; i < s.length; i++) {\n    const ch = s[i];\n\n    if (inString) {\n      if (escaped) {\n        out += ch;\n        escaped = false;\n        continue;\n      }\n      if (ch === '\\\\') {\n        out += ch;\n        escaped = true;\n        continue;\n      }\n      if (ch === '\"') {\n        inString = false;\n        out += ch;\n        continue;\n      }\n      if (ch === '\\n') {\n        out += '\\\\n';\n        continue;\n      }\n      if (ch === '\\r') continue;\n      if (ch === '\\t') {\n        out += '\\\\t';\n        continue;\n      }\n      out += ch;\n    } else {\n      if (ch === '\"') inString = true;\n      out += ch;\n    }\n  }\n\n  return out;\n}\n\nfunction parseJsonRobust(v) {\n  if (v && typeof v === 'object') return v;\n\n  const original = String(v || '');\n  const repaired = repairJsonText(original);\n\n  try {\n    return JSON.parse(repaired);\n  } catch (firstError) {\n    // 객체 사이 쉼표 누락을 한 번 더 넓게 보정\n    const secondPass = repaired\n      .replace(/}\\s*,?\\s*(?={)/g, '},')\n      .replace(/]\\s*,?\\s*(?=\"(?:client_watch|business_work|people_culture|trend_candidates)\")/g, '],');\n\n    try {\n      return JSON.parse(secondPass);\n    } catch (secondError) {\n      throw new Error(\n        `${secondError.message} | RAW_PREVIEW=${original.slice(0, 1800)}`\n      );\n    }\n  }\n}\n\nlet parsed;\ntry { parsed = parseJsonRobust(raw); }\ncatch(e) { throw new Error(`3-C 후보 JSON 파싱 실패: ${e.message}`); }\n\nconst candidates = Array.isArray(parsed.trend_candidates) ? parsed.trend_candidates.slice(0,8) : [];\nif (!candidates.length) throw new Error('메일에서 추출된 트렌드 후보가 없습니다.');\n\nconst now = new Date();\nconst from = new Date(now);\nfrom.setDate(now.getDate() - 7);\nconst toMDY = d => `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`;\n\n// 안전장치: AI가 search_query를 영어(원어) 문구로 써버리면 Naver/Serper 한국 뉴스 검색에서\n// 결과가 거의 0건이 된다(실제로 확인된 문제: Maxxing/Touch grass/Whimsy 등 영어 트렌드명).\n// 한글 비중이 낮으면 keyword의 괄호 앞 한글 표기로 대체하고, 그마저 없으면 원래 값을 그대로 쓴다.\nfunction hasEnoughKorean(s) {\n  const str = String(s || '');\n  const koreanCount = (str.match(/[가-힣]/g) || []).length;\n  const totalCount = str.replace(/\\s/g, '').length;\n  return totalCount > 0 && (koreanCount / totalCount) >= 0.3;\n}\nfunction koreanPortionOfKeyword(k) {\n  return String(k || '').split(/[\\(（]/)[0].trim();\n}\n\nreturn candidates.map((c, idx) => {\n  const keyword = String(c.keyword || '').trim();\n  let searchQuery = String(c.search_query || keyword || '').trim();\n  if (!hasEnoughKorean(searchQuery)) {\n    const fallback = koreanPortionOfKeyword(keyword);\n    if (hasEnoughKorean(fallback)) searchQuery = fallback;\n  }\n  const qBase = searchQuery || keyword;\n  const q = /트렌드/.test(qBase) ? qBase : `${qBase} 트렌드`;\n\n  return {\n    json: {\n    candidate_id: `PC-${idx+1}`,\n    keyword,\n    search_query: searchQuery,\n    what_is_happening: String(c.what_is_happening || ''),\n    why_candidate: String(c.why_candidate || ''),\n    mentioned_mail_ids: Array.isArray(c.mentioned_mail_ids) ? c.mentioned_mail_ids : [],\n    initial_evidence_level: String(c.initial_evidence_level || 'MEDIUM'),\n    q,\n    gl: 'kr',\n    hl: 'ko',\n    num: 5,\n    tbs: `cdr:1,cd_min:${toMDY(from)},cd_max:${toMDY(now)}`,\n    naver_display: 5,\n    naver_sort: 'date',\n    period_start: from.toISOString().slice(0,10),\n    period_end: now.toISOString().slice(0,10),\n    mail_count: base.mail_count\n    }\n  };\n});"
+      },
+      "id": "d0f5b947-dd9e-4430-a0af-747718102bfe",
+      "name": "3-C-5. Code - 후보 JSON 정리 + 검증 검색 Job",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        289808,
+        95728
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/news",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ q: $json.job.q, gl: $json.job.gl, hl: $json.job.hl, num: $json.job.num, tbs: $json.job.tbs }) }}",
+        "options": {}
+      },
+      "id": "6943ef34-915a-432a-9964-a15f39ed0c70",
+      "name": "3-C-7. HTTP Request - PEOPLE_CULTURE 웹 검증",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        290080,
+        95728
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "f995YWhME6zw2vSb",
+          "name": "Header Auth account 2"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "PEOPLE_CULTURE 후보 전체를 지연 없이 Serper로 검증합니다. 실패할 때만 재시도합니다."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const packedItems = $('3-C-6-1. Code - PEOPLE_CULTURE Naver 결과 + Job 보존').all();\nconst packed = packedItems[$itemIndex]?.json || {};\n\nif (!packed.job?.candidate_id) {\n  throw new Error(\n    'PEOPLE_CULTURE Naver 결과와 Serper 결과 통합 실패: 입력 인덱스 ' + $itemIndex +\n    ', 보존 데이터=' + JSON.stringify(packed).slice(0, 700)\n  );\n}\n\n// Serper 뉴스 결과에 포함된 imageUrl(base64 통째)/imageBase64/thumbnail은 크기만 크고 후속 단계에서\n// 전혀 쓰이지 않으므로, 이후 단계로 넘기기 전에 여기서 잘라낸다 (CLIENT_WATCH의 3-A-3과 동일한 처리).\nconst serperRaw = $json || {};\nif (Array.isArray(serperRaw.news)) {\n  for (const item of serperRaw.news) {\n    delete item.imageUrl;\n    delete item.imageBase64;\n    delete item.thumbnail;\n  }\n}\nif (Array.isArray(serperRaw.organic)) {\n  for (const item of serperRaw.organic) {\n    delete item.imageUrl;\n    delete item.imageBase64;\n    delete item.thumbnail;\n  }\n}\n\nreturn {\n  json: {\n    job: packed.job,\n    naver_response: packed.naver_response || {},\n    serper_response: serperRaw\n  },\n  pairedItem: { item: $itemIndex }\n};\n"
+      },
+      "id": "9c4577f0-e3ec-4746-8d7a-5778be96597d",
+      "name": "3-C-8. Code - 웹 검증 결과 + Job 보존",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        290336,
+        95728
+      ],
+      "notes": "웹 검증 결과와 원 후보 Job을 $itemIndex로 직접 매칭하고 pairedItem을 명시합니다."
+    },
+    {
+      "parameters": {
+        "jsCode": "const packed = $input.all().map(x => x.json || {});\nconst verified = [];\n\nfor (const item of packed) {\n  const job = item.job || {};\n  const serperR = item.serper_response || {};\n  const naverR = item.naver_response || {};\n\n  const serperNews = Array.isArray(serperR.news) ? serperR.news : Array.isArray(serperR.organic) ? serperR.organic : [];\n  const serperSources = serperNews.map(x => ({\n    title: String(x.title || ''),\n    url: String(x.link || x.url || ''),\n    snippet: String(x.snippet || ''),\n    date: x.date || null,\n    source: x.source || 'serper'\n  }));\n\n  // Naver News API 응답의 title/description은 <b> 태그와 HTML 엔티티(&quot; 등)를 포함하므로 정리한다.\n  function cleanNaverText(s) {\n    return String(s || '')\n      .replace(/<[^>]+>/g, '')\n      .replace(/&quot;/g, '\"').replace(/&apos;/g, \"'\").replace(/&#39;/g, \"'\")\n      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')\n      .trim();\n  }\n  const naverItems = Array.isArray(naverR.items) ? naverR.items : [];\n  const naverSources = naverItems.map(x => ({\n    title: cleanNaverText(x.title),\n    url: String(x.originallink || x.link || ''),\n    snippet: cleanNaverText(x.description),\n    date: x.pubDate || null,\n    source: 'naver'\n  }));\n\n  // 뉴스에서 관련 자료를 못 찾은 후보는 3-C-8-3에서 인스타그램/틱톡/threads/X로 한정한\n  // 구글 검색을 한 번 더 시도했다. 그 결과(sns_response)가 있으면 함께 후보 소스로 합친다.\n  const snsR = item.sns_response || {};\n  const snsResults = Array.isArray(snsR.organic) ? snsR.organic : [];\n  const snsSources = snsResults.map(x => ({\n    title: String(x.title || ''),\n    url: String(x.link || x.url || ''),\n    snippet: String(x.snippet || ''),\n    date: x.date || null,\n    source: 'sns'\n  }));\n\n  // 관련성 필터: Naver/Serper는 \"걸\"+\"그립\"처럼 키워드를 단어 단위로 느슨하게 매칭해서,\n  // 실제로는 무관한 기사(예: 골프 그립, 게임 뉴스)를 결과에 섞어 보내는 경우가 많다.\n  // 반대로 \"제철코어\"처럼 항상 붙어 쓰이는 신조어가 아니라 \"촉감 소비\"처럼 AI가 현상을 설명하려고\n  // 조합한 문구는, 실제 기사에서는 두 단어가 문장 안에 떨어져 등장하는 경우가 많다\n  // (예: \"촉감을 즐기는 굿즈로... 소비 트렌드\"). 그래서 \"구 전체가 붙어서 등장\"을 요구하는 대신,\n  // 트렌드·소비처럼 어디에나 붙는 일반 단어는 제외하고, 키워드에서 실제로 의미를 구분해주는\n  // 단어들이 (순서·인접 여부와 무관하게) 전부 등장하는지만 확인한다.\n  function stripSpaces(s) { return String(s || '').replace(/\\s+/g, '').toLowerCase(); }\n  const GENERIC_TOKENS = new Set(['트렌드','소비','문화','현상','라이프스타일','방식','신드롬','트랜드','열풍','유행','스타일','챌린지','밈']);\n  function significantTokens(keyword) {\n    // \"터치 그래스(Touch grass)\" → 괄호 앞 한글 표기만 사용 → [\"터치\",\"그래스\"]\n    const base = String(keyword || '').split(/[\\(（]/)[0];\n    return base.split(/\\s+/).map(t => t.trim()).filter(t => t && !GENERIC_TOKENS.has(t));\n  }\n  const requiredTokens = significantTokens(job.keyword);\n  function isTopicallyRelevant(x) {\n    if (!requiredTokens.length) return true; // 키워드가 전부 일반 단어뿐이면 필터링을 건너뛴다\n    const haystack = stripSpaces(x.title) + stripSpaces(x.snippet);\n    return requiredTokens.every(t => haystack.includes(stripSpaces(t)));\n  }\n\n  // Naver + Serper 결과를 URL 기준으로 합치고 중복을 제거한 뒤, 실제로 키워드 구가 등장하는 것만 남긴다\n  // (검색 적중률을 높이기 위해 두 소스를 함께 쓰되, 무관한 기사가 섞이지 않도록 관련성도 함께 검증).\n  const seenUrls = new Set();\n  const sources = [...naverSources, ...serperSources, ...snsSources]\n    .filter(x => x.title && x.url)\n    .filter(x => { if (seenUrls.has(x.url)) return false; seenUrls.add(x.url); return true; })\n    .filter(isTopicallyRelevant)\n    .slice(0,5);\n\n  verified.push({\n    keyword: job.keyword,\n    search_query: job.search_query,\n    email_signal: job.what_is_happening,\n    candidate_reason: job.why_candidate,\n    mentioned_mail_ids: job.mentioned_mail_ids,\n    initial_evidence_level: job.initial_evidence_level,\n    web_sources: sources\n  });\n}\n\nconst validVerified = verified.filter(x =>\n  String(x.keyword || '').trim() ||\n  String(x.email_signal || '').trim()\n);\n\nconst desiredCount = Math.min(8, validVerified.length);\n\nif (!desiredCount) {\n  throw new Error('PEOPLE_CULTURE 최종 분석 후보가 없습니다. 메일 후보 추출 또는 웹 검증 Job 전달 상태를 확인하세요.');\n}\n\nconst prompt = `너는 CL4 이상 보직자(센터장·그룹장·사업부장·임원)에게 젊은 구성원의 행동과 가치관을 조직 운영 관점에서 해석해주는 PEOPLE & CULTURE 편집자다.\n이메일에서 발견한 후보와 최근 7일 웹검색 결과를 함께 검토하라.\n\n[목표]\n- 이번 단계는 최종 뉴스레터 선별이 아니라 2단계에서 사용자가 선택할 후보를 저장하는 단계다.\n- 트렌드 자체를 소개하는 데서 그치지 않는다. 이 섹션의 존재 이유는 \"요즘 애들 사이에서 이런 게 유행한다더라\"를 전달하는 게 아니라, 보직자가 조직 운영(채용, 유지, 복리후생, 조직문화, 세대 간 소통, 근무 제도 등) 관점에서 실제로 참고할 수 있는 해석을 제공하는 것이다.\n- 입력된 유효 후보 ${desiredCount}개를 반드시 정확히 ${desiredCount}개 출력한다. 후보가 충분한데 임의로 1~2개에서 멈추지 않는다.\n- 최신성과 다양성을 우선하되, 명백한 중복·광고·정치 및 사건 속보가 아니라면 후보를 지나치게 엄격하게 제거하지 않는다.\n- 웹검색 근거가 충분하면 HIGH 또는 MEDIUM으로, 웹 근거가 약하더라도 이메일에서 반복 언급되거나 구체적인 행동·상품·콘텐츠 사례가 확인되면 LOW로 포함할 수 있다.\n- 웹검색 결과가 없다는 이유만으로 이메일 기반 후보를 자동 제외하지 않는다. 이 경우 source_urls는 빈 배열로 두고 evidence_level은 LOW로 설정한다.\n- 이메일 문장을 그대로 베끼지 말고 이메일 신호와 웹검색 결과를 함께 반영해 독립적으로 작성한다.\n- 사실과 해석을 구분한다.\n- summary(트렌드 설명)는 2~3문장으로 작성한다. 입력 후보 또는 웹검색 결과에 실제로 있는 구체적인 행동·상품명·브랜드명·하위 트렌드명을 최소 1개 포함하고, 가능하면 확산 정도를 보여주는 근거(언급량 증가율, 관련 상품 출시 사례, 특정 세대·집단의 비중 등 원문에 있는 경우)도 함께 담는다. 입력에 없는 사례를 새로 만들지 않는다.\n- organization_view(조직 운영 시사점)는 절대 비워두거나 한 줄로 얼버무리지 않는다. 이 트렌드가 왜 지금 나타났는지에 대한 심리적·사회적 배경을 한 문장으로 짚고, 그것이 채용·유지·조직문화·근무 제도·세대 간 소통·복리후생 설계 중 어디에 어떤 시사점을 주는지 최소 2문장으로 구체적으로 작성한다. \"~에 참고할 필요가 있습니다\" 같은 상투적 마무리 대신, 무엇을 검토하거나 시도해볼 수 있는지까지 짚는다. 정말로 회사 운영과 연결 지을 근거가 전혀 없는 극히 예외적인 경우에만 그 이유를 한 문장으로 명시하고 짧게 쓴다 (비워두지 않는다).\n- 가능하면 직장생활·조직문화, 소비·라이프스타일, 콘텐츠·SNS·여가, 세대 가치관·커리어 영역을 분산한다.\n- 젊은 세대 전체를 단정하지 말고 '일부 젊은 층', '최근 관찰되는 흐름' 등 신중한 표현을 사용한다. 다만 organization_view의 결론 자체는 신중하되 분명하게 제시한다.\n- source_urls는 반드시 [후보 및 웹 검증]의 web_sources에 실제로 나열된 url 문자열을 그대로 복사해서만 사용한다. 절대 URL을 새로 만들거나, 알고 있는 것 같은 URL을 추측해서 채우지 마라. 이건 심각한 오류이며 사용자에게 실제 접속 불가능한 링크를 보여주는 결과로 이어진다.\n- web_sources에 있다고 해서 전부 관련 자료는 아니다. 제목과 요약을 실제로 읽고, 이 키워드/트렌드를 다루는 기사인지 먼저 판단하라. 단어만 우연히 겹치고 실제 주제가 다른 기사(예: 키워드가 '걸 그립'인데 골프 그립이나 게임 기사가 섞여 들어온 경우)는 web_sources에 있어도 source_urls에서 반드시 제외한다.\n- 특정 후보의 web_sources가 비어있거나 관련된 URL이 없으면, source_urls는 반드시 빈 배열([])로 남긴다. 빈 배열도 정상적인 결과이며, 억지로 채우는 것보다 훨씬 낫다.\n- 반드시 JSON 객체만 출력한다.\\n- 배열의 객체 사이에는 반드시 쉼표를 넣는다.\\n- 문자열 안의 큰따옴표는 반드시 \\\\\\\"로 이스케이프한다.\\n- 후행 쉼표와 주석을 사용하지 않는다.\n\n[출력]\n{\n  \"people_culture\": [\n    {\n      \"title\": \"\",\n      \"summary\": \"\",\n      \"organization_view\": \"\",\n      \"keyword\": \"\",\n      \"priority\": 0,\n      \"evidence_level\": \"HIGH|MEDIUM|LOW\",\n      \"source_urls\": [\"\"],\n      \"mentioned_mail_ids\": [\"\"]\n    }\n  ]\n}\n\n[후보 및 웹 검증]\n${JSON.stringify(validVerified, null, 2)}`;\n\nreturn [{\n  json: {\n    period_start: packed[0]?.job?.period_start || '',\n    period_end: packed[0]?.job?.period_end || '',\n    original_candidate_count: verified.length,\n    valid_candidate_count: validVerified.length,\n    desired_output_count: desiredCount,\n    verified_candidates: validVerified,\n    prompt\n  }\n}];"
+      },
+      "id": "bd0b2d4a-c3fb-4e59-8afe-273fd4b7a93e",
+      "name": "3-C-10. Code - 웹 검증 취합 + 최종 분석 프롬프트",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        290592,
+        95728
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "이번 단계는 최종 선별이 아니라 후보 저장 단계다. 사용자 프롬프트에 지정된 출력 개수를 정확히 지키고, 후보가 충분한데 임의로 1~2개에서 멈추지 마라. 웹 근거가 약해도 이메일 근거가 구체적이면 LOW로 포함할 수 있다. 세대 일반화를 피하고 입력에 없는 사실을 만들지 않으며 반드시 JSON 객체만 출력한다. JSON 문법을 엄격히 지켜라. 배열의 객체 사이에는 반드시 쉼표를 넣고, 문자열 내부의 큰따옴표는 반드시 \\\"로 이스케이프하라. 후행 쉼표, 주석, 설명문, 마크다운 코드블록을 절대 출력하지 마라."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "41e1ada6-c870-48ff-921e-05ed26788844",
+      "name": "3-C-11. Basic LLM Chain - PEOPLE & CULTURE 분석",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        290848,
+        95728
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        290848,
+        95920
+      ],
+      "id": "64d01afe-1b0d-4b33-85c0-0028b50a0f93",
+      "name": "Google Gemini - 3-C PEOPLE_CULTURE 분석",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "UmQBA3vsLpvPlcZz",
+          "name": "Google Gemini 90일 무료(7/14~)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const base = $('3-C-10. Code - 웹 검증 취합 + 최종 분석 프롬프트').first().json;\nconst raw = $json.text || $json.output || $json.response || $json.result || '';\n\n\nfunction repairJsonText(input) {\n  let s = String(input || '')\n    .replace(/^\\uFEFF/, '')\n    .replace(/^```json\\s*/i, '')\n    .replace(/^```\\s*/i, '')\n    .replace(/```$/i, '')\n    .trim();\n\n  const first = s.indexOf('{');\n  const last = s.lastIndexOf('}');\n  if (first >= 0 && last >= first) s = s.slice(first, last + 1);\n\n  // 흔한 LLM JSON 오류 정리\n  s = s\n    .replace(/\\bNone\\b/g, 'null')\n    .replace(/\\bTrue\\b/g, 'true')\n    .replace(/\\bFalse\\b/g, 'false')\n    .replace(/,\\s*([}\\]])/g, '$1')\n    .replace(/}\\s*{/g, '},{')\n    .replace(/]\\s*\\[/g, '],[')\n    .replace(/}\\s*\"/g, '},\"')\n    .replace(/]\\s*\"/g, '],\"')\n    .replace(/\"(\\s+)\"/g, '\",$1\"');\n\n  // 문자열 안의 실제 개행·탭을 JSON escape로 교체\n  let out = '';\n  let inString = false;\n  let escaped = false;\n\n  for (let i = 0; i < s.length; i++) {\n    const ch = s[i];\n\n    if (inString) {\n      if (escaped) {\n        out += ch;\n        escaped = false;\n        continue;\n      }\n      if (ch === '\\\\') {\n        out += ch;\n        escaped = true;\n        continue;\n      }\n      if (ch === '\"') {\n        inString = false;\n        out += ch;\n        continue;\n      }\n      if (ch === '\\n') {\n        out += '\\\\n';\n        continue;\n      }\n      if (ch === '\\r') continue;\n      if (ch === '\\t') {\n        out += '\\\\t';\n        continue;\n      }\n      out += ch;\n    } else {\n      if (ch === '\"') inString = true;\n      out += ch;\n    }\n  }\n\n  return out;\n}\n\nfunction parseJsonRobust(v) {\n  if (v && typeof v === 'object') return v;\n\n  const original = String(v || '');\n  const repaired = repairJsonText(original);\n\n  try {\n    return JSON.parse(repaired);\n  } catch (firstError) {\n    // 객체 사이 쉼표 누락을 한 번 더 넓게 보정\n    const secondPass = repaired\n      .replace(/}\\s*,?\\s*(?={)/g, '},')\n      .replace(/]\\s*,?\\s*(?=\"(?:client_watch|business_work|people_culture|trend_candidates)\")/g, '],');\n\n    try {\n      return JSON.parse(secondPass);\n    } catch (secondError) {\n      throw new Error(\n        `${secondError.message} | RAW_PREVIEW=${original.slice(0, 1800)}`\n      );\n    }\n  }\n}\n\nlet parsed;\ntry { parsed=parseJsonRobust(raw); }\ncatch(e) { throw new Error(`3-C 최종 JSON 파싱 실패: ${e.message}`); }\n\nconst list = Array.isArray(parsed.people_culture) ? parsed.people_culture.slice(0,8) : [];\nif (!list.length) throw new Error('PEOPLE & CULTURE 최종 항목이 없습니다.');\n\n// 안전망: AI가 프롬프트를 어기고 URL을 지어낸 경우를 대비해,\n// 실제로 웹 검증(Serper)이 반환한 URL 목록과 대조해서 없는 건 전부 버린다.\nconst verifiedUrlSet = new Set(\n  (Array.isArray(base.verified_candidates) ? base.verified_candidates : [])\n    .flatMap(c => Array.isArray(c.web_sources) ? c.web_sources.map(s => String(s.url || '').trim()) : [])\n    .filter(Boolean)\n);\n\nfunction keepOnlyVerifiedUrls(urls) {\n  return urls\n    .map(u => String(u).trim())\n    .filter(u => u && verifiedUrlSet.has(u));\n}\n\nconst now = new Date().toISOString();\nconst period = `${base.period_start}~${base.period_end}`;\n\nreturn list.map((x, idx) => {\n  const rawUrls = Array.isArray(x.source_urls) ? x.source_urls.map(String).filter(Boolean) : [];\n  const urls = keepOnlyVerifiedUrls(rawUrls);\n  const itemId = `NLR-${base.period_end.replace(/-/g,'')}-PEOPLE_CULTURE-${idx+1}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;\n  const rawRecord = {\n    ...x,\n    mentioned_mail_ids: Array.isArray(x.mentioned_mail_ids) ? x.mentioned_mail_ids : []\n  };\n  return {\n    json: {\n      item_id: itemId,\n      collected_at: now,\n      research_period: period,\n      section: 'PEOPLE_CULTURE',\n      source_pipeline: 'EMAIL_TREND_WEB_VERIFY',\n      category: 'PEOPLE_CULTURE',\n      target: '',\n      keyword: String(x.keyword || ''),\n      title: String(x.title || ''),\n      summary: String(x.summary || ''),\n      implication: String(x.organization_view || ''),\n      source_urls: urls.join('\\n'),\n      evidence_level: ['HIGH','MEDIUM','LOW'].includes(String(x.evidence_level || '').toUpperCase()) ? String(x.evidence_level).toUpperCase() : 'MEDIUM',\n      priority: Number(x.priority || 50),\n      raw_json: JSON.stringify(rawRecord)\n    }\n  };\n});"
+      },
+      "id": "29e50ec5-da49-42bd-80f4-da7fb4856d0e",
+      "name": "3-C-12. Code - 최종 JSON 정리 + 행 분리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        291120,
+        95728
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
+          "mode": "list",
+          "cachedResultName": "Research On DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1294785882,
+          "mode": "list",
+          "cachedResultName": "newsletter_research",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=1294785882"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "item_id",
+              "displayName": "item_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "collected_at",
+              "displayName": "collected_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "research_period",
+              "displayName": "research_period",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "section",
+              "displayName": "section",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_pipeline",
+              "displayName": "source_pipeline",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "category",
+              "displayName": "category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "target",
+              "displayName": "target",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "keyword",
+              "displayName": "keyword",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "title",
+              "displayName": "title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "summary",
+              "displayName": "summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "implication",
+              "displayName": "implication",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_urls",
+              "displayName": "source_urls",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "evidence_level",
+              "displayName": "evidence_level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "priority",
+              "displayName": "priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "raw_json",
+              "displayName": "raw_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "e9229cb2-a31f-42ec-aa85-c342490d35e5",
+      "name": "3-C-13. Google Sheets - PEOPLE & CULTURE 저장",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        291376,
+        95728
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F55rrvsZtvhOvoA3",
+          "name": "Google Sheets(7/14)"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "newsletter_research 시트에 PEOPLE_CULTURE 항목을 저장합니다."
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\nreturn [{ json: { completed_section: 'CLIENT_WATCH', saved_item_count: rows.length, completed_at: new Date().toISOString() } }];"
+      },
+      "id": "dcaff88f-159d-4de5-a940-85280f0e7b96",
+      "name": "3-A-13-1. Code - CLIENT_WATCH 분기 완료",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        291296,
+        94416
+      ],
+      "notes": "CLIENT_WATCH 저장 노드의 전체 출력이 끝난 뒤 단일 완료 item을 생성합니다."
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all();\nreturn [{ json: { completed_section: 'BUSINESS_WORK', saved_item_count: rows.length, completed_at: new Date().toISOString() } }];"
+      },
+      "id": "2f2f0f75-7b21-4429-9bbd-76e9d4801825",
+      "name": "3-B-13-1. Code - BUSINESS_WORK 분기 완료",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        291296,
+        95056
+      ],
+      "notes": "BUSINESS_WORK 저장 노드의 전체 출력이 끝난 뒤 단일 완료 item을 생성합니다."
+    },
+    {
+      "parameters": {
+        "url": "https://openapi.naver.com/v1/search/news.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.q }}"
+            },
+            {
+              "name": "display",
+              "value": "={{ $json.naver_display }}"
+            },
+            {
+              "name": "start",
+              "value": "1"
+            },
+            {
+              "name": "sort",
+              "value": "={{ $json.naver_sort }}"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 5,
+              "batchInterval": 1200
+            }
+          }
+        }
+      },
+      "id": "5d867b98-cb97-4e63-9156-397904d5ef98",
+      "name": "3-C-6. HTTP Request - PEOPLE_CULTURE Naver News",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        289936,
+        95616
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "f995YWhME6zw2vSb",
+          "name": "Header Auth account 2"
+        },
+        "httpCustomAuth": {
+          "id": "CK5Tvh9XsDnzPcUZ",
+          "name": "Naver API"
+        }
+      },
+      "notes": "PEOPLE_CULTURE 후보 검증에 Naver News도 함께 사용해 검색 적중률을 높인다 (기존에는 Serper만 사용)."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const jobs = $('3-C-5. Code - 후보 JSON 정리 + 검증 검색 Job').all();\nconst job = jobs[$itemIndex]?.json || {};\n\nif (!job.candidate_id) {\n  throw new Error(\n    'PEOPLE_CULTURE Naver 결과 Job 복원 실패: 입력 인덱스 ' + $itemIndex +\n    ', 조회된 Job=' + JSON.stringify(job).slice(0, 500)\n  );\n}\n\nreturn {\n  json: {\n    job,\n    naver_response: $json || {}\n  },\n  pairedItem: { item: $itemIndex }\n};"
+      },
+      "id": "2854b27b-2c65-4008-8e72-6dac9c571677",
+      "name": "3-C-6-1. Code - PEOPLE_CULTURE Naver 결과 + Job 보존",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        290016,
+        95616
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "function stripSpaces(s) { return String(s || '').replace(/\\s+/g, '').toLowerCase(); }\nconst GENERIC_TOKENS = new Set(['트렌드','소비','문화','현상','라이프스타일','방식','신드롬','트랜드','열풍','유행','스타일','챌린지','밈']);\nfunction significantTokens(keyword) {\n  const base = String(keyword || '').split(/[\\(（]/)[0];\n  return base.split(/\\s+/).map(t => t.trim()).filter(t => t && !GENERIC_TOKENS.has(t));\n}\nfunction hasRelevantMatch(keyword, items) {\n  const requiredTokens = significantTokens(keyword);\n  if (!requiredTokens.length) return true;\n  return items.some(it => {\n    const haystack = stripSpaces(it.title) + stripSpaces(it.description || it.snippet);\n    return requiredTokens.every(t => haystack.includes(stripSpaces(t)));\n  });\n}\n\nconst job = $json.job || {};\nconst naverItems = Array.isArray($json.naver_response?.items) ? $json.naver_response.items : [];\nconst serperNewsItems = Array.isArray($json.serper_response?.news) ? $json.serper_response.news : [];\n\nconst hasRelevantNews = hasRelevantMatch(job.keyword, [...naverItems, ...serperNewsItems]);\n\nreturn {\n  json: {\n    ...$json,\n    has_relevant_news: hasRelevantNews\n  }\n};"
+      },
+      "id": "865bd73d-a41e-46d1-9d66-735055713d85",
+      "name": "3-C-8-1. Code - 뉴스 검색 결과 관련성 판정",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        290448,
+        95616
+      ],
+      "notes": "뉴스(Naver+Serper) 결과 중 실제로 키워드와 관련된 항목이 하나라도 있는지 미리 판정한다. 없으면 SNS 검색으로 보완한다."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "if-no-relevant-news",
+              "leftValue": "={{ $json.has_relevant_news }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c9aade42-7cc9-4b9d-97da-4fdb5eb29167",
+      "name": "3-C-8-2. IF - 뉴스에서 관련 자료 못 찾음",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        290512,
+        95616
+      ],
+      "notes": "TRUE(관련 뉴스 없음) → SNS(인스타/틱톡/X/스레드) 검색으로 보완. FALSE(이미 있음) → 바로 다음 단계."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/search",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ q: $json.job.search_query + ' (site:instagram.com OR site:tiktok.com OR site:threads.net OR site:x.com OR site:twitter.com)', gl: $json.job.gl, hl: $json.job.hl, num: 5 }) }}",
+        "options": {}
+      },
+      "id": "77866c64-ac05-4e5c-9431-d24f964bced9",
+      "name": "3-C-8-3. HTTP Request - PEOPLE_CULTURE SNS 검색",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        290576,
+        95520
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "f995YWhME6zw2vSb",
+          "name": "Header Auth account 2"
+        }
+      },
+      "notes": "뉴스에서 관련 자료를 못 찾은 후보만, 인스타그램/틱톡/threads/X로 한정해 구글 일반 검색을 한 번 더 시도한다."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const prior = $('3-C-8-2. IF - 뉴스에서 관련 자료 못 찾음').item.json;\n\n// SNS 검색 결과에도 imageUrl 등 불필요한 대용량 필드가 섞여올 수 있어 미리 제거한다.\nconst snsRaw = $json || {};\nif (Array.isArray(snsRaw.organic)) {\n  for (const item of snsRaw.organic) {\n    delete item.imageUrl;\n    delete item.imageBase64;\n    delete item.thumbnail;\n  }\n}\n\nreturn {\n  json: {\n    ...prior,\n    sns_response: snsRaw\n  }\n};"
+      },
+      "id": "0459d65a-39a4-40a2-9f65-50c5d9908349",
+      "name": "3-C-8-4. Code - SNS 검색 결과 병합",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        290640,
+        95520
+      ],
+      "notes": "IF 분기로 갈라진 뒤라 $itemIndex 정렬이 어긋날 수 있어, .all()[index] 대신 pairedItem 기반 .item으로 원본(job/naver/serper)을 복원한다."
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "0-A. Manual Trigger - 테스트": {
+      "main": [
+        [
+          {
+            "node": "0-C. Google Docs - 회사 맥락 문서 읽기",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "0-B. Schedule Trigger - 매주 목요일 08시": {
+      "main": [
+        [
+          {
+            "node": "0-C. Google Docs - 회사 맥락 문서 읽기",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "0-C. Google Docs - 회사 맥락 문서 읽기": {
+      "main": [
+        [
+          {
+            "node": "3-A-1. Google Sheets - CLIENT_WATCH 키워드 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-A-1. Google Sheets - CLIENT_WATCH 키워드 조회": {
+      "main": [
+        [
+          {
+            "node": "3-A-2. Code - CLIENT_WATCH 검색 Job 생성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-A-2. Code - CLIENT_WATCH 검색 Job 생성": {
+      "main": [
+        [
+          {
+            "node": "3-A-4. HTTP Request - CLIENT_WATCH Naver News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-A-4. HTTP Request - CLIENT_WATCH Naver News": {
+      "main": [
+        [
+          {
+            "node": "3-A-5. Code - CLIENT_WATCH Naver 결과 + Job 보존",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-A-5. Code - CLIENT_WATCH Naver 결과 + Job 보존": {
+      "main": [
+        [
+          {
+            "node": "3-A-7. HTTP Request - CLIENT_WATCH Serper News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-A-7. HTTP Request - CLIENT_WATCH Serper News": {
+      "main": [
+        [
+          {
+            "node": "3-A-8. Code - CLIENT_WATCH Naver + Serper 통합",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-A-8. Code - CLIENT_WATCH Naver + Serper 통합": {
+      "main": [
+        [
+          {
+            "node": "3-A-10. Code - CLIENT_WATCH 후보 정리 + AI 평가 프롬프트",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-A-10. Code - CLIENT_WATCH 후보 정리 + AI 평가 프롬프트": {
+      "main": [
+        [
+          {
+            "node": "3-A-11. Basic LLM Chain - CLIENT_WATCH 평가",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-A-11. Basic LLM Chain - CLIENT_WATCH 평가": {
+      "main": [
+        [
+          {
+            "node": "3-A-12. Code - CLIENT_WATCH 평가 결과 정리 + 행 분리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-A-12. Code - CLIENT_WATCH 평가 결과 정리 + 행 분리": {
+      "main": [
+        [
+          {
+            "node": "3-A-13. Google Sheets - CLIENT_WATCH 저장",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-A-13. Google Sheets - CLIENT_WATCH 저장": {
+      "main": [
+        [
+          {
+            "node": "3-A-13-1. Code - CLIENT_WATCH 분기 완료",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-A-13-1. Code - CLIENT_WATCH 분기 완료": {
+      "main": [
+        [
+          {
+            "node": "3-A-14. Wait - BUSINESS_WORK 분기 전 10초",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-A-14. Wait - BUSINESS_WORK 분기 전 10초": {
+      "main": [
+        [
+          {
+            "node": "3-B-1. Google Sheets - BUSINESS_WORK 키워드 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-B-1. Google Sheets - BUSINESS_WORK 키워드 조회": {
+      "main": [
+        [
+          {
+            "node": "3-B-2. Code - BUSINESS_WORK 검색 Job 생성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-B-2. Code - BUSINESS_WORK 검색 Job 생성": {
+      "main": [
+        [
+          {
+            "node": "3-B-4. HTTP Request - BUSINESS_WORK Naver News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-B-4. HTTP Request - BUSINESS_WORK Naver News": {
+      "main": [
+        [
+          {
+            "node": "3-B-5. Code - BUSINESS_WORK Naver 결과 + Job 보존",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-B-5. Code - BUSINESS_WORK Naver 결과 + Job 보존": {
+      "main": [
+        [
+          {
+            "node": "3-B-7. HTTP Request - BUSINESS_WORK Serper News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-B-7. HTTP Request - BUSINESS_WORK Serper News": {
+      "main": [
+        [
+          {
+            "node": "3-B-8. Code - BUSINESS_WORK Naver + Serper 통합",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-B-8. Code - BUSINESS_WORK Naver + Serper 통합": {
+      "main": [
+        [
+          {
+            "node": "3-B-10. Code - BUSINESS_WORK 후보 정리 + AI 평가 프롬프트",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-B-10. Code - BUSINESS_WORK 후보 정리 + AI 평가 프롬프트": {
+      "main": [
+        [
+          {
+            "node": "3-B-11. Basic LLM Chain - BUSINESS_WORK 평가",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-B-11. Basic LLM Chain - BUSINESS_WORK 평가": {
+      "main": [
+        [
+          {
+            "node": "3-B-12. Code - BUSINESS_WORK 평가 결과 정리 + 행 분리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-B-12. Code - BUSINESS_WORK 평가 결과 정리 + 행 분리": {
+      "main": [
+        [
+          {
+            "node": "3-B-13. Google Sheets - BUSINESS_WORK 저장",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-B-13. Google Sheets - BUSINESS_WORK 저장": {
+      "main": [
+        [
+          {
+            "node": "3-B-13-1. Code - BUSINESS_WORK 분기 완료",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-B-13-1. Code - BUSINESS_WORK 분기 완료": {
+      "main": [
+        [
+          {
+            "node": "3-B-14. Wait - PEOPLE_CULTURE 분기 전 10초",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-B-14. Wait - PEOPLE_CULTURE 분기 전 10초": {
+      "main": [
+        [
+          {
+            "node": "3-C-1. Gmail - 최근 7일 메일 목록 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-C-1. Gmail - 최근 7일 메일 목록 조회": {
+      "main": [
+        [
+          {
+            "node": "3-C-2. Gmail - 메일 전체 본문 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-C-2. Gmail - 메일 전체 본문 조회": {
+      "main": [
+        [
+          {
+            "node": "3-C-3. Code - 전체 메일 본문 정제 + 후보 추출 프롬프트",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-C-3. Code - 전체 메일 본문 정제 + 후보 추출 프롬프트": {
+      "main": [
+        [
+          {
+            "node": "3-C-4. Basic LLM Chain - 메일 트렌드 후보 추출",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-C-4. Basic LLM Chain - 메일 트렌드 후보 추출": {
+      "main": [
+        [
+          {
+            "node": "3-C-5. Code - 후보 JSON 정리 + 검증 검색 Job",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-C-5. Code - 후보 JSON 정리 + 검증 검색 Job": {
+      "main": [
+        [
+          {
+            "node": "3-C-6. HTTP Request - PEOPLE_CULTURE Naver News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-C-7. HTTP Request - PEOPLE_CULTURE 웹 검증": {
+      "main": [
+        [
+          {
+            "node": "3-C-8. Code - 웹 검증 결과 + Job 보존",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-C-8. Code - 웹 검증 결과 + Job 보존": {
+      "main": [
+        [
+          {
+            "node": "3-C-8-1. Code - 뉴스 검색 결과 관련성 판정",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-C-10. Code - 웹 검증 취합 + 최종 분석 프롬프트": {
+      "main": [
+        [
+          {
+            "node": "3-C-11. Basic LLM Chain - PEOPLE & CULTURE 분석",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-C-11. Basic LLM Chain - PEOPLE & CULTURE 분석": {
+      "main": [
+        [
+          {
+            "node": "3-C-12. Code - 최종 JSON 정리 + 행 분리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-C-12. Code - 최종 JSON 정리 + 행 분리": {
+      "main": [
+        [
+          {
+            "node": "3-C-13. Google Sheets - PEOPLE & CULTURE 저장",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini - 3-A CLIENT_WATCH": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "3-A-11. Basic LLM Chain - CLIENT_WATCH 평가",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini - 3-B BUSINESS_WORK": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "3-B-11. Basic LLM Chain - BUSINESS_WORK 평가",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini - 3-C 메일 후보 추출": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "3-C-4. Basic LLM Chain - 메일 트렌드 후보 추출",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini - 3-C PEOPLE_CULTURE 분석": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "3-C-11. Basic LLM Chain - PEOPLE & CULTURE 분석",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-C-6. HTTP Request - PEOPLE_CULTURE Naver News": {
+      "main": [
+        [
+          {
+            "node": "3-C-6-1. Code - PEOPLE_CULTURE Naver 결과 + Job 보존",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-C-6-1. Code - PEOPLE_CULTURE Naver 결과 + Job 보존": {
+      "main": [
+        [
+          {
+            "node": "3-C-7. HTTP Request - PEOPLE_CULTURE 웹 검증",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-C-8-1. Code - 뉴스 검색 결과 관련성 판정": {
+      "main": [
+        [
+          {
+            "node": "3-C-8-2. IF - 뉴스에서 관련 자료 못 찾음",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-C-8-2. IF - 뉴스에서 관련 자료 못 찾음": {
+      "main": [
+        [
+          {
+            "node": "3-C-8-3. HTTP Request - PEOPLE_CULTURE SNS 검색",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "3-C-10. Code - 웹 검증 취합 + 최종 분석 프롬프트",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-C-8-3. HTTP Request - PEOPLE_CULTURE SNS 검색": {
+      "main": [
+        [
+          {
+            "node": "3-C-8-4. Code - SNS 검색 결과 병합",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3-C-8-4. Code - SNS 검색 결과 병합": {
+      "main": [
+        [
+          {
+            "node": "3-C-10. Code - 웹 검증 취합 + 최종 분석 프롬프트",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "b2f045f0-b4a4-47eb-a258-59344063d7fc",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1dbf02fc19e4bfd97b9fe74c58b21c46219b2aed60e7d66cdce419ae0a4d7f7e"
+  },
+  "id": "s0bsRWPJwTXhX5Am",
+  "tags": []
+}

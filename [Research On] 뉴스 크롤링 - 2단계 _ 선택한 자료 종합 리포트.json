@@ -1,0 +1,664 @@
+{
+  "name": "[Research On] 뉴스 크롤링 - 2단계 : 선택한 자료 종합 리포트",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "webhook/research/summarize-selected",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "5e3f1d76-1834-45d3-b118-1dd35ea0b598",
+      "name": "1. Webhook - 선택 링크 요약 요청",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        464,
+        736
+      ],
+      "webhookId": "research-summarize-selected"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const data = $json.body || $json;\nconst selected = data.selected_results || [];\n\nif (!Array.isArray(selected) || selected.length === 0) {\n  return {\n    success: false,\n    message: '선택된 링크가 없습니다.',\n    received_body: data\n  };\n}\n\nconst urls = selected\n  .map(item => item.url)\n  .filter(url => typeof url === 'string' && url.trim() !== '');\n\nif (urls.length === 0) {\n  return {\n    success: false,\n    message: '유효한 URL이 없습니다.',\n    selected_results: selected\n  };\n}\n\nconst limitedUrls = urls.slice(0, 10);\nconst limitedSelected = selected.filter(item => limitedUrls.includes(item.url));\n\n// 리포트 유형별 기본값 처리\nconst reportType = data.report_type || 'trend_brief';\nconst audienceLevel = data.audience_level || 'division_head';\nconst reportDepth = data.report_depth || 'standard';\nconst actionOrientation = data.action_orientation !== undefined ? data.action_orientation : true;\nconst riskSensitivity = data.risk_sensitivity || 'normal';\n\n\n// 회사 맥락 Google Docs 문서 URL/ID 처리\nconst rawDocInput = data.company_context_doc_url || data.company_context_doc_id || data.context_doc_url || data.context_doc_id || '';\nlet companyContextDocId = '';\nlet companyContextDocUrl = '';\n\nif (rawDocInput) {\n  const raw = String(rawDocInput).trim();\n  const m = raw.match(/\\/document\\/d\\/([^/]+)/);\n  companyContextDocId = m ? m[1] : raw;\n  companyContextDocUrl = raw.startsWith('http')\n    ? raw\n    : `https://docs.google.com/document/d/${companyContextDocId}/edit`;\n}\n\n\nreturn {\n  success: true,\n  keyword: data.keyword || '',\n  insight_guide: data.insight_guide || '',\n  analysis_viewpoint: data.analysis_viewpoint || 'business_expansion',\n  report_type: reportType,\n  audience_level: audienceLevel,\n  report_depth: reportDepth,\n  action_orientation: actionOrientation,\n  risk_sensitivity: riskSensitivity,\n  selected_count: limitedSelected.length,\n  selected_results: limitedSelected,\n  urls: limitedUrls,\n  company_context_doc_id: companyContextDocId,\n  company_context_doc_url: companyContextDocUrl,\n  requested_at: new Date().toISOString()\n};"
+      },
+      "id": "6b130b62-5034-47a1-b979-3fd45e689695",
+      "name": "2. Code - 선택 URL 파싱",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        736
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "if-success-check",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8e163c99-4562-4735-8d1b-b54c0967707b",
+      "name": "3. IF - URL 유효성 확인",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        944,
+        736
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "documentURL": "https://docs.google.com/document/d/1spDCHL_2Rhq1XGonbPY4FZm0lt2J_DJjwkqqHTK6r1I/edit?usp=drive_link"
+      },
+      "id": "b745c24d-b14a-47c6-be73-789e0a05ab03",
+      "name": "4-A. Google Docs - 회사 맥락 문서 읽기",
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        624
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "cL4GHzurJWdHGv4W",
+          "name": "Google Docs(7/14)"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "선택 기사 종합 리포트 생성 시 참고할 회사 맥락 문서를 Google Docs에서 읽습니다. Webhook body에 company_context_doc_url 또는 company_context_doc_id를 전달하세요. 오류가 나도 fallback 문맥으로 진행합니다."
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://mcp.tavily.com/mcp/?tavilyApiKey=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",
+        "tool": {
+          "__rl": true,
+          "value": "tavily_extract",
+          "mode": "id"
+        },
+        "inputMode": "json",
+        "jsonInput": "={{ JSON.stringify({ urls: $('2. Code - 선택 URL 파싱').item.json.urls, extract_depth: 'advanced', format: 'markdown', include_images: false, include_favicon: false }) }}",
+        "options": {}
+      },
+      "id": "25f8e5be-de1c-4679-8a1c-7766409b23a8",
+      "name": "4. MCP Client - Tavily Extract",
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1,
+      "position": [
+        1424,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// =============================================\n// 5. Code - 도메인별 본문 정제 + 프롬프트 조립\n// 목적: Tavily Extract 결과에서 메뉴/푸터/관련기사 노이즈를 줄이고,\n//      주요 언론사/공식사이트별 룰 + 품질점수 + 핵심본문 압축을 적용한다.\n// =============================================\n\nconst raw =\n  $json.structuredContent ||\n  $json.content?.[0]?.text ||\n  $json.text ||\n  $json.output ||\n  JSON.stringify($json);\n\nlet parsed;\ntry {\n  parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;\n} catch (e) {\n  parsed = raw;\n}\n\nconst extractResults = parsed?.results || parsed?.content?.results || [];\nconst failedResults  = parsed?.failed_results || parsed?.content?.failed_results || [];\n\nconst prev = $('2. Code - 선택 URL 파싱').item.json;\nconst selectedResults = prev.selected_results || [];\n\n// ─────────────────────────────────────────────\n// Google Docs 회사 맥락 정리\n// ─────────────────────────────────────────────\nfunction extractTextFromGoogleDocsBody(body) {\n  const chunks = [];\n  const walk = (node) => {\n    if (!node || typeof node !== 'object') return;\n    if (node.textRun && typeof node.textRun.content === 'string') {\n      chunks.push(node.textRun.content);\n      return;\n    }\n    for (const key of Object.keys(node)) {\n      const value = node[key];\n      if (Array.isArray(value)) value.forEach(walk);\n      else if (value && typeof value === 'object') walk(value);\n    }\n  };\n  walk(body);\n  return chunks.join('');\n}\n\nfunction pickGoogleDocText(obj) {\n  if (typeof obj === 'string') return obj;\n  if (!obj || typeof obj !== 'object') return '';\n  if (typeof obj.content === 'string') return obj.content;\n  if (typeof obj.text === 'string') return obj.text;\n  if (typeof obj.data === 'string') return obj.data;\n  if (typeof obj.body === 'string') return obj.body;\n  if (obj.body && Array.isArray(obj.body.content)) return extractTextFromGoogleDocsBody(obj.body);\n  if (Array.isArray(obj.content)) return extractTextFromGoogleDocsBody({ content: obj.content });\n  return JSON.stringify(obj);\n}\n\nfunction cleanCompanyContext(text) {\n  return String(text || '')\n    .replace(/\\r/g, '\\n')\n    .replace(/\\n{3,}/g, '\\n\\n')\n    .replace(/[ \\t]+/g, ' ')\n    .trim()\n    .slice(0, 6000);\n}\n\nfunction looksLikeGoogleErrorOrHtml(text) {\n  const s = String(text || '').slice(0, 2000);\n  return (\n    s.includes(\"window['ppConfig']\") ||\n    s.includes('페이지를 찾을 수 없음') ||\n    s.includes('현재 파일을 열 수 없습니다') ||\n    s.includes('<!DOCTYPE html') ||\n    s.includes('<html') ||\n    s.includes('Bad request') ||\n    s.includes('The resource you are requesting could not be found')\n  );\n}\n\nlet googleDocJson = {};\ntry {\n  googleDocJson = $('4-A. Google Docs - 회사 맥락 문서 읽기').item.json || {};\n} catch (e) {\n  googleDocJson = {};\n}\n\nconst googleDocsNodeFailed = !!(googleDocJson.error || String(googleDocJson.message || '').includes('Bad request'));\nlet companyContextRaw = googleDocsNodeFailed ? '' : pickGoogleDocText(googleDocJson);\nif (looksLikeGoogleErrorOrHtml(companyContextRaw)) companyContextRaw = '';\n\nconst companyContext = cleanCompanyContext(companyContextRaw) || `[회사 업무 맥락]\n- 회사 맥락 문서를 불러오지 못했습니다. 이 경우 선택 기사 본문과 분석 관점만 기준으로 리포트를 작성합니다.\n- Google Docs 문서를 사용하려면 요약 요청 Webhook body에 company_context_doc_id 또는 company_context_doc_url을 전달하세요.\n- Google Docs 노드에는 반드시 접근 권한이 있는 Google Docs OAuth2 credential을 연결하세요.`;\n\nconst companyContextLoaded = companyContextRaw ? true : false;\n\n// ─────────────────────────────────────────────\n// Tavily Extract 본문 정제: 공통 룰 + 도메인별 룰\n// ─────────────────────────────────────────────\n\nfunction getHost(url) {\n  const s = String(url || '').trim();\n  if (!s) return '';\n  // n8n 환경에서 URL 객체가 간헐적으로 실패하는 경우를 피하기 위한 regex fallback\n  const m = s.match(/^(?:https?:\\/\\/)?(?:www\\.)?([^\\/?#\\s]+)/i);\n  return m ? m[1].replace(/^www\\./, '').toLowerCase() : '';\n}\n\nfunction getItemUrl(item = {}, matched = {}) {\n  return String(\n    item.url ||\n    item.source_url ||\n    item.raw_url ||\n    item.link ||\n    item.href ||\n    item.metadata?.url ||\n    item.meta?.url ||\n    matched.url ||\n    ''\n  ).trim();\n}\n\nfunction normUrl(u) {\n  return String(u || '').replace(/#.*$/, '').replace(/[?&]utm_[^=&]+=[^&]+/g, '').replace(/\\/$/, '').trim();\n}\n\nfunction sameUrl(a, b) {\n  return normUrl(a) && normUrl(a) === normUrl(b);\n}\n\nfunction hostMatches(host, domain) {\n  return host === domain || host.endsWith('.' + domain);\n}\n\nconst DOMAIN_RULES = [\n  {\n    domains: ['ytn.co.kr'],\n    startHints: ['## 삼성전자', '삼성전자는', '2025.', '2026.'],\n    stopHints: ['### 국제', '기사목록 전체보기', '## YTN star', '## 시리즈', '## 지금 이뉴스', '## NEW 다시보기', '## New 돌발영상', '## 당신이 놓친 기사', '## 실시간 랭킹', '## Y녹취록', '## PICK', '## 많이 본 시리즈', 'YTN 리더스 뉴스레터', '㈜와이티엔', 'Copyright'],\n    removeIncludes: ['# YTN', '검색하기', 'LIVE', 'YTN[닫기]', 'Video ', '장애인 서비스', '앵커 소개', '뉴스 더보기', '재생 ', 'YTN 회사소개', 'YTN 사이언스', 'YTN 라디오', 'YTN dmb', 'YTN world']\n  },\n  {\n    domains: ['news.samsung.com'],\n    startHints: ['# 삼성전자', '삼성전자가'],\n    stopHints: ['제품뉴스가전', '기업뉴스\\n프레스센터', '삼성전자 뉴스룸의 직접 제작한 기사', '## 보다 다양한 삼성전자 소식은?', '## 다운로드', '본문 복사하기', '패밀리 사이트', '## 사이트맵', '삼성전자 뉴스룸 운영 정책'],\n    removeIncludes: ['제목+본문', '검색어 삭제 검색', '추천 검색어', '기간설정', '카테고리', '유형별', '검색창 닫기', 'AUDIO PlayAudio', '공유 레이어 열기', '미디어 라이브러리', '이슈와 팩트', 'slide prev', 'slide next', '다운로드 할 자료가 없습니다', '본문이 복사되었습니다']\n  },\n  {\n    domains: ['mk.co.kr'],\n    startHints: ['## 이재용', '입력 :', '美 반도체', '이재용 삼성전자'],\n    stopHints: ['Key Points', '1. 사건 개요', '2. 심층 분석', '3. 주요 경과', '### 경제 많이 본 기사', '### 금융 많이 본 기사', '### 기업 많이 본 기사', '### 증권 많이 본 기사', '콘텐츠 Hub', '오늘의 매경', '구독 신청 및 멤버십'],\n    removeIncludes: ['매일경제 AI 검색 이용방법', 'Powered by', 'perplexity', '통합검색 닫기', '### 편의기능', '### AI기능', '핵심요약', '추천질문', '관련종목', 'AI해설', '### 에디터 픽 추천기사', '구글 검색 선호 추가', 'Google 검색에서 매일경제 기사']\n  },\n  {\n    domains: ['yna.co.kr'],\n    startHints: ['송고시간', '기자', '연합뉴스'],\n    stopHints: ['제보는 카카오톡', '저작권자', '무단 전재', '관련기사', '많이 본 뉴스', '함께 보면 좋은 콘텐츠'],\n    removeIncludes: ['본문 글자 크기', '인쇄하기', '공유하기', '전체기사', '뉴스홈']\n  },\n  {\n    domains: ['newsis.com'],\n    startHints: ['등록 ', '수정 ', '뉴시스', '기자 ='],\n    stopHints: ['공감언론 뉴시스', '저작권자', '무단전재', '많이 본 뉴스', '관련기사'],\n    removeIncludes: ['글자크기', '인쇄', '공유', '댓글']\n  },\n  {\n    domains: ['etnews.com'],\n    startHints: ['전자신문', '입력', '삼성전자'],\n    stopHints: ['기자의 다른 기사', '많이 본 뉴스', '추천 뉴스', '저작권자', '무단전재'],\n    removeIncludes: ['로그인', '회원가입', '지면보기', '전자신문인터넷']\n  },\n  {\n    domains: ['hankyung.com'],\n    startHints: ['입력', '수정', '삼성전자', '한국경제'],\n    stopHints: ['좋아요', '관련 뉴스', '한경닷컴', 'Copyright', '무단전재', '구독신청'],\n    removeIncludes: ['로그인', '회원전용', '마켓PRO', '집코노미']\n  },\n  {\n    domains: ['chosunbiz.com', 'biz.chosun.com'],\n    startHints: ['입력', '조선비즈', '삼성전자'],\n    stopHints: ['Copyright', '무단 전재', '많이 본 뉴스', '관련 기사', '추천 기사'],\n    removeIncludes: ['로그인', '뉴스레터', '조선비즈를 팔로우하세요']\n  },\n  {\n    domains: ['zdnet.co.kr'],\n    startHints: ['기자', '입력', '삼성전자', '지디넷코리아'],\n    stopHints: ['기자의 다른 기사', '많이 본 뉴스', '관련기사', 'Copyright', '무단전재'],\n    removeIncludes: ['로그인', '회원가입', '뉴스레터', '테크M']\n  },\n  {\n    domains: ['sedaily.com'],\n    startHints: ['입력', '서울경제', '삼성전자'],\n    stopHints: ['관련기사', '많이 본 뉴스', 'Copyright', '무단 전재', '기자의 다른 기사'],\n    removeIncludes: ['로그인', '구독', '증권', '부동산']\n  },\n  {\n    domains: ['joongang.co.kr', 'donga.com', 'hani.co.kr', 'khan.co.kr'],\n    startHints: ['입력', '수정', '기자', '삼성전자'],\n    stopHints: ['많이 본 기사', '관련기사', '추천기사', 'Copyright', '무단 전재', '구독', '뉴스레터'],\n    removeIncludes: ['로그인', '회원가입', '지면보기', '오피니언']\n  }\n];\n\nconst COMMON_STOP_HINTS = [\n  '많이 본 뉴스', '많이 본 기사', '관련 기사', '관련기사', '추천 뉴스', '추천기사',\n  '당신이 놓친 기사', '뉴스레터', '구독 신청', 'Copyright', '무단 전재', '무단전재',\n  '저작권자', '회사소개', '이용약관', '개인정보처리방침', '대표전화:', '사업자등록번호',\n  '기자의 다른 기사', '함께 보면 좋은 콘텐츠', '최신뉴스', '인기뉴스', '실시간 랭킹',\n  '패밀리 사이트', '사이트맵'\n];\n\nconst COMMON_REMOVE_INCLUDES = [\n  '메뉴 바로가기', '본문 바로가기', '푸터 바로가기', '검색창 열기', '검색창 닫기', '공유하기', '공유 레이어',\n  '로그인', '회원가입', '구독', '광고', '배너', '제보', '카카오톡', '페이스북', '인스타그램',\n  'X 새 창으로 열기', 'RSS', '주소복사', '글자 크기', '글자크기', '인쇄하기', '동영상 뉴스 판매',\n  '오디오 음원 판매', '프로그램 공급', '약관 및 정책', '본문 복사하기', '본문이 복사되었습니다',\n  '파일 다운로드', '미리보기', '다운로드', '추천 검색어', '검색어 삭제 검색'\n];\n\nfunction getDomainRule(host) {\n  return DOMAIN_RULES.find(rule => rule.domains.some(d => hostMatches(host, d))) || null;\n}\n\nfunction escapeRegExp(s) {\n  return String(s || '').replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&');\n}\n\nfunction stripMarkdownAndHtml(text) {\n  let t = String(text || '');\n  t = t.replace(/\\r/g, '\\n');\n  t = t.replace(/<script[\\s\\S]*?<\\/script>/gi, '');\n  t = t.replace(/<style[\\s\\S]*?<\\/style>/gi, '');\n  t = t.replace(/<[^>]+>/g, ' ');\n  t = t.replace(/!\\[[^\\]]*\\]\\([^)]+\\)/g, '');\n  t = t.replace(/\\[([^\\]]+)\\]\\((?:javascript:[^)]+|https?:\\/\\/[^)]+)?\\)/gi, '$1');\n  t = t.replace(/https?:\\/\\/\\S+/g, '');\n  t = t.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');\n  t = t.replace(/[ \\t]+/g, ' ');\n  t = t.replace(/\\n{3,}/g, '\\n\\n');\n  return t.trim();\n}\n\nfunction findTitleStart(text, title) {\n  const t = String(text || '');\n  const candidates = [];\n  const rawTitle = String(title || '').replace(/–.*$/g, '').replace(/\\|.*$/g, '').trim();\n  if (rawTitle.length >= 8) candidates.push(rawTitle);\n  const compact = rawTitle.replace(/[\"“”'‘’]/g, '').trim();\n  if (compact !== rawTitle && compact.length >= 8) candidates.push(compact);\n  for (const c of candidates) {\n    const idx = t.indexOf(c);\n    if (idx >= 0) return Math.max(0, idx - 80);\n  }\n  return -1;\n}\n\nfunction cutByHints(text, rule, title) {\n  let t = String(text || '');\n\n  const titleStart = findTitleStart(t, title);\n  if (titleStart >= 0) {\n    t = t.slice(titleStart);\n  } else if (rule) {\n    const startPositions = [];\n    for (const hint of (rule.startHints || [])) {\n      const idx = t.indexOf(hint);\n      if (idx >= 0) startPositions.push(idx);\n    }\n    if (startPositions.length) {\n      const start = Math.max(0, Math.min(...startPositions) - 80);\n      t = t.slice(start);\n    }\n  }\n\n  const stopCandidates = [...((rule && rule.stopHints) || []), ...COMMON_STOP_HINTS];\n  let stop = -1;\n  for (const hint of stopCandidates) {\n    const idx = t.indexOf(hint);\n    if (idx > 450 && (stop === -1 || idx < stop)) stop = idx;\n  }\n  if (stop > 0) t = t.slice(0, stop);\n  return t;\n}\n\nfunction removeNoiseLines(text, rule, host = '') {\n  const removeIncludes = [...COMMON_REMOVE_INCLUDES, ...((rule && rule.removeIncludes) || [])];\n  const lines = String(text || '').split('\\n').map(line => line.trim()).filter(Boolean);\n\n  const filtered = lines.filter(line => {\n    if (!line) return false;\n    if (line.length <= 2) return false;\n    if (/^[-*#\\s]*$/.test(line)) return false;\n    if (/^!?\\[?Image\\s*\\d+/i.test(line)) return false;\n    if (/^\\*?\\s*\\[/.test(line) && line.length < 110) return false;\n    if (/javascript:/i.test(line)) return false;\n    if (/^(홈|뉴스|경제|정치|사회|국제|문화|스포츠|오피니언|전체기사|검색|메뉴|닫기|더보기|LIVE|Powered by)$/i.test(line)) return false;\n    if (/^(페이스북|트위터|카카오스토리|네이버블로그|URL복사|메일|프린트)$/.test(line)) return false;\n    if (/^[가-힣A-Za-z0-9\\s]{1,12}\\s*(홈|더보기)$/.test(line)) return false;\n    if (removeIncludes.some(w => line.includes(w))) return false;\n    if (COMMON_STOP_HINTS.some(w => line === w)) return false;\n    if (/^[-*•]/.test(line) && line.length < 70) return false;\n    if (/^[#]+\\s*(많이 본|관련|추천|시리즈|NEW|PICK|실시간|Y녹취록)/.test(line)) return false;\n    if (hostMatches(host, 'mk.co.kr') && /요$|이에요|있어요|예상돼요|보여요|답니다/.test(line) && line.length < 220) return false;\n    return true;\n  });\n\n  const seen = new Set();\n  const deduped = [];\n  for (const line of filtered) {\n    const key = line.replace(/\\s+/g, ' ').slice(0, 140);\n    if (seen.has(key)) continue;\n    seen.add(key);\n    deduped.push(line);\n  }\n\n  return deduped.join('\\n').replace(/\\n{3,}/g, '\\n\\n').trim();\n}\n\nfunction scoreArticleQuality(text, title = '', keyword = '') {\n  const t = String(text || '');\n  const lines = t.split('\\n').map(x => x.trim()).filter(Boolean);\n  let score = 50;\n\n  if (t.length > 800) score += 8;\n  if (t.length > 1800) score += 10;\n  if (t.length < 500) score -= 25;\n  if (t.length < 250) score -= 35;\n\n  const strongNoise = [\n    'YTN star 더보기', '시리즈 더보기', '지금 이뉴스 더보기', '당신이 놓친 기사', '실시간 랭킹',\n    '매일경제 AI 검색 이용방법', 'Powered by', 'AI기능', 'Key Points', '사건 개요:',\n    '보다 다양한 삼성전자 소식은?', '다운로드', '사이트맵', '대표전화', '사업자등록번호', 'Copyright'\n  ];\n  const noiseWords = [...COMMON_STOP_HINTS, ...COMMON_REMOVE_INCLUDES, ...strongNoise];\n  const noiseCount = noiseWords.reduce((sum, w) => sum + (t.includes(w) ? 1 : 0), 0);\n  score -= noiseCount * 7;\n\n  const linkLikeLines = lines.filter(line =>\n    line.includes('http') || line.includes('![Image') || /^\\*?\\s*\\[/.test(line) || /^Image\\s*\\d+/i.test(line) || line.includes('javascript:')\n  ).length;\n  const linkRatio = lines.length ? linkLikeLines / lines.length : 0;\n  if (linkRatio > 0.15) score -= 15;\n  if (linkRatio > 0.30) score -= 30;\n\n  const terms = String(title + ' ' + keyword)\n    .replace(/[\"'“”‘’]/g, ' ')\n    .split(/[\\s,，·|/()\\[\\]{}:;]+/)\n    .map(x => x.trim())\n    .filter(x => x.length >= 2)\n    .slice(0, 20);\n  const hitCount = terms.filter(term => t.includes(term)).length;\n  if (hitCount >= 4) score += 12;\n  else if (hitCount >= 2) score += 6;\n  else if (hitCount === 0) score -= 12;\n\n  const sentenceLikeLines = lines.filter(line =>\n    line.length >= 25 && /다\\.|다$|했다|밝혔다|전했다|설명했다|계획이다|추진한다|완료했다|강조했다/.test(line)\n  ).length;\n  if (sentenceLikeLines >= 6) score += 15;\n  else if (sentenceLikeLines >= 3) score += 8;\n  else if (sentenceLikeLines < 2) score -= 15;\n\n  return Math.max(0, Math.min(100, Math.round(score)));\n}\n\nfunction compressByParagraphs(text, keyword, title, maxChars = 3200) {\n  const t = String(text || '').trim();\n  if (t.length <= maxChars) return t;\n\n  const paragraphs = t\n    .split(/\\n{2,}|(?<=다\\.)\\s+(?=[가-힣A-Z0-9])/g)\n    .map(p => p.trim())\n    .filter(p => p.length >= 35);\n\n  const queryTerms = String(keyword + ' ' + title)\n    .replace(/[\"'“”‘’]/g, ' ')\n    .split(/[\\s,，·|/()\\[\\]{}:;]+/)\n    .map(x => x.trim())\n    .filter(x => x.length >= 2)\n    .slice(0, 25);\n\n  const strategicTerms = ['삼성', '해외', '거점', '생산', '관세', '통상', '인수', 'M&A', '법인', '공장', '서비스', '네트워크', '임직원', '주재원', '현지', '글로벌', 'B2B', 'AI', '데이터센터', '공급망', '확대', '운영'];\n\n  const scored = paragraphs.map((p, idx) => {\n    let score = 0;\n    if (idx < 5) score += 8;\n    if (idx < 10) score += 3;\n    for (const term of queryTerms) if (p.includes(term)) score += 5;\n    for (const term of strategicTerms) if (p.includes(term)) score += 3;\n    if (/밝혔다|말했다|계획|추진|완료|인수|대응|확대|운영|유지|공급|진출/.test(p)) score += 5;\n    if (/기자|입력|수정|Copyright|무단|많이 본|Key Points|이에요|있어요|Powered by/.test(p)) score -= 8;\n    return { p, score, idx };\n  });\n\n  const keepCount = Math.min(14, Math.max(6, Math.ceil(maxChars / 350)));\n  const selected = scored\n    .sort((a, b) => b.score - a.score || a.idx - b.idx)\n    .slice(0, keepCount)\n    .sort((a, b) => a.idx - b.idx)\n    .map(x => x.p);\n\n  let output = selected.join('\\n\\n');\n  if (output.length > maxChars) output = output.slice(0, maxChars);\n  return output.trim();\n}\n\nfunction cleanArticle(item, matched, keyword) {\n  const url = getItemUrl(item, matched);\n  const host = getHost(url);\n  const rule = getDomainRule(host);\n  const rawText = String(item.content || item.raw_content || item.text || item.markdown || item.content_text || '');\n  const rawChars = rawText.length;\n  const title = item.title || matched.title || '';\n\n  let text = stripMarkdownAndHtml(rawText);\n  text = cutByHints(text, rule, title);\n  text = removeNoiseLines(text, rule, host);\n\n  const compressed = compressByParagraphs(text, keyword, title, 3200);\n  const quality = scoreArticleQuality(compressed, title, keyword);\n\n  let warning = '';\n  if (quality < 40) warning = '본문 추출 품질이 낮습니다. 원문 확인이 필요합니다.';\n  else if (quality < 60) warning = '본문 추출 품질이 중간 이하입니다. 메뉴·푸터 노이즈가 일부 남았을 수 있습니다.';\n  else if (compressed.length < 600) warning = '본문 길이가 짧아 기사 핵심이 일부 누락되었을 수 있습니다.';\n\n  return {\n    url,\n    host,\n    raw_chars: rawChars,\n    cleaned_chars: compressed.length,\n    quality_score: quality,\n    cleaning_method: rule ? 'domain_rule' : 'common_rule',\n    extraction_warning: warning,\n    content: compressed\n  };\n}\n\n\n// ─────────────────────────────────────────────\n// 분석 관점 프롬프트\n// ─────────────────────────────────────────────\nconst viewpointMap = {\n  business_expansion: {\n    label: '기업형 고객 대상 사업 확장 가능성 중심',\n    instruction: `\n[사업 기회 관점 분석 지시]\n- 기업형 고객에게 제안 가능한 서비스·솔루션 기회를 찾아라.\n- 고객사가 겪는 Pain Point와 이를 해결할 수 있는 방식을 분석하라.\n- 예상 고객군, 수요 발생 가능성이 높은 업종을 구체적으로 제시하라.\n- 수익화 가능성, 차별화 요소, 사업화 리스크를 균형 있게 평가하라.\n- 사업화 시 필요한 기능, 인력, 데이터, 파트너십을 명시하라.\n`\n  },\n  internal_management: {\n    label: '내부 조직 관리 시점 중심',\n    instruction: `\n[조직 운영 관점 분석 지시]\n- 내부 조직 운영, 제도, HR/총무 측면에서 영향을 분석하라.\n- 현업 부서와 관리 부서 간 역할 분담 변화를 파악하라.\n- 컴플라이언스, 노무·인사 리스크를 구체적으로 식별하라.\n- 구성원 커뮤니케이션 및 교육이 필요한 사항을 정리하라.\n- 프로세스 개선 또는 표준화가 필요한 영역을 제안하라.\n`\n  }\n};\n\nconst reportTypeMap = {\n  trend_brief: {\n    label: '트렌드 브리프',\n    instruction: `\n[트렌드 브리프 작성 지시]\n목적: 시장·산업·기술·정책 변화의 흐름을 보직자가 빠르게 파악할 수 있도록 정리한다.\n- 핵심 트렌드와 변화의 배경을 명확히 설명하라.\n- 주요 플레이어(기업, 정부, 기관)를 파악하라.\n- 우리 조직에 주는 의미와 모니터링 필요 신호를 제시하라.\n- 후속 모니터링 키워드를 3~5개 제안하라.\n`\n  },\n  business_opportunity: {\n    label: '사업기회 분석',\n    instruction: `\n[사업기회 분석 작성 지시]\n목적: 특정 이슈를 신규 사업 기회 관점에서 구체적으로 분석한다.\n- 시장·고객 Pain Point를 사실 기반으로 파악하라.\n- 사업화 가능 영역과 예상 고객군을 구체적으로 제시하라.\n- 제공 가능한 서비스와 수익화 방식을 제안하라.\n- 경쟁/차별화 포인트와 사업화 리스크를 균형 있게 평가하라.\n- 다음 검토 액션을 우선순위 순으로 제시하라.\n`\n  },\n  internal_strategy_memo: {\n    label: '내부전략 메모',\n    instruction: `\n[내부전략 메모 작성 지시]\n목적: 조직 운영·제도·리스크 관점에서 내부 대응 방향을 도출한다.\n- 내부 영향과 관련 부서를 명확히 파악하라.\n- 제도·프로세스 개선이 필요한 포인트를 구체적으로 제시하라.\n- 예상 리스크와 사전 대응 방안을 정리하라.\n- 구성원 안내 필요사항과 관리자 체크리스트를 제시하라.\n- 실행 우선순위를 단기/중기/장기로 나눠 제안하라.\n`\n  }\n};\n\nconst audienceLevelMap = {\n  executive:    '경영진(대표·임원급). 핵심만 간결하게 작성하고 전략적 판단에 필요한 정보에 집중하라.',\n  division_head:'본부장·사업부장·센터장급. 사업 기회, 리스크, 조직 영향을 균형 있게 다루어라.',\n  team_lead:    '그룹장·팀장급. 실무 실행 관점에서 구체적 액션과 체크리스트를 강화하라.'\n};\n\nconst depthMap = {\n  short:    '각 섹션을 2~3개 항목으로 간결하게 작성하라.',\n  standard: '각 섹션을 3~5개 항목으로 충분히 작성하라.',\n  deep:     '각 섹션을 5~7개 항목으로 상세하게 작성하라. 수치, 사례, 구체적 근거를 최대한 포함하라.'\n};\n\nconst analysisViewpoint = prev.analysis_viewpoint || 'business_expansion';\nconst reportType        = prev.report_type        || 'trend_brief';\nconst audienceLevel     = prev.audience_level     || 'division_head';\nconst reportDepth       = prev.report_depth       || 'standard';\nconst actionOrientation = prev.action_orientation !== false;\nconst riskSensitivity   = prev.risk_sensitivity   || 'normal';\n\nconst viewpoint         = viewpointMap[analysisViewpoint] || viewpointMap.business_expansion;\nconst reportTypeCfg     = reportTypeMap[reportType]       || reportTypeMap.trend_brief;\nconst audienceInstruction = audienceLevelMap[audienceLevel] || audienceLevelMap.division_head;\nconst depthInstruction  = depthMap[reportDepth]           || depthMap.standard;\n\n// ─────────────────────────────────────────────\n// 문서 정리\n// ─────────────────────────────────────────────\nconst documents = extractResults.map((item, idx) => {\n  const itemUrl = getItemUrl(item, {});\n  const matched = selectedResults.find(r => sameUrl(r.url, itemUrl)) ||\n                  selectedResults.find(r => (r.title && item.title && String(item.title).includes(String(r.title).slice(0, 20)))) ||\n                  {};\n  const cleaned = cleanArticle(item, matched, prev.keyword || '');\n  return {\n    source_no:      idx + 1,\n    rank:           matched.rank  || null,\n    title:          item.title    || matched.title || `(자료 ${idx + 1})`,\n    url:            cleaned.url   || itemUrl || matched.url || '',\n    score:          matched.score || null,\n    search_summary: matched.summary || '',\n    host:           cleaned.host,\n    raw_chars:      cleaned.raw_chars,\n    cleaned_chars:  cleaned.cleaned_chars,\n    quality_score:  cleaned.quality_score,\n    cleaning_method: cleaned.cleaning_method,\n    extraction_warning: cleaned.extraction_warning,\n    content:        cleaned.content\n  };\n}).filter(doc => doc.content && doc.content.trim().length > 100);\n\nconst extractionQualitySummary = documents.map(doc =>\n  `[자료 ${doc.source_no}] ${doc.host || 'unknown'} | 정제방식: ${doc.cleaning_method} | 품질점수: ${doc.quality_score}/100 | 원문 ${doc.raw_chars}자 → 정제 ${doc.cleaned_chars}자${doc.extraction_warning ? ' | 경고: ' + doc.extraction_warning : ''}`\n).join('\\n');\n\nconst combinedText = documents.map(doc => `\n[자료 ${doc.source_no}]\n제목: ${doc.title}\nURL: ${doc.url}\n도메인: ${doc.host || ''}\n검색순위: ${doc.rank || ''} | 관련도점수: ${doc.score || ''}\n본문정제: ${doc.cleaning_method} | 품질점수: ${doc.quality_score}/100 | 원문 ${doc.raw_chars}자 → 정제 ${doc.cleaned_chars}자\n정제경고: ${doc.extraction_warning || '없음'}\n검색결과요약: ${doc.search_summary || ''}\n\n정제 본문:\n${doc.content}\n`).join('\\n\\n---\\n\\n');\n\n// ─────────────────────────────────────────────\n// 프롬프트 조립\n// ─────────────────────────────────────────────\nconst finalPrompt = `너는 기업 경영진과 보직자를 위한 리서치 리포트를 작성하는 전략 분석가다.\n\n사용자가 선택한 여러 뉴스 기사와 웹자료를 비교·종합하여, 단순 요약이 아닌 의사결정에 활용 가능한 리포트를 작성하라.\n\n[핵심 원칙]\n- 원문에서 확인된 사실(Fact)과 AI의 해석(Analysis)을 명확히 구분하라.\n- 확인되지 않은 내용은 단정하지 말고 \"추가 확인 필요\"로 표시하라.\n- 보직자가 바로 판단할 수 있도록 Executive Brief를 가장 먼저 작성하라.\n- 같은 내용을 반복하지 말고 여러 자료를 비교·종합하라.\n- 배열 필드는 반드시 문자열 배열로만 작성하라. 객체, 번호 목록, markdown 형식을 사용하지 말라.\n- source_summaries의 url은 반드시 [자료 본문]에 주어진 URL 중에서만 그대로 복사해서 사용하라. 주어지지 않은 새 URL을 만들어내거나 추측하지 마라. 이는 심각한 오류다.\n- 반드시 JSON 객체만 출력하라. JSON 앞뒤에 설명 문장이나 코드블록을 붙이지 말라.\n- 반드시 한국어로 작성하라.\n- 본문정제 품질점수가 낮은 자료는 신뢰도 평가와 limitations에 반영하라.\n\n[검색 키워드]\n${prev.keyword || ''}\n\n[회사 업무 맥락 / 내부 기준 문서]\n${companyContext}\n\n[회사 맥락 활용 지시]\n- 위 회사 업무 맥락은 기사 내용을 해석할 때 참고 기준으로만 활용하라.\n- 기사에서 확인되지 않은 내용을 회사 맥락만으로 단정하지 말라.\n- 기사에서 확인된 사실과 회사 관점의 해석을 구분하라.\n- 우리 회사의 고객사, 서비스 확장 가능성, 내부 운영, 리스크와 연결되는 의미를 도출하라.\n- 회사 맥락과 직접 연결되지 않는 내용은 과도하게 확대 해석하지 말라.\n\n[본문 추출·정제 품질 정보]\n${extractionQualitySummary || '정제된 자료 없음'}\n\n[리포트 유형]\n${reportTypeCfg.label}\n${reportTypeCfg.instruction}\n\n[분석 관점]\n${viewpoint.label}\n${viewpoint.instruction}\n\n[보고 대상]\n${audienceInstruction}\n\n[작성 깊이]\n${depthInstruction}\n\n${actionOrientation ? '[액션 강조] 추천 액션 섹션을 특히 구체적으로 작성하라. 즉시/단기/중기로 나누어 제시하라.' : ''}\n\n${riskSensitivity === 'high' ? '[리스크 강조] 리스크 항목을 최대한 상세히 식별하고 대응 방안을 함께 제시하라.' : ''}\n\n[출력 JSON 형식 - 반드시 이 구조를 정확히 따르라]\n{\n  \"success\": true,\n  \"keyword\": \"${prev.keyword || ''}\",\n  \"report_type\": \"${reportType}\",\n  \"report_type_label\": \"${reportTypeCfg.label}\",\n  \"analysis_viewpoint\": \"${analysisViewpoint}\",\n  \"analysis_viewpoint_label\": \"${viewpoint.label}\",\n  \"audience_level\": \"${audienceLevel}\",\n  \"source_count\": ${documents.length},\n  \"executive_brief\": {\n    \"one_line_conclusion\": \"한 문장으로 핵심 결론\",\n    \"importance\": \"높음 또는 보통 또는 낮음\",\n    \"urgency\": \"즉시 검토 또는 단기 검토 또는 중장기 모니터링\",\n    \"relevance_to_organization\": \"우리 조직과의 관련성 설명\",\n    \"recommended_owner\": [\"검토 필요 부서1\", \"검토 필요 부서2\"],\n    \"recommended_action\": \"즉시 취해야 할 핵심 액션 한 문장\"\n  },\n  \"fact_summary\": {\n    \"what_happened\": [\"자료에서 확인된 주요 사실1\", \"사실2\"],\n    \"common_findings\": [\"여러 자료에서 공통 확인된 내용1\", \"내용2\"],\n    \"notable_data_points\": [\"주목할 수치나 데이터1\", \"데이터2\"],\n    \"source_differences\": [\"자료별 차이점1\", \"차이점2\"]\n  },\n  \"analysis\": {\n    \"why_it_matters\": [\"이 변화가 중요한 이유1\", \"이유2\"],\n    \"opportunities\": [\"기회 요인1\", \"기회 요인2\"],\n    \"risks\": [\"리스크1\", \"리스크2\"],\n    \"impact_on_organization\": [\"조직 운영에 주는 영향1\", \"영향2\"],\n    \"impact_on_business\": [\"사업/시장 측면 영향1\", \"영향2\"],\n    \"company_context_implications\": [\"회사 업무 맥락과 연결되는 시사점1\", \"시사점2\"]\n  },\n  \"recommendations\": {\n    \"immediate_actions\": [\"즉시 검토할 사항1\", \"사항2\"],\n    \"short_term_actions\": [\"단기(1~3개월) 내 실행할 사항1\", \"사항2\"],\n    \"mid_term_actions\": [\"중기(3~6개월) 검토할 사항1\", \"사항2\"],\n    \"follow_up_research\": [\"추가 조사가 필요한 주제1\", \"주제2\"],\n    \"discussion_agenda\": [\"유관 부서와 논의할 아젠다1\", \"아젠다2\"],\n    \"open_questions\": [\"추가 확인이 필요한 질문1\", \"질문2\"]\n  },\n  \"source_summaries\": [\n    {\n      \"title\": \"자료 제목\",\n      \"url\": \"자료 URL\",\n      \"source_type\": \"언론 또는 기업공식자료 또는 정부자료 또는 블로그 또는 기타\",\n      \"summary\": \"해당 자료 요약 3~5문장\",\n      \"notable_points\": [\"이 자료만의 특이점1\", \"특이점2\"],\n      \"reliability_note\": \"출처 신뢰도와 본문 추출 품질을 함께 평가한 한 문장\"\n    }\n  ],\n  \"recommended_next_search\": [\"다음 추천 검색어1\", \"검색어2\", \"검색어3\"],\n  \"limitations\": \"이 리포트의 한계 및 참고사항. 본문 추출 품질이 낮은 자료가 있으면 반드시 언급\"\n}\n\n[자료 본문]\n${combinedText.slice(0, 14000)}`;\n\n// 실제로 본문 추출에 성공한 문서가 하나도 없으면 success:false로 정직하게 보고한다.\n// (예전에는 무조건 true였는데, 이 경우 뒤의 6번 IF가 항상 통과해버려서\n//  AI가 원문 없이 지식만으로 리포트를 \"지어내는\" 심각한 문제가 있었다)\nconst hasUsableContent = documents.length > 0;\n\nreturn {\n  success:                 hasUsableContent,\n  keyword:                 prev.keyword || '',\n  analysis_viewpoint:      analysisViewpoint,\n  analysis_viewpoint_label: viewpoint.label,\n  report_type:             reportType,\n  report_type_label:       reportTypeCfg.label,\n  audience_level:          audienceLevel,\n  report_depth:            reportDepth,\n  action_orientation:      actionOrientation,\n  risk_sensitivity:        riskSensitivity,\n  source_count:            documents.length,\n  company_context_loaded:  companyContextLoaded,\n  company_context_chars:   companyContext.length,\n  company_context_doc_id:  prev.company_context_doc_id || '',\n  company_context_doc_url: prev.company_context_doc_url || '',\n  company_context:         companyContext,\n  documents,\n  extraction_quality_summary: extractionQualitySummary,\n  failed_results:          failedResults,\n  combined_text:           combinedText.slice(0, 14000),\n  final_prompt:            finalPrompt,\n  extracted_at:            new Date().toISOString()\n};"
+      },
+      "id": "e2a0f565-bf84-4101-a0ae-6294a6f4128f",
+      "name": "5. Code - 도메인별 본문 정제 + 프롬프트 조립",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1664,
+        624
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "if-extract-success-check",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "f0febce6-430d-4613-b09e-4e0dc0971638",
+      "name": "6. IF - 본문 추출 성공 확인",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1904,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.final_prompt }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "너는 기업 경영진과 보직자를 위한 리서치 리포트를 작성하는 전략 분석가다. 사용자가 선택한 여러 웹자료를 비교·종합하여 의사결정에 활용 가능한 구조화된 리포트를 한국어로 작성한다. 원문에서 확인된 사실과 AI 해석을 반드시 구분한다. 반드시 JSON 객체만 출력한다."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "8ba83772-3204-47d3-8b5e-e00ec9310f5d",
+      "name": "7. Basic LLM Chain - 종합 리포트 생성",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        2256,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// =============================================\n// 8. Code - AI 응답 JSON 정리 + 탭 메뉴용 sections 생성\n// =============================================\n\nlet extractData = {};\ntry {\n  extractData = $('5. Code - 도메인별 본문 정제 + 프롬프트 조립').first().json;\n} catch (e) {\n  extractData = {};\n}\n\n// AI 응답 파싱 (관대한 복구 로직 - 뉴스레터 파이프라인과 동일한 방식)\nlet content =\n  $json.text ||\n  $json.output ||\n  $json.response ||\n  $json.content ||\n  $json.result ||\n  '';\n\nfunction repairJsonText(input) {\n  let s = String(input || '')\n    .replace(/^\\uFEFF/, '')\n    .replace(/^```json\\s*/i, '')\n    .replace(/^```\\s*/i, '')\n    .replace(/```$/i, '')\n    .trim();\n\n  const first = s.indexOf('{');\n  const last = s.lastIndexOf('}');\n  if (first >= 0 && last >= first) s = s.slice(first, last + 1);\n\n  s = s\n    .replace(/\\bNone\\b/g, 'null')\n    .replace(/\\bTrue\\b/g, 'true')\n    .replace(/\\bFalse\\b/g, 'false')\n    .replace(/,\\s*([}\\]])/g, '$1')\n    .replace(/}\\s*{/g, '},{')\n    .replace(/]\\s*\\[/g, '],[')\n    .replace(/}\\s*\"/g, '},\"')\n    .replace(/]\\s*\"/g, '],\"')\n    .replace(/\"(\\s+)\"/g, '\",$1\"');\n\n  let out = '';\n  let inString = false;\n  let escaped = false;\n  for (let i = 0; i < s.length; i++) {\n    const ch = s[i];\n    if (inString) {\n      if (escaped) { out += ch; escaped = false; continue; }\n      if (ch === '\\\\') { out += ch; escaped = true; continue; }\n      if (ch === '\"') { inString = false; out += ch; continue; }\n      if (ch === '\\n') { out += '\\\\n'; continue; }\n      if (ch === '\\r') continue;\n      if (ch === '\\t') { out += '\\\\t'; continue; }\n      out += ch;\n    } else {\n      if (ch === '\"') inString = true;\n      out += ch;\n    }\n  }\n  return out;\n}\n\nfunction parseJsonRobust(v) {\n  if (v && typeof v === 'object') return v;\n  const original = String(v || '');\n  const repaired = repairJsonText(original);\n  try {\n    return JSON.parse(repaired);\n  } catch (firstError) {\n    const secondPass = repaired\n      .replace(/}\\s*,?\\s*(?={)/g, '},')\n      .replace(/]\\s*,?\\s*(?=\"(?:executive_brief|fact_summary|analysis|recommendations|source_summaries)\")/g, '],');\n    return JSON.parse(secondPass); // 여기서도 실패하면 그대로 throw\n  }\n}\n\nlet parsed;\nlet parseFailed = false;\nlet parseErrorDetail = '';\n\nif (typeof content === 'object' && content !== null) {\n  parsed = content;\n} else {\n  try {\n    parsed = parseJsonRobust(content);\n  } catch (e) {\n    // 복구 로직으로도 파싱이 완전히 실패한 경우.\n    // 절대로 \"정상적으로 생성된 리포트\"처럼 위장하지 않는다 (success는 아래에서 false로 표시됨).\n    parseFailed = true;\n    parseErrorDetail = e.message || String(e);\n    parsed = {\n      executive_brief: {\n        one_line_conclusion: '',\n        importance: '',\n        urgency: '',\n        relevance_to_organization: '',\n        recommended_owner: [],\n        recommended_action: ''\n      },\n      fact_summary: { what_happened: [], common_findings: [], notable_data_points: [], source_differences: [] },\n      analysis: { why_it_matters: [], opportunities: [], risks: [], impact_on_organization: [], impact_on_business: [] },\n      recommendations: { immediate_actions: [], short_term_actions: [], mid_term_actions: [], follow_up_research: [], discussion_agenda: [], open_questions: [] },\n      source_summaries: [],\n      recommended_next_search: [],\n      limitations: ''\n    };\n  }\n}\n\n// 안전한 배열/문자열 처리\nfunction asArray(value) {\n  if (Array.isArray(value)) return value.filter(v => v !== null && v !== undefined).map(String);\n  if (typeof value === 'string' && value.trim()) return [value];\n  return [];\n}\nfunction asText(value) {\n  return value == null ? '' : String(value);\n}\nfunction asObj(value, defaults) {\n  return (value && typeof value === 'object' && !Array.isArray(value)) ? value : defaults;\n}\n\n// 메타 정보\nconst keyword = asText(parsed.keyword || extractData.keyword || '');\nconst reportType = asText(parsed.report_type || extractData.report_type || 'trend_brief');\nconst reportTypeLabel = asText(parsed.report_type_label || extractData.report_type_label || '트렌드 브리프');\nconst analysisViewpoint = asText(parsed.analysis_viewpoint || extractData.analysis_viewpoint || '');\nconst analysisViewpointLabel = asText(parsed.analysis_viewpoint_label || extractData.analysis_viewpoint_label || '');\nconst audienceLevel = asText(parsed.audience_level || extractData.audience_level || '');\nconst sourceCount = Number(parsed.source_count || extractData.source_count || 0);\n\n// 섹션별 데이터 정규화\nconst executiveBrief = asObj(parsed.executive_brief, {});\nconst factSummary = asObj(parsed.fact_summary, {});\nconst analysis = asObj(parsed.analysis, {});\nconst recommendations = asObj(parsed.recommendations, {});\n\nconst raw = {\n  executive_brief: {\n    one_line_conclusion: asText(executiveBrief.one_line_conclusion),\n    importance: asText(executiveBrief.importance),\n    urgency: asText(executiveBrief.urgency),\n    relevance_to_organization: asText(executiveBrief.relevance_to_organization),\n    recommended_owner: asArray(executiveBrief.recommended_owner),\n    recommended_action: asText(executiveBrief.recommended_action)\n  },\n  fact_summary: {\n    what_happened: asArray(factSummary.what_happened),\n    common_findings: asArray(factSummary.common_findings),\n    notable_data_points: asArray(factSummary.notable_data_points),\n    source_differences: asArray(factSummary.source_differences)\n  },\n  analysis: {\n    why_it_matters: asArray(analysis.why_it_matters),\n    opportunities: asArray(analysis.opportunities),\n    risks: asArray(analysis.risks),\n    impact_on_organization: asArray(analysis.impact_on_organization),\n    impact_on_business: asArray(analysis.impact_on_business),\n    company_context_implications: asArray(analysis.company_context_implications)\n  },\n  recommendations: {\n    immediate_actions: asArray(recommendations.immediate_actions),\n    short_term_actions: asArray(recommendations.short_term_actions),\n    mid_term_actions: asArray(recommendations.mid_term_actions),\n    follow_up_research: asArray(recommendations.follow_up_research),\n    discussion_agenda: asArray(recommendations.discussion_agenda),\n    open_questions: asArray(recommendations.open_questions)\n  },\n  source_summaries: (() => {\n    // AI 응답(parsed.source_summaries)을 그대로 믿지 않는다.\n    // title/url은 실제 선택된 원본 문서(extractData.documents)에서 100% 신뢰 가능한\n    // 값을 직접 가져와 사용하고, summary 등 \"분석\"이 필요한 필드만 AI 응답에서 채운다.\n    // AI가 해당 항목을 비워서 응답하더라도(토큰 소진 등), 최소한 실제 기사 제목과\n    // 원문 링크는 항상 보장된다. AI의 summary가 비어 있으면 검색 단계에서 이미\n    // 확보한 원문 스니펫(search_summary)으로 대체해 \"빈 항목\"이 나오지 않게 한다.\n    const docs = Array.isArray(extractData.documents) ? extractData.documents : [];\n    const aiSummaries = asArray(parsed.source_summaries);\n\n    return docs.map((doc, idx) => {\n      const docUrl = String(doc.url || '').trim();\n      const ai = aiSummaries.find(s => s && String(s.url || '').trim() === docUrl && docUrl)\n        || aiSummaries[idx]\n        || {};\n      return {\n        title: asText(doc.title) || asText(ai.title) || `자료 ${idx + 1}`,\n        url: docUrl,\n        source_type: asText(ai.source_type || '기타'),\n        summary: asText(ai.summary) || asText(doc.search_summary) || '',\n        notable_points: asArray(ai.notable_points),\n        reliability_note: asText(ai.reliability_note)\n      };\n    });\n  })(),\n  recommended_next_search: asArray(parsed.recommended_next_search),\n  limitations: asText(parsed.limitations)\n};\n\n// ── 탭 메뉴용 sections 생성 ──\n// 프론트엔드에서 tab_id 기준으로 탭을 렌더링함\nconst tabs = [];\n\n// TAB 1: Executive Brief (항상 고정 상단)\ntabs.push({\n  tab_id: 'executive_brief',\n  tab_label: 'Executive Brief',\n  type: 'executive_brief',\n  content: raw.executive_brief\n});\n\n// TAB 2: 무슨 일인가 (Fact)\nif (\n  raw.fact_summary.what_happened.length ||\n  raw.fact_summary.common_findings.length ||\n  raw.fact_summary.notable_data_points.length\n) {\n  tabs.push({\n    tab_id: 'fact_summary',\n    tab_label: '무슨 일인가',\n    type: 'sections',\n    sections: [\n      raw.fact_summary.what_happened.length && {\n        title: '주요 사실',\n        type: 'list',\n        items: raw.fact_summary.what_happened\n      },\n      raw.fact_summary.common_findings.length && {\n        title: '공통적으로 확인되는 내용',\n        type: 'list',\n        items: raw.fact_summary.common_findings\n      },\n      raw.fact_summary.notable_data_points.length && {\n        title: '주목할 수치/데이터',\n        type: 'list',\n        items: raw.fact_summary.notable_data_points\n      },\n      raw.fact_summary.source_differences.length && {\n        title: '자료별 차이점',\n        type: 'list',\n        items: raw.fact_summary.source_differences\n      }\n    ].filter(Boolean)\n  });\n}\n\n// TAB 3: 왜 중요한가 (Analysis)\nif (\n  raw.analysis.why_it_matters.length ||\n  raw.analysis.opportunities.length ||\n  raw.analysis.risks.length\n) {\n  tabs.push({\n    tab_id: 'analysis',\n    tab_label: '왜 중요한가',\n    type: 'sections',\n    sections: [\n      raw.analysis.why_it_matters.length && {\n        title: '이 변화가 중요한 이유',\n        type: 'list',\n        items: raw.analysis.why_it_matters\n      },\n      raw.analysis.opportunities.length && {\n        title: '기회 요인',\n        type: 'list',\n        items: raw.analysis.opportunities\n      },\n      raw.analysis.risks.length && {\n        title: '리스크',\n        type: 'list',\n        items: raw.analysis.risks\n      },\n      raw.analysis.impact_on_organization.length && {\n        title: '조직 운영 영향',\n        type: 'list',\n        items: raw.analysis.impact_on_organization\n      },\n      raw.analysis.impact_on_business.length && {\n        title: '사업/시장 영향',\n        type: 'list',\n        items: raw.analysis.impact_on_business\n      },\n      raw.analysis.company_context_implications.length && {\n        title: '회사 맥락 기반 시사점',\n        type: 'list',\n        items: raw.analysis.company_context_implications\n      }\n    ].filter(Boolean)\n  });\n}\n\n// TAB 4: 추천 액션\nif (\n  raw.recommendations.immediate_actions.length ||\n  raw.recommendations.short_term_actions.length ||\n  raw.recommendations.mid_term_actions.length\n) {\n  tabs.push({\n    tab_id: 'recommendations',\n    tab_label: '추천 액션',\n    type: 'sections',\n    sections: [\n      raw.recommendations.immediate_actions.length && {\n        title: '즉시 검토',\n        type: 'list',\n        items: raw.recommendations.immediate_actions\n      },\n      raw.recommendations.short_term_actions.length && {\n        title: '단기 실행 (1~3개월)',\n        type: 'list',\n        items: raw.recommendations.short_term_actions\n      },\n      raw.recommendations.mid_term_actions.length && {\n        title: '중기 검토 (3~6개월)',\n        type: 'list',\n        items: raw.recommendations.mid_term_actions\n      },\n      raw.recommendations.discussion_agenda.length && {\n        title: '유관 부서 논의 아젠다',\n        type: 'list',\n        items: raw.recommendations.discussion_agenda\n      },\n      raw.recommendations.follow_up_research.length && {\n        title: '추가 조사 필요 주제',\n        type: 'list',\n        items: raw.recommendations.follow_up_research\n      },\n      raw.recommendations.open_questions.length && {\n        title: '추가 확인이 필요한 질문',\n        type: 'list',\n        items: raw.recommendations.open_questions\n      }\n    ].filter(Boolean)\n  });\n}\n\n// TAB 5: 참고 자료\nif (raw.source_summaries.length) {\n  tabs.push({\n    tab_id: 'sources',\n    tab_label: '참고 자료',\n    type: 'sources',\n    items: raw.source_summaries\n  });\n}\n\n// 다음 추천 검색어 (탭 외 별도 표시)\nconst nextSearch = raw.recommended_next_search;\n\n// 최종 응답\nreturn {\n  success: !parseFailed,\n  parse_error: parseFailed ? parseErrorDetail : '',\n  raw_ai_response_preview: parseFailed ? String(content).slice(0, 1500) : '',\n  keyword,\n  report_type: reportType,\n  report_type_label: reportTypeLabel,\n  analysis_viewpoint: analysisViewpoint,\n  analysis_viewpoint_label: analysisViewpointLabel,\n  audience_level: audienceLevel,\n  source_count: sourceCount,\n  company_context_loaded: extractData.company_context_loaded || false,\n  company_context_chars: extractData.company_context_chars || 0,\n  company_context_doc_id: extractData.company_context_doc_id || '',\n  company_context_doc_url: extractData.company_context_doc_url || '',\n  display: {\n    title: '종합 리서치 리포트',\n    subtitle: [\n      keyword,\n      reportTypeLabel,\n      analysisViewpointLabel,\n      `선택 자료 ${sourceCount}개`\n    ].filter(Boolean).join(' · '),\n    tabs,\n    recommended_next_search: nextSearch,\n    limitations: raw.limitations\n  },\n  raw,\n  failed_results: extractData.failed_results || [],\n  summarized_at: new Date().toISOString()\n};"
+      },
+      "id": "d29aabc7-99af-4e16-975e-1ad32910d8c3",
+      "name": "8. Code - AI 응답 JSON 정리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2560,
+        528
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "86fb96b2-73f8-4f1a-a081-60dfe8b8dc1a",
+      "name": "9. Respond to Webhook - 요약 결과 반환",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        3520,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 400,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "2449d2f7-9964-49d6-b37a-b2d44e55fde8",
+      "name": "10. Respond to Webhook - 요청 오류 반환",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1184,
+        896
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 422,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "88691578-7e07-45a8-be54-56493249fca4",
+      "name": "11. Respond to Webhook - 추출 실패 반환",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        2144,
+        784
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {
+          "temperature": 0.2
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        2256,
+        672
+      ],
+      "id": "1cbd0686-d959-4e2f-a0bc-5cf20f049808",
+      "name": "Google Gemini - Report",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "UmQBA3vsLpvPlcZz",
+          "name": "Google Gemini 90일 무료(7/14~)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Workflow 2 최종 리포트를 Google Sheets 저장용 1행 데이터로 변환\nconst result = ($json && typeof $json === 'object' && !Array.isArray($json)) ? $json : {};\nconst now = new Date();\n\nconst datePart = now.toISOString().slice(0, 10).replace(/-/g, '');\nconst randomPart = Math.random().toString(36).slice(2, 7).toUpperCase();\nconst researchId = `RES-${datePart}-${randomPart}`;\n\nconst raw =\n  result.raw && typeof result.raw === 'object' && !Array.isArray(result.raw)\n    ? result.raw\n    : {};\n\nconst executiveBrief =\n  raw.executive_brief && typeof raw.executive_brief === 'object'\n    ? raw.executive_brief\n    : {};\n\nlet rawJson = '{}';\ntry {\n  rawJson = JSON.stringify(raw);\n} catch (e) {\n  rawJson = JSON.stringify({\n    serialization_error: true,\n    message: e.message || 'raw JSON serialization failed'\n  });\n}\n\n// AI 응답 파싱이 실패했으면(success !== true) 뉴스레터로는 절대 흘려보내지 않는다.\n// 시트에는 감사(audit)를 위해 기록은 남기되, newsletter_candidate를 false로 표시해\n// 다운스트림(뉴스레터 파이프라인)에서 자동으로 제외되도록 한다.\nconst parseOk = result.success === true;\n\nreturn {\n  json: {\n    research_id: researchId,\n    created_at: result.summarized_at || result.requested_at || now.toISOString(),\n    keyword: String(result.keyword || ''),\n    report_type: String(result.report_type || ''),\n    analysis_viewpoint: String(result.analysis_viewpoint || ''),\n    audience_level: String(result.audience_level || ''),\n    source_count: Number.isFinite(Number(result.source_count))\n      ? Number(result.source_count)\n      : 0,\n    newsletter_candidate: parseOk,\n    newsletter_priority: 50,\n    newsletter_reason: parseOk ? '' : `AI 응답 파싱 실패: ${String(result.parse_error || '').slice(0, 200)}`,\n    one_line_conclusion: parseOk ? String(executiveBrief.one_line_conclusion || '') : '',\n    raw_json: rawJson,\n    original_response: {\n      ...result,\n      research_id: researchId,\n      saved_to_research_db: true\n    }\n  }\n};"
+      },
+      "id": "a93789ca-0c9c-4bab-980a-ca2deb6fcd14",
+      "name": "8-A. Code - Google Sheets 저장 데이터 생성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2800,
+        528
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
+          "mode": "list",
+          "cachedResultName": "Research On DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "research_results",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "research_id",
+              "displayName": "research_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "keyword",
+              "displayName": "keyword",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "report_type",
+              "displayName": "report_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "analysis_viewpoint",
+              "displayName": "analysis_viewpoint",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "audience_level",
+              "displayName": "audience_level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "source_count",
+              "displayName": "source_count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "newsletter_candidate",
+              "displayName": "newsletter_candidate",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "newsletter_priority",
+              "displayName": "newsletter_priority",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "newsletter_reason",
+              "displayName": "newsletter_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "one_line_conclusion",
+              "displayName": "one_line_conclusion",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "raw_json",
+              "displayName": "raw_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "fb6b4303-c809-4664-8021-f274d0381af0",
+      "name": "8-B. Google Sheets - research_results 저장",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        3040,
+        528
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F55rrvsZtvhOvoA3",
+          "name": "Google Sheets(7/14)"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "Google Sheets Credential 연결 후 Document를 실제 Research On DB 시트로 지정하세요. 시트명은 research_results입니다."
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const saved = $('8-A. Code - Google Sheets 저장 데이터 생성').first().json || {};\nconst original =\n  saved.original_response && typeof saved.original_response === 'object'\n    ? saved.original_response\n    : {};\n\nconst sheetResult = ($json && typeof $json === 'object') ? $json : {};\nconst sheetError =\n  sheetResult.error ||\n  sheetResult.message ||\n  sheetResult.description ||\n  '';\n\nreturn {\n  json: {\n    ...original,\n    saved_to_research_db: sheetError ? false : true,\n    research_db_error: sheetError ? String(sheetError) : ''\n  }\n};"
+      },
+      "id": "3c55181c-be0e-4089-b229-cff4a0157db3",
+      "name": "8-C. Code - 기존 Webhook 응답 복구",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3280,
+        528
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "1. Webhook - 선택 링크 요약 요청": {
+      "main": [
+        [
+          {
+            "node": "2. Code - 선택 URL 파싱",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Code - 선택 URL 파싱": {
+      "main": [
+        [
+          {
+            "node": "3. IF - URL 유효성 확인",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. IF - URL 유효성 확인": {
+      "main": [
+        [
+          {
+            "node": "4-A. Google Docs - 회사 맥락 문서 읽기",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "10. Respond to Webhook - 요청 오류 반환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4. MCP Client - Tavily Extract": {
+      "main": [
+        [
+          {
+            "node": "5. Code - 도메인별 본문 정제 + 프롬프트 조립",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6. IF - 본문 추출 성공 확인": {
+      "main": [
+        [
+          {
+            "node": "7. Basic LLM Chain - 종합 리포트 생성",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "11. Respond to Webhook - 추출 실패 반환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8. Code - AI 응답 JSON 정리": {
+      "main": [
+        [
+          {
+            "node": "8-A. Code - Google Sheets 저장 데이터 생성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "7. Basic LLM Chain - 종합 리포트 생성": {
+      "main": [
+        [
+          {
+            "node": "8. Code - AI 응답 JSON 정리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4-A. Google Docs - 회사 맥락 문서 읽기": {
+      "main": [
+        [
+          {
+            "node": "4. MCP Client - Tavily Extract",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5. Code - 도메인별 본문 정제 + 프롬프트 조립": {
+      "main": [
+        [
+          {
+            "node": "6. IF - 본문 추출 성공 확인",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini - Report": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "7. Basic LLM Chain - 종합 리포트 생성",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8-A. Code - Google Sheets 저장 데이터 생성": {
+      "main": [
+        [
+          {
+            "node": "8-B. Google Sheets - research_results 저장",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8-B. Google Sheets - research_results 저장": {
+      "main": [
+        [
+          {
+            "node": "8-C. Code - 기존 Webhook 응답 복구",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "8-C. Code - 기존 Webhook 응답 복구": {
+      "main": [
+        [
+          {
+            "node": "9. Respond to Webhook - 요약 결과 반환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "fbbf3b97-6471-4e58-a6ec-1869113cd612",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "1dbf02fc19e4bfd97b9fe74c58b21c46219b2aed60e7d66cdce419ae0a4d7f7e"
+  },
+  "id": "mWcccVIY3LWa9jvC",
+  "tags": []
+}
