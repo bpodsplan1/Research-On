@@ -1,0 +1,95 @@
+{
+  "name": "[Research On] 관리자 - 계정 비밀번호 초기화",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "admin/reset-password",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "a0000000-0000-4000-8000-000000000001",
+      "name": "W0. Webhook - 관리자 비밀번호 초기화 요청",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "admin-reset-password"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body || {};\nconst ADMIN_ACTION_TOKEN = 'ro-admin-8f2c1d9e41';\n\nconst userId = String(body.user_id || '').trim();\nconst email = String(body.email || '').trim();\nconst token = String(body.admin_token || '').trim();\n\nif (token !== ADMIN_ACTION_TOKEN) {\n  throw new Error('관리자 인증 토큰이 올바르지 않습니다.');\n}\nif (!userId) {\n  throw new Error('user_id가 필요합니다.');\n}\n\nreturn [{ json: { user_id: userId, email } }];"
+      },
+      "id": "a0000000-0000-4000-8000-000000000002",
+      "name": "W1. Code - 입력 검증",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://aiftpranlfudkbobxyll.supabase.co/auth/v1/admin/users/{{ $json.user_id }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ password: 'dlxmsjtm1!' }) }}",
+        "options": {}
+      },
+      "id": "a0000000-0000-4000-8000-000000000003",
+      "name": "W2. HTTP Request - Supabase Auth 비밀번호 초기화",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "인증: HTTP Header Auth 크리덴셜(헤더명 apikey, 값 = Supabase secret 키)이 연결돼 있어야 합니다."
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json;\nconst failed = !!raw.error;\nif (failed) {\n  const detail = raw.error && (raw.error.message || JSON.stringify(raw.error));\n  return [{ json: { success: false, message: '비밀번호 초기화 실패: ' + String(detail || '알 수 없는 오류').slice(0, 300) } }];\n}\nreturn [{ json: { success: true, message: '비밀번호가 초기화되었습니다.' } }];"
+      },
+      "id": "a0000000-0000-4000-8000-000000000004",
+      "name": "W3. Code - 응답 정리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "a0000000-0000-4000-8000-000000000005",
+      "name": "W4. Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1040, 0]
+    }
+  ],
+  "connections": {
+    "W0. Webhook - 관리자 비밀번호 초기화 요청": {
+      "main": [[{"node": "W1. Code - 입력 검증", "type": "main", "index": 0}]]
+    },
+    "W1. Code - 입력 검증": {
+      "main": [[{"node": "W2. HTTP Request - Supabase Auth 비밀번호 초기화", "type": "main", "index": 0}]]
+    },
+    "W2. HTTP Request - Supabase Auth 비밀번호 초기화": {
+      "main": [[{"node": "W3. Code - 응답 정리", "type": "main", "index": 0}]]
+    },
+    "W3. Code - 응답 정리": {
+      "main": [[{"node": "W4. Respond to Webhook", "type": "main", "index": 0}]]
+    }
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1"},
+  "pinData": {}
+}
