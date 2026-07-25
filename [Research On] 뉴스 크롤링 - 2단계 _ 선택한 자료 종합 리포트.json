@@ -356,7 +356,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json) }}",
+        "jsonBody": "={{ JSON.stringify({ research_id: $json.research_id, created_at: $json.created_at, keyword: $json.keyword, report_type: $json.report_type, analysis_viewpoint: $json.analysis_viewpoint, audience_level: $json.audience_level, source_count: $json.source_count, newsletter_candidate: $json.newsletter_candidate, newsletter_priority: $json.newsletter_priority, newsletter_reason: $json.newsletter_reason, one_line_conclusion: $json.one_line_conclusion, raw_json: $json.raw_json }) }}",
         "options": {}
       },
       "id": "fb6b4303-c809-4664-8021-f274d0381af0",

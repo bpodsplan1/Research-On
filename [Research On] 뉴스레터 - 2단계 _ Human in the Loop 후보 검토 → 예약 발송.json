@@ -289,7 +289,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json) }}",
+        "jsonBody": "={{ JSON.stringify({ issue_id: $json.issue_id, generated_at: $json.generated_at, period_start: $json.period_start, period_end: $json.period_end, status: $json.status, subject: $json.subject, issue_title: $json.issue_title, research_count: $json.research_count, newsletter_json: $json.newsletter_json, newsletter_html: $json.newsletter_html, editor_note: $json.editor_note }) }}",
         "options": {}
       },
       "id": "2ab0b95d-c29d-4f8b-8f4d-7e690b100273",
