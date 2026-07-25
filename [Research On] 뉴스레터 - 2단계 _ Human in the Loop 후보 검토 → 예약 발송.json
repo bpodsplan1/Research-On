@@ -1015,6 +1015,55 @@
         45872,
         3120
       ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/profiles",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "newsletter_subscribed",
+              "value": "eq.true"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ newsletter_last_send_status: 'success' }) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        45760,
+        2850
+      ],
+      "id": "b4a1c9e2-7f3d-4e5a-9c1b-2d6f8a0e5c7b",
+      "name": "C5B. HTTP Request - 구독자 발송상태 갱신",
+      "notes": "구독 중인(newsletter_subscribed=true) 전체 profiles 행의 newsletter_last_send_status를 'success'로 일괄 갱신합니다. bpo.dsplan1@gmail.com이 Google Group이라 실제 구독자 전원에게 한 번에 전달되므로, 이 지점(발송 성공 후)에 도달했다는 것 자체가 전체 구독자 발송 성공을 의미합니다. 인증: HTTP Header Auth 크리덴셜(헤더명 apikey, 값 = Supabase service_role 키)을 새로 만들어 이 노드에 연결해야 합니다.",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Supabase Service Role (apikey)"
+        }
+      }
     }
   ],
   "pinData": {},
@@ -1237,7 +1286,7 @@
       "main": [
         [
           {
-            "node": "C6. Code - 예약 발송 완료",
+            "node": "C5B. HTTP Request - 구독자 발송상태 갱신",
             "type": "main",
             "index": 0
           }
@@ -1337,6 +1386,17 @@
         [
           {
             "node": "D6. Respond to Webhook - 강제 발송 결과 반환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C5B. HTTP Request - 구독자 발송상태 갱신": {
+      "main": [
+        [
+          {
+            "node": "C6. Code - 예약 발송 완료",
             "type": "main",
             "index": 0
           }
