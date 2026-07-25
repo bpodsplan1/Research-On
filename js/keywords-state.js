@@ -320,11 +320,18 @@ async function loadTrendCarousel(){
   trendArticles = data;
   trendIndex = 0;
   body.innerHTML = trendArticles.map((a,i)=>`
-    <a class="trend-slide${i===0?' active':''}" data-idx="${i}" href="${esc(a.url)}" target="_blank" rel="noopener">
-      <div class="trend-slide-meta">${esc(a.source||'')}${a.source?' · ':''}${trendTimeAgo(a.published_at)}</div>
-      <div class="trend-slide-title">${esc(a.title)}</div>
-      <div class="trend-slide-summary">${esc(a.summary||'')}</div>
-    </a>
+    <div class="trend-slide${i===0?' active':''}" data-idx="${i}">
+      <div class="trend-slide-image">
+        ${a.image_url ? `<img src="${esc(a.image_url)}" alt="" loading="lazy" onerror="this.closest('.trend-slide-image').innerHTML='<div class=&quot;trend-slide-image-fallback&quot;>📰</div>'">` : `<div class="trend-slide-image-fallback">📰</div>`}
+        <button class="trend-nav trend-nav-prev" type="button" data-trend-prev aria-label="이전 기사">‹</button>
+        <button class="trend-nav trend-nav-next" type="button" data-trend-next aria-label="다음 기사">›</button>
+      </div>
+      <div class="trend-slide-body">
+        <div class="trend-slide-meta"><span class="trend-slide-source">${esc(a.source||'')}</span><span>${trendTimeAgo(a.published_at)}</span></div>
+        <a class="trend-slide-title" href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.title)}</a>
+        <div class="trend-slide-summary">${esc(a.summary||'')}</div>
+      </div>
+    </div>
   `).join('');
   if(dots){
     dots.innerHTML = trendArticles.map((_,i)=>`<span class="trend-dot${i===0?' active':''}" data-idx="${i}"></span>`).join('');

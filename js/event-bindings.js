@@ -11,8 +11,10 @@ function bindEvents(){
   $$('[data-mode-go]').forEach(b=>b.addEventListener('click',()=>switchMode(b.dataset.modeGo)));
   $('#prevStep')?.addEventListener('click',()=>setStep(step-1));
   $('#nextStep')?.addEventListener('click',()=>{ if(step<2) setStep(step+1); else switchMode('advanced'); });
-  $('#trendPrevBtn')?.addEventListener('click',()=>{ trendPrev(); startTrendAutoplay(); });
-  $('#trendNextBtn')?.addEventListener('click',()=>{ trendNext(); startTrendAutoplay(); });
+  $('#trendCarouselBody')?.addEventListener('click', e=>{
+    if(e.target.closest('[data-trend-prev]')){ trendPrev(); startTrendAutoplay(); }
+    else if(e.target.closest('[data-trend-next]')){ trendNext(); startTrendAutoplay(); }
+  });
   $('#trendCarousel')?.addEventListener('mouseenter', stopTrendAutoplay);
   $('#trendCarousel')?.addEventListener('mouseleave', startTrendAutoplay);
   $('#trendDots')?.addEventListener('click', e=>{
