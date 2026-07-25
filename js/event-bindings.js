@@ -65,6 +65,7 @@ function bindEvents(){
   $('#selectAllSaved')?.addEventListener('change', e=>toggleSelectAllSaved(e.target.checked));
   $('#deleteSelectedSavedBtn')?.addEventListener('click', deleteSelectedSaved);
   $$('.tab[data-acct-filter]').forEach(b=>b.addEventListener('click', ()=>{ $$('.tab[data-acct-filter]').forEach(x=>x.classList.toggle('active',x===b)); acctFilterMode=b.dataset.acctFilter; filterAccountsTable(); }));
+  $$('.tab[data-support-admin-filter]').forEach(b=>b.addEventListener('click', ()=>{ $$('.tab[data-support-admin-filter]').forEach(x=>x.classList.toggle('active',x===b)); loadSupportRequestsAdmin(b.dataset.supportAdminFilter); }));
 
   // 계정 설정 / 사용자 팝업
   $('#sidebarSettingsBtn')?.addEventListener('click', ()=>showPage('account'));
@@ -83,6 +84,8 @@ function bindEvents(){
   $('#supportModalClose')?.addEventListener('click', closeSupportModal);
   $('#supportSubmitBtn')?.addEventListener('click', submitSupportRequest);
   $('#supportModalOverlay')?.addEventListener('click', e=>{ if(e.target.id==='supportModalOverlay') closeSupportModal(); });
+  $('#supportHistoryModalClose')?.addEventListener('click', closeSupportHistoryModal);
+  $('#supportHistoryModalOverlay')?.addEventListener('click', e=>{ if(e.target.id==='supportHistoryModalOverlay') closeSupportHistoryModal(); });
   $('#infoModalClose')?.addEventListener('click', closeInfoModal);
   $('#infoModalOverlay')?.addEventListener('click', e=>{ if(e.target.id==='infoModalOverlay') closeInfoModal(); });
 

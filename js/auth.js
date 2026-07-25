@@ -163,7 +163,8 @@ function showAdminNav(){
   sec.innerHTML=`<div class="nav-title" style="color:#2563eb">관리자 메뉴</div>
     <button class="nav-item" data-page="admin-approve" type="button"><span class="nav-icon">👥</span><span class="nav-label">계정 관리</span></button>
     <button class="nav-item" data-page="newsletter-manage" type="button"><span class="nav-icon">📰</span><span class="nav-label">뉴스레터 관리</span></button>
-    <button class="nav-item" data-page="newsletter-subscribers" type="button"><span class="nav-icon">📬</span><span class="nav-label">뉴스레터 구독 관리</span></button>`;
+    <button class="nav-item" data-page="newsletter-subscribers" type="button"><span class="nav-icon">📬</span><span class="nav-label">뉴스레터 구독 관리</span></button>
+    <button class="nav-item" data-page="admin-support" type="button"><span class="nav-icon">🎧</span><span class="nav-label">지원 및 문의 관리</span></button>`;
   nav.appendChild(sec);
   sec.querySelectorAll('.nav-item[data-page]').forEach(btn=>{
     btn.addEventListener('click',()=>showPage(btn.dataset.page));

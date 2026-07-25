@@ -172,6 +172,77 @@ async function submitCreateAccount(){
 }
 
 // ══════════════════════════════════════════
+// 관리자: 지원 및 문의 관리
+// ══════════════════════════════════════════
+let supportAdminFilter = 'account'; // 'account' | 'bug'
+let supportAdminCache = [];
+async function loadSupportRequestsAdmin(type){
+  supportAdminFilter = type || supportAdminFilter;
+  const box = $('#supportAdminList'); if(!box) return;
+  box.innerHTML = '<div class="card" style="text-align:center;color:var(--muted);padding:30px">불러오는 중...</div>';
+  const { data, error } = await _sb.from('support_requests').select('*').eq('type', supportAdminFilter).order('created_at', {ascending:false});
+  if(error){
+    box.innerHTML = `<div class="card" style="text-align:center;color:var(--red);padding:30px">오류: ${error.message}</div>`;
+    return;
+  }
+  supportAdminCache = data || [];
+  renderSupportRequestsAdmin();
+}
+function renderSupportRequestsAdmin(){
+  const box = $('#supportAdminList'); if(!box) return;
+  box.innerHTML = supportAdminCache.length ? supportAdminCache.map((r,i)=>{
+    const resolved = r.status === 'resolved';
+    return `<div class="kw-group-card" style="margin-bottom:12px">
+      <button type="button" class="kw-group-header" onclick="toggleSupportAdminItem(${i})">
+        <span id="supportAdminArrow-${i}" class="kw-group-arrow">▸</span>
+        <span class="badge ${resolved?'green':'orange'}">${resolved?'처리완료':'대기중'}</span>
+        <b class="kw-group-title">${esc(r.title||'(제목 없음)')}</b>
+        <span class="kw-group-date">${esc(r.requester_name||'')} · ${esc((r.created_at||'').slice(0,10))}</span>
+      </button>
+      <div class="kw-group-body" data-support-item="${i}" style="display:none;padding:16px 18px">
+        <p style="color:var(--muted);font-size:12px;margin:0 0 8px">${esc(r.requester_name||'')} (${esc(r.requester_email||'')})</p>
+        <p style="white-space:pre-line;margin:0 0 16px">${esc(r.content||'')}</p>
+        <div class="field"><label>관리자 답변</label><textarea id="supportReplyInput-${i}" placeholder="답변을 입력하세요">${esc(r.admin_reply||'')}</textarea></div>
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+          <button class="btn dark" type="button" onclick="saveSupportReply(${i})">답변 저장 및 처리완료</button>
+          <button class="btn line" type="button" onclick="toggleSupportStatus(${i})">${resolved?'대기중으로 변경':'답변 없이 처리완료로 표시'}</button>
+        </div>
+        ${r.replied_at ? `<p style="color:var(--muted);font-size:11px;margin-top:10px">최근 답변: ${esc((r.replied_at||'').slice(0,16).replace('T',' '))}</p>` : ''}
+      </div>
+    </div>`;
+  }).join('') : '<div class="card" style="text-align:center;color:var(--muted);padding:30px">접수된 내역이 없습니다.</div>';
+}
+function toggleSupportAdminItem(i){
+  const body = $(`[data-support-item="${i}"]`); if(!body) return;
+  const arrow = $(`#supportAdminArrow-${i}`);
+  const opening = body.style.display === 'none';
+  body.style.display = opening ? 'block' : 'none';
+  if(arrow) arrow.textContent = opening ? '▾' : '▸';
+}
+async function saveSupportReply(i){
+  const r = supportAdminCache[i]; if(!r) return;
+  const reply = ($(`#supportReplyInput-${i}`)?.value || '').trim();
+  if(!reply){ showToast('답변 내용을 입력해주세요.'); return; }
+  const repliedAt = new Date().toISOString();
+  const { error } = await _sb.from('support_requests').update({
+    admin_reply: reply, status:'resolved', replied_at: repliedAt, replied_by: currentUserId
+  }).eq('id', r.id);
+  if(error){ showToast('저장에 실패했습니다: ' + error.message); return; }
+  r.admin_reply = reply; r.status = 'resolved'; r.replied_at = repliedAt;
+  renderSupportRequestsAdmin();
+  showToast('답변이 저장되었습니다.');
+}
+async function toggleSupportStatus(i){
+  const r = supportAdminCache[i]; if(!r) return;
+  const next = r.status === 'resolved' ? 'open' : 'resolved';
+  const { error } = await _sb.from('support_requests').update({ status: next }).eq('id', r.id);
+  if(error){ showToast('상태 변경에 실패했습니다: ' + error.message); return; }
+  r.status = next;
+  renderSupportRequestsAdmin();
+  showToast(next==='resolved' ? '처리완료로 변경되었습니다.' : '대기중으로 변경되었습니다.');
+}
+
+// ══════════════════════════════════════════
 // 관리자: 뉴스레터 구독 관리
 // ══════════════════════════════════════════
 let allSubscribersCache = [];

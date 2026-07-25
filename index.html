@@ -639,13 +639,19 @@
         <div class="list-icon">💬</div>
         <h4>계정 관련 문의</h4>
         <p>로그인, 권한, 소속 정보 등 계정과 관련된 내용을 문의합니다.</p>
-        <span class="list-link">문의하기 →</span>
+        <div style="display:flex;gap:12px;margin-top:2px">
+          <span class="list-link">문의하기 →</span>
+          <span class="list-link support-history-trigger" data-support-history="account" style="color:var(--muted)" onclick="event.stopPropagation();openSupportHistoryModal('account')">내역 확인</span>
+        </div>
       </div>
       <div class="support-card support-trigger" data-support="bug">
         <div class="list-icon">🐞</div>
         <h4>오류 신고</h4>
         <p>서비스 이용 중 발견한 오류나 이상 동작을 신고합니다.</p>
-        <span class="list-link">신고하기 →</span>
+        <div style="display:flex;gap:12px;margin-top:2px">
+          <span class="list-link">신고하기 →</span>
+          <span class="list-link support-history-trigger" data-support-history="bug" style="color:var(--muted)" onclick="event.stopPropagation();openSupportHistoryModal('bug')">내역 확인</span>
+        </div>
       </div>
       <div class="support-card info-trigger" data-info="guide">
         <div class="list-icon">📘</div>
@@ -697,6 +703,15 @@
   </div>
 </section>
 
+<section class="page" id="admin-support">
+  <div class="page-title"><div><h2>지원 및 문의 관리</h2><p>회원이 접수한 계정 문의와 오류 신고를 확인하고 답변합니다.</p></div></div>
+  <div class="tabbar" style="margin-bottom:16px">
+    <button class="tab active" data-support-admin-filter="account" type="button">문의 내역</button>
+    <button class="tab" data-support-admin-filter="bug" type="button">오류 신고</button>
+  </div>
+  <div id="supportAdminList"><div class="card" style="text-align:center;color:var(--muted);padding:30px">불러오는 중...</div></div>
+</section>
+
 <!-- 관리자 전용: 계정 관리 -->
 <section class="page" id="admin-approve">
   <div class="page-title"><div><h2>계정 관리</h2><p>가입된 계정을 조회하고 권한을 관리합니다.</p></div><button class="btn dark" id="createAccountBtn" type="button">+ 새 계정 발급</button></div>
@@ -746,6 +761,19 @@
     </div>
     <div class="ro-modal-foot">
       <button class="btn dark" id="supportSubmitBtn" type="button">제출</button>
+    </div>
+  </div>
+</div>
+
+<!-- 지원 및 문의: 내가 제출한 내역 + 관리자 답변 모달 -->
+<div class="ro-modal-overlay" id="supportHistoryModalOverlay">
+  <div class="ro-modal ro-modal-lg">
+    <div class="ro-modal-head">
+      <h3 id="supportHistoryModalTitle">문의 내역</h3>
+      <button class="ro-modal-close" id="supportHistoryModalClose" type="button">✕</button>
+    </div>
+    <div class="ro-modal-body">
+      <div id="supportHistoryList" class="list"></div>
     </div>
   </div>
 </div>

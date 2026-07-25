@@ -124,6 +124,35 @@ async function submitSupportRequest(){
     btn.disabled = false;
   }
 }
+async function openSupportHistoryModal(type){
+  $('#supportHistoryModalTitle').textContent = (SUPPORT_TITLES[type] || '문의') + ' 내역';
+  $('#supportHistoryList').innerHTML = '<div class="card" style="text-align:center;color:var(--muted);padding:24px">불러오는 중...</div>';
+  $('#supportHistoryModalOverlay').classList.add('open');
+  const { data, error } = await _sb.from('support_requests').select('*').eq('user_id', currentUserId).eq('type', type).order('created_at', {ascending:false});
+  if(error){
+    $('#supportHistoryList').innerHTML = `<div class="card" style="text-align:center;color:var(--red);padding:24px">오류: ${error.message}</div>`;
+    return;
+  }
+  renderSupportHistoryList(data || []);
+}
+function closeSupportHistoryModal(){ $('#supportHistoryModalOverlay')?.classList.remove('open'); }
+function renderSupportHistoryList(list){
+  $('#supportHistoryList').innerHTML = list.length ? list.map(r=>{
+    const resolved = r.status === 'resolved';
+    return `<div class="list-item" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="badge ${resolved?'green':'orange'}">${resolved?'답변 완료':'접수됨'}</span>
+        <b style="flex:1">${esc(r.title||'(제목 없음)')}</b>
+        <span style="color:var(--muted);font-size:12px;white-space:nowrap">${esc((r.created_at||'').slice(0,10))}</span>
+      </div>
+      <p style="white-space:pre-line;margin:0;color:#334155">${esc(r.content||'')}</p>
+      ${resolved ? `<div style="background:var(--soft);border-radius:12px;padding:10px 12px;margin-top:4px">
+        <p style="margin:0 0 4px;font-size:12px;font-weight:900;color:var(--primary2)">관리자 답변</p>
+        <p style="margin:0;white-space:pre-line">${esc(r.admin_reply||'')}</p>
+      </div>` : ''}
+    </div>`;
+  }).join('') : '<div class="empty-state"><h3>제출한 내역이 없어요</h3></div>';
+}
 function openInfoModal(type){
   $('#infoModalTitle').textContent = type==='privacy' ? '개인정보 처리방침' : '이용 가이드';
   $('#infoGuideBody').style.display = type==='guide' ? 'block' : 'none';
