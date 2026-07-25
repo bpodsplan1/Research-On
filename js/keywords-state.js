@@ -283,5 +283,71 @@ function renderDashboard(){
   const pool = unexplored.length ? unexplored : allKw;
   const picks = [...pool].sort(()=>Math.random()-0.5).slice(0,3);
   $('#dashSuggestChips').innerHTML = picks.map(k=>`<button class="chip" type="button" data-suggest-kw="${esc(k)}">${esc(k)}</button>`).join('');
+
+  loadTrendCarousel();
+}
+
+let trendTimer = null;
+let trendIndex = 0;
+let trendArticles = [];
+
+function trendTimeAgo(iso){
+  const d = new Date(iso);
+  if(isNaN(d.getTime())) return '';
+  const mins = Math.floor((Date.now()-d.getTime())/60000);
+  if(mins < 1) return '방금 전';
+  if(mins < 60) return `${mins}분 전`;
+  const hrs = Math.floor(mins/60);
+  if(hrs < 24) return `${hrs}시간 전`;
+  return `${Math.floor(hrs/24)}일 전`;
+}
+
+async function loadTrendCarousel(){
+  const body = $('#trendCarouselBody');
+  const dots = $('#trendDots');
+  if(!body) return;
+  clearInterval(trendTimer);
+  body.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:20px 6px">불러오는 중...</p>';
+  if(dots) dots.innerHTML = '';
+
+  const { data, error } = await _sb.from('client_trend_articles').select('*').order('published_at', {ascending:false});
+  if(error || !data || !data.length){
+    body.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:20px 6px">아직 수집된 동향 기사가 없어요.</p>';
+    trendArticles = [];
+    return;
+  }
+
+  trendArticles = data;
+  trendIndex = 0;
+  body.innerHTML = trendArticles.map((a,i)=>`
+    <a class="trend-slide${i===0?' active':''}" data-idx="${i}" href="${esc(a.url)}" target="_blank" rel="noopener">
+      <div class="trend-slide-meta">${esc(a.source||'')}${a.source?' · ':''}${trendTimeAgo(a.published_at)}</div>
+      <div class="trend-slide-title">${esc(a.title)}</div>
+      <div class="trend-slide-summary">${esc(a.summary||'')}</div>
+    </a>
+  `).join('');
+  if(dots){
+    dots.innerHTML = trendArticles.map((_,i)=>`<span class="trend-dot${i===0?' active':''}" data-idx="${i}"></span>`).join('');
+  }
+  startTrendAutoplay();
+}
+
+function showTrendSlide(i){
+  if(!trendArticles.length) return;
+  trendIndex = (i + trendArticles.length) % trendArticles.length;
+  $$('.trend-slide').forEach(el=>el.classList.toggle('active', Number(el.dataset.idx)===trendIndex));
+  $$('.trend-dot').forEach(el=>el.classList.toggle('active', Number(el.dataset.idx)===trendIndex));
+}
+
+function trendNext(){ showTrendSlide(trendIndex+1); }
+function trendPrev(){ showTrendSlide(trendIndex-1); }
+
+function startTrendAutoplay(){
+  clearInterval(trendTimer);
+  if(trendArticles.length < 2) return;
+  trendTimer = setInterval(trendNext, 10000);
+}
+function stopTrendAutoplay(){
+  clearInterval(trendTimer);
 }
 

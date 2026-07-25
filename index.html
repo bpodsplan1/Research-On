@@ -136,13 +136,24 @@
     <button class="dash-shortcut" data-go="newsletter" type="button"><span class="dash-shortcut-icon" style="background:var(--pinkSoft)">📮</span><span>뉴스레터</span></button>
   </div>
   <div class="dash-widget-grid">
-    <div class="card" id="dashRecentCard">
-      <h3 style="font-size:14px;color:var(--muted);margin:0 0 12px;letter-spacing:.01em">최근 본 리서치</h3>
-      <div id="dashRecentBody"></div>
+    <div class="dash-widget-col">
+      <div class="card" id="dashRecentCard">
+        <h3 style="font-size:14px;color:var(--muted);margin:0 0 12px;letter-spacing:.01em">최근 본 리서치</h3>
+        <div id="dashRecentBody"></div>
+      </div>
+      <div class="card">
+        <h3 style="font-size:14px;color:var(--muted);margin:0 0 12px;letter-spacing:.01em">오늘의 추천 키워드</h3>
+        <div id="dashSuggestChips" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+      </div>
     </div>
-    <div class="card">
-      <h3 style="font-size:14px;color:var(--muted);margin:0 0 12px;letter-spacing:.01em">오늘의 추천 키워드</h3>
-      <div id="dashSuggestChips" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+    <div class="card dash-trend-card">
+      <h3 style="font-size:14px;color:var(--muted);margin:0 0 12px;letter-spacing:.01em">최근 클라이언트 동향</h3>
+      <div class="trend-carousel" id="trendCarousel">
+        <button class="trend-nav trend-nav-prev" id="trendPrevBtn" type="button" aria-label="이전 기사">‹</button>
+        <div class="trend-carousel-body" id="trendCarouselBody"></div>
+        <button class="trend-nav trend-nav-next" id="trendNextBtn" type="button" aria-label="다음 기사">›</button>
+      </div>
+      <div class="trend-dots" id="trendDots"></div>
     </div>
   </div>
 </section>

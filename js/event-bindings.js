@@ -11,6 +11,14 @@ function bindEvents(){
   $$('[data-mode-go]').forEach(b=>b.addEventListener('click',()=>switchMode(b.dataset.modeGo)));
   $('#prevStep')?.addEventListener('click',()=>setStep(step-1));
   $('#nextStep')?.addEventListener('click',()=>{ if(step<2) setStep(step+1); else switchMode('advanced'); });
+  $('#trendPrevBtn')?.addEventListener('click',()=>{ trendPrev(); startTrendAutoplay(); });
+  $('#trendNextBtn')?.addEventListener('click',()=>{ trendNext(); startTrendAutoplay(); });
+  $('#trendCarousel')?.addEventListener('mouseenter', stopTrendAutoplay);
+  $('#trendCarousel')?.addEventListener('mouseleave', startTrendAutoplay);
+  $('#trendDots')?.addEventListener('click', e=>{
+    const dot = e.target.closest('.trend-dot');
+    if(dot){ showTrendSlide(Number(dot.dataset.idx)); startTrendAutoplay(); }
+  });
   document.addEventListener('click',e=>{
     const cat=e.target.closest('.core-category-head'); if(cat) cat.closest('.core-category').classList.toggle('open');
     const d2=e.target.closest('.depth2-head'); if(d2) d2.closest('.depth2-box').classList.toggle('open');

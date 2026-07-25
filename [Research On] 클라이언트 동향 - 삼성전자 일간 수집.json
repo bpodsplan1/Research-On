@@ -1,0 +1,282 @@
+{
+  "name": "[Research On] 클라이언트 동향 - 삼성전자 일간 수집",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "id": "96e574d0-2dd0-4971-b31b-1d25738c9893",
+      "name": "T0. Schedule Trigger - 매일 07시",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    q: '삼성전자',\n    naver_display: 20,\n    naver_sort: 'date',\n    serper_gl: 'kr',\n    serper_hl: 'ko',\n    serper_num: 20,\n    serper_tbs: 'qdr:d'\n  }\n}];"
+      },
+      "id": "3e0208cf-da53-4170-8bb9-26f7164a03bb",
+      "name": "T1. Code - 검색 파라미터 생성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://openapi.naver.com/v1/search/news.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpCustomAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.q }}"
+            },
+            {
+              "name": "display",
+              "value": "={{ $json.naver_display }}"
+            },
+            {
+              "name": "start",
+              "value": "1"
+            },
+            {
+              "name": "sort",
+              "value": "={{ $json.naver_sort }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6c17f8f8-def9-4bdb-9df4-ab42b49de8de",
+      "name": "T2. HTTP Request - Naver News",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        -80
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpCustomAuth": {
+          "id": "CK5Tvh9XsDnzPcUZ",
+          "name": "Naver API"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://google.serper.dev/news",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ q: $('T1. Code - 검색 파라미터 생성').first().json.q, gl: $('T1. Code - 검색 파라미터 생성').first().json.serper_gl, hl: $('T1. Code - 검색 파라미터 생성').first().json.serper_hl, num: $('T1. Code - 검색 파라미터 생성').first().json.serper_num, tbs: $('T1. Code - 검색 파라미터 생성').first().json.serper_tbs }) }}",
+        "options": {}
+      },
+      "id": "0e9ecd56-5b13-442a-828b-84a57863c283",
+      "name": "T3. HTTP Request - Serper News",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        80
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "f995YWhME6zw2vSb",
+          "name": "Header Auth account 2"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const naver = $('T2. HTTP Request - Naver News').first().json || {};\nconst serper = $('T3. HTTP Request - Serper News').first().json || {};\n\nfunction stripHtml(v) {\n  return String(v || '')\n    .replace(/<[^>]+>/g, ' ')\n    .replace(/&quot;/g, '\"').replace(/&amp;/g, '&').replace(/&#39;/g, \"'\")\n    .replace(/\\s+/g, ' ').trim();\n}\nfunction normUrl(u) {\n  return String(u || '')\n    .replace(/#.*$/, '')\n    .replace(/[?&](utm_[^=&]+|nclick)=[^&]*/gi, '')\n    .replace(/[?&]$/, '')\n    .replace(/\\/$/, '');\n}\nfunction titleKey(t) {\n  return stripHtml(t).toLowerCase().replace(/[^0-9a-z가-힣]/g, '').slice(0, 70);\n}\nfunction dateValue(v) {\n  const d = new Date(v || 0);\n  return isNaN(d.getTime()) ? Date.now() : d.getTime();\n}\nfunction toIso(v) {\n  const d = new Date(v || 0);\n  return isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();\n}\n\nconst naverArticles = (Array.isArray(naver.items) ? naver.items : []).map(r => ({\n  title: stripHtml(r.title),\n  url: String(r.originallink || r.link || '').trim(),\n  source: 'Naver News',\n  published_at_raw: r.pubDate || null,\n  summary: stripHtml(r.description).slice(0, 300)\n}));\n\nconst serperArticles = (Array.isArray(serper.news) ? serper.news : []).map(r => ({\n  title: stripHtml(r.title),\n  url: String(r.link || '').trim(),\n  source: r.source || 'Serper News',\n  published_at_raw: r.date || null,\n  summary: stripHtml(r.snippet).slice(0, 300)\n}));\n\nconst all = [...naverArticles, ...serperArticles].filter(a => a.title && a.url);\n\nconst seen = new Map();\nfor (const a of all) {\n  const key = normUrl(a.url) + '|' + titleKey(a.title);\n  if (!seen.has(key)) seen.set(key, a);\n}\n\nconst deduped = [...seen.values()]\n  .sort((a, b) => dateValue(b.published_at_raw) - dateValue(a.published_at_raw))\n  .slice(0, 5)\n  .map(a => ({\n    title: a.title,\n    url: a.url,\n    source: a.source,\n    published_at: toIso(a.published_at_raw),\n    summary: a.summary\n  }));\n\nif (!deduped.length) {\n  throw new Error('삼성전자 관련 최근 기사를 하나도 찾지 못했습니다. Naver/Serper 응답을 확인하세요.');\n}\n\nreturn [{ json: { articles: deduped } }];"
+      },
+      "id": "5eec5651-8cec-4d06-aa0f-f6d2d750e56d",
+      "name": "T4. Code - Naver+Serper 병합 + 중복 제거 + 최신 5건",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/client_trend_articles",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "created_at",
+              "value": "not.is.null"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "8114b01a-3d22-4a60-b9da-883a4649ab85",
+      "name": "T5. HTTP Request - client_trend_articles 기존 데이터 삭제",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1040,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/client_trend_articles",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($('T4. Code - Naver+Serper 병합 + 중복 제거 + 최신 5건').first().json.articles) }}",
+        "options": {}
+      },
+      "id": "be809a62-d4eb-4483-8118-93b07085dea7",
+      "name": "T6. HTTP Request - client_trend_articles 신규 5건 저장",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1300,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
+        }
+      },
+      "notes": "T5(전체 삭제) 다음에 실행되어야 하므로 T5 뒤에 연결되어 있음. 실제 저장 데이터는 T4의 출력을 참조."
+    }
+  ],
+  "connections": {
+    "T0. Schedule Trigger - 매일 07시": {
+      "main": [
+        [
+          {
+            "node": "T1. Code - 검색 파라미터 생성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T1. Code - 검색 파라미터 생성": {
+      "main": [
+        [
+          {
+            "node": "T2. HTTP Request - Naver News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T2. HTTP Request - Naver News": {
+      "main": [
+        [
+          {
+            "node": "T3. HTTP Request - Serper News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T3. HTTP Request - Serper News": {
+      "main": [
+        [
+          {
+            "node": "T4. Code - Naver+Serper 병합 + 중복 제거 + 최신 5건",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T4. Code - Naver+Serper 병합 + 중복 제거 + 최신 5건": {
+      "main": [
+        [
+          {
+            "node": "T5. HTTP Request - client_trend_articles 기존 데이터 삭제",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "T5. HTTP Request - client_trend_articles 기존 데이터 삭제": {
+      "main": [
+        [
+          {
+            "node": "T6. HTTP Request - client_trend_articles 신규 5건 저장",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
