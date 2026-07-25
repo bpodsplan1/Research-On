@@ -38,52 +38,62 @@
     },
     {
       "parameters": {
-        "operation": "get",
-        "documentURL": "https://docs.google.com/document/d/10luJfq6C_GEanpIIYq5lbotZbqwnRzsGCUqjvbBnaPU/edit?usp=drivesdk"
+        "method": "GET",
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/context_docs",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "eq.company_context_2000"
+            },
+            {
+              "name": "select",
+              "value": "content"
+            }
+          ]
+        },
+        "options": {}
       },
       "id": "14773458-db89-4f76-bdb7-5ad8832e9585",
       "name": "0-C. Google Docs - 회사 맥락 문서 읽기",
-      "type": "n8n-nodes-base.googleDocs",
-      "typeVersion": 2,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         288496,
         94896
       ],
-      "alwaysOutputData": true,
       "credentials": {
-        "googleDocsOAuth2Api": {
-          "id": "cL4GHzurJWdHGv4W",
-          "name": "Google Docs(7/14)"
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
         }
       },
       "continueOnFail": true,
-      "notes": "웹 후보 평가 / PEOPLE&CULTURE 분석 시 관련성 판단 기준으로 쓸 회사 맥락 문서를 읽습니다. 2단계 워크플로우의 4-A 노드와 동일한 문서입니다. 오류가 나도 fallback 문맥으로 진행합니다."
+      "notes": "웹 후보 평가 / PEOPLE&CULTURE 분석 시 관련성 판단 기준으로 쓸 회사 맥락 문서를 읽습니다. 2단계 워크플로우의 4-A 노드와 동일한 문서입니다. 오류가 나도 fallback 문맥으로 진행합니다. (2026-07-25 Supabase 이관: 기존 Google Sheets/Docs 노드를 대체)"
     },
     {
       "parameters": {
-        "documentId": {
-          "__rl": true,
-          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
-          "mode": "list",
-          "cachedResultName": "Research On DB",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": 101230155,
-          "mode": "list",
-          "cachedResultName": "newsletter_keywords",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=101230155"
-        },
-        "filtersUI": {
-          "values": [
+        "method": "GET",
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/newsletter_keywords",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
             {
-              "lookupColumn": "active",
-              "lookupValue": "true"
+              "name": "active",
+              "value": "eq.true"
             },
             {
-              "lookupColumn": "section",
-              "lookupValue": "CLIENT_WATCH"
+              "name": "section",
+              "value": "eq.CLIENT_WATCH"
+            },
+            {
+              "name": "select",
+              "value": "*"
             }
           ]
         },
@@ -91,20 +101,19 @@
       },
       "id": "e63fee10-34c1-4cfa-8cbe-56c9e5517891",
       "name": "3-A-1. Google Sheets - CLIENT_WATCH 키워드 조회",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.6,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         288768,
         94416
       ],
-      "alwaysOutputData": true,
       "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "F55rrvsZtvhOvoA3",
-          "name": "Google Sheets(7/14)"
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
         }
       },
-      "notes": "newsletter_keywords 시트에서 active=true AND section=CLIENT_WATCH 행만 조회합니다."
+      "notes": "newsletter_keywords 시트에서 active=true AND section=CLIENT_WATCH 행만 조회합니다. (2026-07-25 Supabase 이관: 기존 Google Sheets/Docs 노드를 대체)"
     },
     {
       "parameters": {
@@ -299,7 +308,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ========================================================\n// 3-A-6. 구분자 기반 출력 결과 정리 + 행 분리\n// JSON.parse를 아예 쓰지 않음 - 모델이 따옴표를 이스케이프할\n// 필요가 없는 텍스트 포맷(##섹션 / FIELD: 값 / @@@ 구분자)을\n// 줄 단위로 읽어서 파싱한다. JSON 문법 오류 자체가 발생할 수 없음.\n// ========================================================\n\nconst base = $('3-A-10. Code - CLIENT_WATCH 후보 정리 + AI 평가 프롬프트').first().json;\n\nconst FIELD_KEY_MAP = {\n  TOPIC_ID: 'topic_id',\n  TITLE: 'title',\n  SUMMARY: 'summary',\n  IMPLICATION: 'implication',\n  PRIORITY: 'priority',\n  EVIDENCE_LEVEL: 'evidence_level',\n  SOURCE_URLS: 'source_urls',\n  SOURCE_TITLES: 'source_titles',\n  CATEGORY: 'category',\n  TARGET: 'target',\n  KEYWORD: 'keyword'\n};\n\nfunction splitMulti(v) {\n  return String(v || '')\n    .split('||')\n    .map(x => x.trim())\n    .filter(Boolean);\n}\n\nfunction parseDelimitedOutput(rawText) {\n  let text = String(rawText || '').trim();\n\n  // 혹시 모델이 실수로 코드펜스를 붙였어도 무해하게 제거\n  text = text.replace(/^```[a-zA-Z]*\\s*/, '').replace(/```\\s*$/, '').trim();\n\n  const sections = { CLIENT_WATCH: [], BUSINESS_WORK: [] };\n  let currentSection = null;\n  let currentItem = null;\n  let currentField = null;\n\n  function flushItem() {\n    if (currentItem && currentSection && Object.keys(currentItem).length) {\n      sections[currentSection].push(currentItem);\n    }\n    currentItem = null;\n    currentField = null;\n  }\n\n  const lines = text.split(/\\r?\\n/);\n\n  for (const rawLine of lines) {\n    const line = rawLine.trim();\n    if (!line) continue;\n\n    const upper = line.toUpperCase();\n\n    if (upper === '##CLIENT_WATCH') {\n      flushItem();\n      currentSection = 'CLIENT_WATCH';\n      continue;\n    }\n    if (upper === '##BUSINESS_WORK') {\n      flushItem();\n      currentSection = 'BUSINESS_WORK';\n      continue;\n    }\n    if (line === '@@@') {\n      flushItem();\n      continue;\n    }\n\n    // \"FIELD_NAME: 값\" 형태 매칭 (콜론 앞은 대문자/언더바만 허용)\n    const m = line.match(/^([A-Z_]+)\\s*:\\s*(.*)$/);\n    if (m && FIELD_KEY_MAP[m[1]]) {\n      if (!currentSection) continue; // 섹션 밖 잡음은 무시\n      if (!currentItem) currentItem = {};\n      currentField = FIELD_KEY_MAP[m[1]];\n      currentItem[currentField] = m[2].trim();\n      continue;\n    }\n\n    // 모델이 긴 문장을 줄바꿈한 경우: 직전 필드에 이어붙임\n    if (currentItem && currentField) {\n      currentItem[currentField] =\n        `${currentItem[currentField]} ${line}`.trim();\n    }\n  }\n  flushItem();\n\n  function finalize(list) {\n    return list\n      .filter(it => it.title) // title 없는 항목은 파싱 실패로 간주\n      .map(it => ({\n        topic_id: it.topic_id || '',\n        title: it.title || '',\n        summary: it.summary || '',\n        implication: it.implication || '',\n        priority: it.priority || '',\n        evidence_level: it.evidence_level || '',\n        source_urls: splitMulti(it.source_urls),\n        source_titles: splitMulti(it.source_titles),\n        category: it.category || '',\n        target: it.target || '',\n        keyword: it.keyword || ''\n      }));\n  }\n\n  return {\n    client_watch: finalize(sections.CLIENT_WATCH),\n    business_work: finalize(sections.BUSINESS_WORK)\n  };\n}\n\nfunction getParsedOutput(json) {\n  const rawText = (typeof json?.text === 'string' && json.text)\n    ? json.text\n    : (typeof json === 'string' ? json : '');\n\n  if (!rawText) {\n    throw new Error(\n      'LLM 응답 텍스트를 찾지 못했습니다. ' +\n      `수신 데이터: ${JSON.stringify(json).slice(0, 800)}`\n    );\n  }\n\n  const parsed = parseDelimitedOutput(rawText);\n\n  if (!parsed.client_watch.length && !parsed.business_work.length) {\n    throw new Error(\n      '구분자 포맷 파싱 결과가 비어 있습니다(모델이 형식을 안 지켰을 수 있음). ' +\n      `원문(앞부분): ${rawText.slice(0, 800)}`\n    );\n  }\n\n  return parsed;\n}\n\nfunction arr(value) {\n  return Array.isArray(value) ? value : [];\n}\n\nfunction txt(value) {\n  if (value === null || value === undefined) return '';\n  return String(value).trim();\n}\n\nfunction num(value, fallback = 50) {\n  const parsed = Number(value);\n  return Number.isFinite(parsed) ? parsed : fallback;\n}\n\nfunction normalizeEvidence(value, urlCount = 0) {\n  const evidence = txt(value).toUpperCase();\n\n  if (['HIGH', 'MEDIUM', 'LOW'].includes(evidence)) {\n    return evidence;\n  }\n\n  return urlCount >= 2 ? 'HIGH' : 'MEDIUM';\n}\n\nfunction normalizeUrls(value) {\n  if (Array.isArray(value)) {\n    return [...new Set(\n      value.map(txt).filter(Boolean)\n    )].slice(0, 5);\n  }\n\n  if (typeof value === 'string') {\n    return [...new Set(\n      value\n        .split(/[\\n,]+/)\n        .map(x => x.trim())\n        .filter(Boolean)\n    )].slice(0, 5);\n  }\n\n  return [];\n}\n\nconst parsed = getParsedOutput($json);\n\n// 안전망: AI가 델리미터 포맷으로 URL을 다시 타이핑하는 과정에서\n// 지어낼 가능성에 대비해, 실제 후보(3-A-7이 만든 grouped_candidates)에\n// 있던 URL과 대조해서 없는 건 제거한다.\nconst verifiedUrlSet = new Set(\n  Object.values(base.grouped_candidates || {})\n    .flat()\n    .flatMap(c => Array.isArray(c?.source_urls) ? c.source_urls.map(u => String(u).trim()) : [])\n    .filter(Boolean)\n);\n\nfunction keepOnlyVerifiedUrls(urls) {\n  return urls.filter(u => verifiedUrlSet.has(String(u).trim()));\n}\n\nconst now = new Date().toISOString();\nconst periodStart = txt(base.period_start);\nconst periodEnd = txt(base.period_end);\nconst period = periodStart && periodEnd\n  ? `${periodStart}~${periodEnd}`\n  : '';\n\nconst output = [];\nconst usedTopicIds = new Set();\nconst categoryCounts = new Map();\n\nfunction pushItems(items, section) {\n  const sectionItems = arr(items).slice(0, 10);\n\n  for (let index = 0; index < sectionItems.length; index++) {\n    const item = sectionItems[index] || {};\n    const category = txt(item.category) || 'GENERAL';\n    const topicId =\n      txt(item.topic_id) ||\n      `${section}-${category}-${index + 1}`;\n\n    const categoryKey = `${section}|${category}`;\n\n    if (usedTopicIds.has(topicId)) continue;\n\n    const currentCategoryCount =\n      categoryCounts.get(categoryKey) || 0;\n\n    if (currentCategoryCount >= 3) continue;\n\n    const title = txt(item.title);\n    const summary = txt(item.summary);\n    const implication = txt(item.implication);\n\n    if (!title || (!summary && !implication)) continue;\n\n    const urls = keepOnlyVerifiedUrls(normalizeUrls(item.source_urls));\n\n    usedTopicIds.add(topicId);\n    categoryCounts.set(\n      categoryKey,\n      currentCategoryCount + 1\n    );\n\n    const sequence = output.length + 1;\n    const randomCode = Math.random()\n      .toString(36)\n      .slice(2, 6)\n      .toUpperCase();\n\n    const dateCode = periodEnd\n      ? periodEnd.replace(/-/g, '')\n      : new Date()\n          .toISOString()\n          .slice(0, 10)\n          .replace(/-/g, '');\n\n    const itemId =\n      `NLR-${dateCode}-${section}-${sequence}-${randomCode}`;\n\n    const normalizedEvidence = normalizeEvidence(\n      item.evidence_level,\n      urls.length\n    );\n\n    const rawRecord = {\n      topic_id: topicId,\n      title,\n      summary,\n      implication,\n      priority: num(item.priority),\n      evidence_level: normalizedEvidence,\n      source_urls: urls,\n      source_titles: arr(item.source_titles)\n        .map(txt)\n        .filter(Boolean)\n        .slice(0, 5),\n      category,\n      target: txt(item.target),\n      keyword: txt(item.keyword)\n    };\n\n    output.push({\n      json: {\n        item_id: itemId,\n        collected_at: now,\n        research_period: period,\n        section,\n        source_pipeline: 'WEB_RESEARCH_TOPIC_CLUSTER',\n        category,\n        target: txt(item.target),\n        keyword: txt(item.keyword),\n        title,\n        summary,\n        implication,\n        source_urls: urls.join('\\n'),\n        evidence_level: normalizedEvidence,\n        priority: num(item.priority),\n        raw_json: JSON.stringify(rawRecord)\n      }\n    });\n  }\n}\n\npushItems(parsed.client_watch, 'CLIENT_WATCH');\npushItems(parsed.business_work, 'BUSINESS_WORK');\n\nif (!output.length) {\n  throw new Error(\n    '파싱은 성공했지만 저장할 항목이 없습니다. ' +\n    `수신 데이터: ${JSON.stringify(parsed).slice(0, 1500)}`\n  );\n}\n\nreturn output;\n"
+        "jsCode": "// ========================================================\n// 3-A-6. 구분자 기반 출력 결과 정리 + 행 분리\n// JSON.parse를 아예 쓰지 않음 - 모델이 따옴표를 이스케이프할\n// 필요가 없는 텍스트 포맷(##섹션 / FIELD: 값 / @@@ 구분자)을\n// 줄 단위로 읽어서 파싱한다. JSON 문법 오류 자체가 발생할 수 없음.\n// ========================================================\n\nconst base = $('3-A-10. Code - CLIENT_WATCH 후보 정리 + AI 평가 프롬프트').first().json;\n\nconst FIELD_KEY_MAP = {\n  TOPIC_ID: 'topic_id',\n  TITLE: 'title',\n  SUMMARY: 'summary',\n  IMPLICATION: 'implication',\n  PRIORITY: 'priority',\n  EVIDENCE_LEVEL: 'evidence_level',\n  SOURCE_URLS: 'source_urls',\n  SOURCE_TITLES: 'source_titles',\n  CATEGORY: 'category',\n  TARGET: 'target',\n  KEYWORD: 'keyword'\n};\n\nfunction splitMulti(v) {\n  return String(v || '')\n    .split('||')\n    .map(x => x.trim())\n    .filter(Boolean);\n}\n\nfunction parseDelimitedOutput(rawText) {\n  let text = String(rawText || '').trim();\n\n  // 혹시 모델이 실수로 코드펜스를 붙였어도 무해하게 제거\n  text = text.replace(/^```[a-zA-Z]*\\s*/, '').replace(/```\\s*$/, '').trim();\n\n  const sections = { CLIENT_WATCH: [], BUSINESS_WORK: [] };\n  let currentSection = null;\n  let currentItem = null;\n  let currentField = null;\n\n  function flushItem() {\n    if (currentItem && currentSection && Object.keys(currentItem).length) {\n      sections[currentSection].push(currentItem);\n    }\n    currentItem = null;\n    currentField = null;\n  }\n\n  const lines = text.split(/\\r?\\n/);\n\n  for (const rawLine of lines) {\n    const line = rawLine.trim();\n    if (!line) continue;\n\n    const upper = line.toUpperCase();\n\n    if (upper === '##CLIENT_WATCH') {\n      flushItem();\n      currentSection = 'CLIENT_WATCH';\n      continue;\n    }\n    if (upper === '##BUSINESS_WORK') {\n      flushItem();\n      currentSection = 'BUSINESS_WORK';\n      continue;\n    }\n    if (line === '@@@') {\n      flushItem();\n      continue;\n    }\n\n    // \"FIELD_NAME: 값\" 형태 매칭 (콜론 앞은 대문자/언더바만 허용)\n    const m = line.match(/^([A-Z_]+)\\s*:\\s*(.*)$/);\n    if (m && FIELD_KEY_MAP[m[1]]) {\n      if (!currentSection) continue; // 섹션 밖 잡음은 무시\n      if (!currentItem) currentItem = {};\n      currentField = FIELD_KEY_MAP[m[1]];\n      currentItem[currentField] = m[2].trim();\n      continue;\n    }\n\n    // 모델이 긴 문장을 줄바꿈한 경우: 직전 필드에 이어붙임\n    if (currentItem && currentField) {\n      currentItem[currentField] =\n        `${currentItem[currentField]} ${line}`.trim();\n    }\n  }\n  flushItem();\n\n  function finalize(list) {\n    return list\n      .filter(it => it.title) // title 없는 항목은 파싱 실패로 간주\n      .map(it => ({\n        topic_id: it.topic_id || '',\n        title: it.title || '',\n        summary: it.summary || '',\n        implication: it.implication || '',\n        priority: it.priority || '',\n        evidence_level: it.evidence_level || '',\n        source_urls: splitMulti(it.source_urls),\n        source_titles: splitMulti(it.source_titles),\n        category: it.category || '',\n        target: it.target || '',\n        keyword: it.keyword || ''\n      }));\n  }\n\n  return {\n    client_watch: finalize(sections.CLIENT_WATCH),\n    business_work: finalize(sections.BUSINESS_WORK)\n  };\n}\n\nfunction getParsedOutput(json) {\n  const rawText = (typeof json?.text === 'string' && json.text)\n    ? json.text\n    : (typeof json === 'string' ? json : '');\n\n  if (!rawText) {\n    throw new Error(\n      'LLM 응답 텍스트를 찾지 못했습니다. ' +\n      `수신 데이터: ${JSON.stringify(json).slice(0, 800)}`\n    );\n  }\n\n  const parsed = parseDelimitedOutput(rawText);\n\n  if (!parsed.client_watch.length && !parsed.business_work.length) {\n    throw new Error(\n      '구분자 포맷 파싱 결과가 비어 있습니다(모델이 형식을 안 지켰을 수 있음). ' +\n      `원문(앞부분): ${rawText.slice(0, 800)}`\n    );\n  }\n\n  return parsed;\n}\n\nfunction arr(value) {\n  return Array.isArray(value) ? value : [];\n}\n\nfunction txt(value) {\n  if (value === null || value === undefined) return '';\n  return String(value).trim();\n}\n\nfunction num(value, fallback = 50) {\n  const parsed = Number(value);\n  return Number.isFinite(parsed) ? parsed : fallback;\n}\n\nfunction normalizeEvidence(value, urlCount = 0) {\n  const evidence = txt(value).toUpperCase();\n\n  if (['HIGH', 'MEDIUM', 'LOW'].includes(evidence)) {\n    return evidence;\n  }\n\n  return urlCount >= 2 ? 'HIGH' : 'MEDIUM';\n}\n\nfunction normalizeUrls(value) {\n  if (Array.isArray(value)) {\n    return [...new Set(\n      value.map(txt).filter(Boolean)\n    )].slice(0, 5);\n  }\n\n  if (typeof value === 'string') {\n    return [...new Set(\n      value\n        .split(/[\\n,]+/)\n        .map(x => x.trim())\n        .filter(Boolean)\n    )].slice(0, 5);\n  }\n\n  return [];\n}\n\nconst parsed = getParsedOutput($json);\n\n// 안전망: AI가 델리미터 포맷으로 URL을 다시 타이핑하는 과정에서\n// 지어낼 가능성에 대비해, 실제 후보(3-A-7이 만든 grouped_candidates)에\n// 있던 URL과 대조해서 없는 건 제거한다.\nconst verifiedUrlSet = new Set(\n  Object.values(base.grouped_candidates || {})\n    .flat()\n    .flatMap(c => Array.isArray(c?.source_urls) ? c.source_urls.map(u => String(u).trim()) : [])\n    .filter(Boolean)\n);\n\nfunction keepOnlyVerifiedUrls(urls) {\n  return urls.filter(u => verifiedUrlSet.has(String(u).trim()));\n}\n\nconst now = new Date().toISOString();\nconst periodStart = txt(base.period_start);\nconst periodEnd = txt(base.period_end);\nconst period = periodStart && periodEnd\n  ? `${periodStart}~${periodEnd}`\n  : '';\n\nconst output = [];\nconst usedTopicIds = new Set();\nconst categoryCounts = new Map();\n\nfunction pushItems(items, section) {\n  const sectionItems = arr(items).slice(0, 10);\n\n  for (let index = 0; index < sectionItems.length; index++) {\n    const item = sectionItems[index] || {};\n    const category = txt(item.category) || 'GENERAL';\n    const topicId =\n      txt(item.topic_id) ||\n      `${section}-${category}-${index + 1}`;\n\n    const categoryKey = `${section}|${category}`;\n\n    if (usedTopicIds.has(topicId)) continue;\n\n    const currentCategoryCount =\n      categoryCounts.get(categoryKey) || 0;\n\n    if (currentCategoryCount >= 3) continue;\n\n    const title = txt(item.title);\n    const summary = txt(item.summary);\n    const implication = txt(item.implication);\n\n    if (!title || (!summary && !implication)) continue;\n\n    const urls = keepOnlyVerifiedUrls(normalizeUrls(item.source_urls));\n\n    usedTopicIds.add(topicId);\n    categoryCounts.set(\n      categoryKey,\n      currentCategoryCount + 1\n    );\n\n    const sequence = output.length + 1;\n    const randomCode = Math.random()\n      .toString(36)\n      .slice(2, 6)\n      .toUpperCase();\n\n    const dateCode = periodEnd\n      ? periodEnd.replace(/-/g, '')\n      : new Date()\n          .toISOString()\n          .slice(0, 10)\n          .replace(/-/g, '');\n\n    const itemId =\n      `NLR-${dateCode}-${section}-${sequence}-${randomCode}`;\n\n    const normalizedEvidence = normalizeEvidence(\n      item.evidence_level,\n      urls.length\n    );\n\n    const rawRecord = {\n      topic_id: topicId,\n      title,\n      summary,\n      implication,\n      priority: num(item.priority),\n      evidence_level: normalizedEvidence,\n      source_urls: urls,\n      source_titles: arr(item.source_titles)\n        .map(txt)\n        .filter(Boolean)\n        .slice(0, 5),\n      category,\n      target: txt(item.target),\n      keyword: txt(item.keyword)\n    };\n\n    output.push({\n      json: {\n        item_id: itemId,\n        collected_at: now,\n        research_period: period,\n        section,\n        source_pipeline: 'WEB_RESEARCH_TOPIC_CLUSTER',\n        category,\n        target: txt(item.target),\n        keyword: txt(item.keyword),\n        title,\n        summary,\n        implication,\n        source_urls: urls.join('\\n'),\n        evidence_level: normalizedEvidence,\n        priority: num(item.priority),\n        raw_json: rawRecord\n      }\n    });\n  }\n}\n\npushItems(parsed.client_watch, 'CLIENT_WATCH');\npushItems(parsed.business_work, 'BUSINESS_WORK');\n\nif (!output.length) {\n  throw new Error(\n    '파싱은 성공했지만 저장할 항목이 없습니다. ' +\n    `수신 데이터: ${JSON.stringify(parsed).slice(0, 1500)}`\n  );\n}\n\nreturn output;\n"
       },
       "id": "8dd642ee-d674-4cba-92b4-20c0a6bddb13",
       "name": "3-A-12. Code - CLIENT_WATCH 평가 결과 정리 + 행 분리",
@@ -312,183 +321,44 @@
     },
     {
       "parameters": {
-        "operation": "append",
-        "documentId": {
-          "__rl": true,
-          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
-          "mode": "list",
-          "cachedResultName": "Research On DB",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": 1294785882,
-          "mode": "list",
-          "cachedResultName": "newsletter_research",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=1294785882"
-        },
-        "columns": {
-          "mappingMode": "autoMapInputData",
-          "value": {},
-          "matchingColumns": [],
-          "schema": [
+        "method": "POST",
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/newsletter_candidates",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "id": "item_id",
-              "displayName": "item_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
+              "name": "Content-Type",
+              "value": "application/json"
             },
             {
-              "id": "collected_at",
-              "displayName": "collected_at",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "research_period",
-              "displayName": "research_period",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "section",
-              "displayName": "section",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "source_pipeline",
-              "displayName": "source_pipeline",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "category",
-              "displayName": "category",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "target",
-              "displayName": "target",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "keyword",
-              "displayName": "keyword",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "title",
-              "displayName": "title",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "summary",
-              "displayName": "summary",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "implication",
-              "displayName": "implication",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "source_urls",
-              "displayName": "source_urls",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "evidence_level",
-              "displayName": "evidence_level",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "priority",
-              "displayName": "priority",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "raw_json",
-              "displayName": "raw_json",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
+              "name": "Prefer",
+              "value": "return=minimal"
             }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
+          ]
         },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
         "options": {}
       },
       "id": "042d39ec-7e08-45e7-a857-3db493805537",
       "name": "3-A-13. Google Sheets - CLIENT_WATCH 저장",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.6,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         291040,
         94416
       ],
       "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "F55rrvsZtvhOvoA3",
-          "name": "Google Sheets(7/14)"
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
         }
       },
       "continueOnFail": true,
-      "notes": "newsletter_research 시트에 CLIENT_WATCH 항목만 저장합니다."
+      "notes": "newsletter_research 시트에 CLIENT_WATCH 항목만 저장합니다. (2026-07-25 Supabase 이관: 기존 Google Sheets/Docs 노드를 대체)"
     },
     {
       "parameters": {
@@ -507,29 +377,24 @@
     },
     {
       "parameters": {
-        "documentId": {
-          "__rl": true,
-          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
-          "mode": "list",
-          "cachedResultName": "Research On DB",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": 101230155,
-          "mode": "list",
-          "cachedResultName": "newsletter_keywords",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=101230155"
-        },
-        "filtersUI": {
-          "values": [
+        "method": "GET",
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/newsletter_keywords",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
             {
-              "lookupColumn": "active",
-              "lookupValue": "true"
+              "name": "active",
+              "value": "eq.true"
             },
             {
-              "lookupColumn": "section",
-              "lookupValue": "BUSINESS_WORK"
+              "name": "section",
+              "value": "eq.BUSINESS_WORK"
+            },
+            {
+              "name": "select",
+              "value": "*"
             }
           ]
         },
@@ -537,20 +402,19 @@
       },
       "id": "a14e4fd6-8bfe-4161-b6de-8c110e880606",
       "name": "3-B-1. Google Sheets - BUSINESS_WORK 키워드 조회",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.6,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         288768,
         95056
       ],
-      "alwaysOutputData": true,
       "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "F55rrvsZtvhOvoA3",
-          "name": "Google Sheets(7/14)"
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
         }
       },
-      "notes": "newsletter_keywords 시트에서 active=true AND section=BUSINESS_WORK 행만 조회합니다."
+      "notes": "newsletter_keywords 시트에서 active=true AND section=BUSINESS_WORK 행만 조회합니다. (2026-07-25 Supabase 이관: 기존 Google Sheets/Docs 노드를 대체)"
     },
     {
       "parameters": {
@@ -745,7 +609,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ========================================================\n// 3-A-6. 구분자 기반 출력 결과 정리 + 행 분리\n// JSON.parse를 아예 쓰지 않음 - 모델이 따옴표를 이스케이프할\n// 필요가 없는 텍스트 포맷(##섹션 / FIELD: 값 / @@@ 구분자)을\n// 줄 단위로 읽어서 파싱한다. JSON 문법 오류 자체가 발생할 수 없음.\n// ========================================================\n\nconst base = $('3-B-10. Code - BUSINESS_WORK 후보 정리 + AI 평가 프롬프트').first().json;\n\nconst FIELD_KEY_MAP = {\n  TOPIC_ID: 'topic_id',\n  TITLE: 'title',\n  SUMMARY: 'summary',\n  IMPLICATION: 'implication',\n  PRIORITY: 'priority',\n  EVIDENCE_LEVEL: 'evidence_level',\n  SOURCE_URLS: 'source_urls',\n  SOURCE_TITLES: 'source_titles',\n  CATEGORY: 'category',\n  TARGET: 'target',\n  KEYWORD: 'keyword'\n};\n\nfunction splitMulti(v) {\n  return String(v || '')\n    .split('||')\n    .map(x => x.trim())\n    .filter(Boolean);\n}\n\nfunction parseDelimitedOutput(rawText) {\n  let text = String(rawText || '').trim();\n\n  // 혹시 모델이 실수로 코드펜스를 붙였어도 무해하게 제거\n  text = text.replace(/^```[a-zA-Z]*\\s*/, '').replace(/```\\s*$/, '').trim();\n\n  const sections = { CLIENT_WATCH: [], BUSINESS_WORK: [] };\n  let currentSection = null;\n  let currentItem = null;\n  let currentField = null;\n\n  function flushItem() {\n    if (currentItem && currentSection && Object.keys(currentItem).length) {\n      sections[currentSection].push(currentItem);\n    }\n    currentItem = null;\n    currentField = null;\n  }\n\n  const lines = text.split(/\\r?\\n/);\n\n  for (const rawLine of lines) {\n    const line = rawLine.trim();\n    if (!line) continue;\n\n    const upper = line.toUpperCase();\n\n    if (upper === '##CLIENT_WATCH') {\n      flushItem();\n      currentSection = 'CLIENT_WATCH';\n      continue;\n    }\n    if (upper === '##BUSINESS_WORK') {\n      flushItem();\n      currentSection = 'BUSINESS_WORK';\n      continue;\n    }\n    if (line === '@@@') {\n      flushItem();\n      continue;\n    }\n\n    // \"FIELD_NAME: 값\" 형태 매칭 (콜론 앞은 대문자/언더바만 허용)\n    const m = line.match(/^([A-Z_]+)\\s*:\\s*(.*)$/);\n    if (m && FIELD_KEY_MAP[m[1]]) {\n      if (!currentSection) continue; // 섹션 밖 잡음은 무시\n      if (!currentItem) currentItem = {};\n      currentField = FIELD_KEY_MAP[m[1]];\n      currentItem[currentField] = m[2].trim();\n      continue;\n    }\n\n    // 모델이 긴 문장을 줄바꿈한 경우: 직전 필드에 이어붙임\n    if (currentItem && currentField) {\n      currentItem[currentField] =\n        `${currentItem[currentField]} ${line}`.trim();\n    }\n  }\n  flushItem();\n\n  function finalize(list) {\n    return list\n      .filter(it => it.title) // title 없는 항목은 파싱 실패로 간주\n      .map(it => ({\n        topic_id: it.topic_id || '',\n        title: it.title || '',\n        summary: it.summary || '',\n        implication: it.implication || '',\n        priority: it.priority || '',\n        evidence_level: it.evidence_level || '',\n        source_urls: splitMulti(it.source_urls),\n        source_titles: splitMulti(it.source_titles),\n        category: it.category || '',\n        target: it.target || '',\n        keyword: it.keyword || ''\n      }));\n  }\n\n  return {\n    client_watch: finalize(sections.CLIENT_WATCH),\n    business_work: finalize(sections.BUSINESS_WORK)\n  };\n}\n\nfunction getParsedOutput(json) {\n  const rawText = (typeof json?.text === 'string' && json.text)\n    ? json.text\n    : (typeof json === 'string' ? json : '');\n\n  if (!rawText) {\n    throw new Error(\n      'LLM 응답 텍스트를 찾지 못했습니다. ' +\n      `수신 데이터: ${JSON.stringify(json).slice(0, 800)}`\n    );\n  }\n\n  const parsed = parseDelimitedOutput(rawText);\n\n  if (!parsed.client_watch.length && !parsed.business_work.length) {\n    throw new Error(\n      '구분자 포맷 파싱 결과가 비어 있습니다(모델이 형식을 안 지켰을 수 있음). ' +\n      `원문(앞부분): ${rawText.slice(0, 800)}`\n    );\n  }\n\n  return parsed;\n}\n\nfunction arr(value) {\n  return Array.isArray(value) ? value : [];\n}\n\nfunction txt(value) {\n  if (value === null || value === undefined) return '';\n  return String(value).trim();\n}\n\nfunction num(value, fallback = 50) {\n  const parsed = Number(value);\n  return Number.isFinite(parsed) ? parsed : fallback;\n}\n\nfunction normalizeEvidence(value, urlCount = 0) {\n  const evidence = txt(value).toUpperCase();\n\n  if (['HIGH', 'MEDIUM', 'LOW'].includes(evidence)) {\n    return evidence;\n  }\n\n  return urlCount >= 2 ? 'HIGH' : 'MEDIUM';\n}\n\nfunction normalizeUrls(value) {\n  if (Array.isArray(value)) {\n    return [...new Set(\n      value.map(txt).filter(Boolean)\n    )].slice(0, 5);\n  }\n\n  if (typeof value === 'string') {\n    return [...new Set(\n      value\n        .split(/[\\n,]+/)\n        .map(x => x.trim())\n        .filter(Boolean)\n    )].slice(0, 5);\n  }\n\n  return [];\n}\n\nconst parsed = getParsedOutput($json);\n\n// 안전망: AI가 델리미터 포맷으로 URL을 다시 타이핑하는 과정에서\n// 지어낼 가능성에 대비해, 실제 후보(3-A-7이 만든 grouped_candidates)에\n// 있던 URL과 대조해서 없는 건 제거한다.\nconst verifiedUrlSet = new Set(\n  Object.values(base.grouped_candidates || {})\n    .flat()\n    .flatMap(c => Array.isArray(c?.source_urls) ? c.source_urls.map(u => String(u).trim()) : [])\n    .filter(Boolean)\n);\n\nfunction keepOnlyVerifiedUrls(urls) {\n  return urls.filter(u => verifiedUrlSet.has(String(u).trim()));\n}\n\nconst now = new Date().toISOString();\nconst periodStart = txt(base.period_start);\nconst periodEnd = txt(base.period_end);\nconst period = periodStart && periodEnd\n  ? `${periodStart}~${periodEnd}`\n  : '';\n\nconst output = [];\nconst usedTopicIds = new Set();\nconst categoryCounts = new Map();\n\nfunction pushItems(items, section) {\n  const sectionItems = arr(items).slice(0, 10);\n\n  for (let index = 0; index < sectionItems.length; index++) {\n    const item = sectionItems[index] || {};\n    const category = txt(item.category) || 'GENERAL';\n    const topicId =\n      txt(item.topic_id) ||\n      `${section}-${category}-${index + 1}`;\n\n    const categoryKey = `${section}|${category}`;\n\n    if (usedTopicIds.has(topicId)) continue;\n\n    const currentCategoryCount =\n      categoryCounts.get(categoryKey) || 0;\n\n    if (currentCategoryCount >= 3) continue;\n\n    const title = txt(item.title);\n    const summary = txt(item.summary);\n    const implication = txt(item.implication);\n\n    if (!title || (!summary && !implication)) continue;\n\n    const urls = keepOnlyVerifiedUrls(normalizeUrls(item.source_urls));\n\n    usedTopicIds.add(topicId);\n    categoryCounts.set(\n      categoryKey,\n      currentCategoryCount + 1\n    );\n\n    const sequence = output.length + 1;\n    const randomCode = Math.random()\n      .toString(36)\n      .slice(2, 6)\n      .toUpperCase();\n\n    const dateCode = periodEnd\n      ? periodEnd.replace(/-/g, '')\n      : new Date()\n          .toISOString()\n          .slice(0, 10)\n          .replace(/-/g, '');\n\n    const itemId =\n      `NLR-${dateCode}-${section}-${sequence}-${randomCode}`;\n\n    const normalizedEvidence = normalizeEvidence(\n      item.evidence_level,\n      urls.length\n    );\n\n    const rawRecord = {\n      topic_id: topicId,\n      title,\n      summary,\n      implication,\n      priority: num(item.priority),\n      evidence_level: normalizedEvidence,\n      source_urls: urls,\n      source_titles: arr(item.source_titles)\n        .map(txt)\n        .filter(Boolean)\n        .slice(0, 5),\n      category,\n      target: txt(item.target),\n      keyword: txt(item.keyword)\n    };\n\n    output.push({\n      json: {\n        item_id: itemId,\n        collected_at: now,\n        research_period: period,\n        section,\n        source_pipeline: 'WEB_RESEARCH_TOPIC_CLUSTER',\n        category,\n        target: txt(item.target),\n        keyword: txt(item.keyword),\n        title,\n        summary,\n        implication,\n        source_urls: urls.join('\\n'),\n        evidence_level: normalizedEvidence,\n        priority: num(item.priority),\n        raw_json: JSON.stringify(rawRecord)\n      }\n    });\n  }\n}\n\npushItems(parsed.client_watch, 'CLIENT_WATCH');\npushItems(parsed.business_work, 'BUSINESS_WORK');\n\nif (!output.length) {\n  throw new Error(\n    '파싱은 성공했지만 저장할 항목이 없습니다. ' +\n    `수신 데이터: ${JSON.stringify(parsed).slice(0, 1500)}`\n  );\n}\n\nreturn output;\n"
+        "jsCode": "// ========================================================\n// 3-A-6. 구분자 기반 출력 결과 정리 + 행 분리\n// JSON.parse를 아예 쓰지 않음 - 모델이 따옴표를 이스케이프할\n// 필요가 없는 텍스트 포맷(##섹션 / FIELD: 값 / @@@ 구분자)을\n// 줄 단위로 읽어서 파싱한다. JSON 문법 오류 자체가 발생할 수 없음.\n// ========================================================\n\nconst base = $('3-B-10. Code - BUSINESS_WORK 후보 정리 + AI 평가 프롬프트').first().json;\n\nconst FIELD_KEY_MAP = {\n  TOPIC_ID: 'topic_id',\n  TITLE: 'title',\n  SUMMARY: 'summary',\n  IMPLICATION: 'implication',\n  PRIORITY: 'priority',\n  EVIDENCE_LEVEL: 'evidence_level',\n  SOURCE_URLS: 'source_urls',\n  SOURCE_TITLES: 'source_titles',\n  CATEGORY: 'category',\n  TARGET: 'target',\n  KEYWORD: 'keyword'\n};\n\nfunction splitMulti(v) {\n  return String(v || '')\n    .split('||')\n    .map(x => x.trim())\n    .filter(Boolean);\n}\n\nfunction parseDelimitedOutput(rawText) {\n  let text = String(rawText || '').trim();\n\n  // 혹시 모델이 실수로 코드펜스를 붙였어도 무해하게 제거\n  text = text.replace(/^```[a-zA-Z]*\\s*/, '').replace(/```\\s*$/, '').trim();\n\n  const sections = { CLIENT_WATCH: [], BUSINESS_WORK: [] };\n  let currentSection = null;\n  let currentItem = null;\n  let currentField = null;\n\n  function flushItem() {\n    if (currentItem && currentSection && Object.keys(currentItem).length) {\n      sections[currentSection].push(currentItem);\n    }\n    currentItem = null;\n    currentField = null;\n  }\n\n  const lines = text.split(/\\r?\\n/);\n\n  for (const rawLine of lines) {\n    const line = rawLine.trim();\n    if (!line) continue;\n\n    const upper = line.toUpperCase();\n\n    if (upper === '##CLIENT_WATCH') {\n      flushItem();\n      currentSection = 'CLIENT_WATCH';\n      continue;\n    }\n    if (upper === '##BUSINESS_WORK') {\n      flushItem();\n      currentSection = 'BUSINESS_WORK';\n      continue;\n    }\n    if (line === '@@@') {\n      flushItem();\n      continue;\n    }\n\n    // \"FIELD_NAME: 값\" 형태 매칭 (콜론 앞은 대문자/언더바만 허용)\n    const m = line.match(/^([A-Z_]+)\\s*:\\s*(.*)$/);\n    if (m && FIELD_KEY_MAP[m[1]]) {\n      if (!currentSection) continue; // 섹션 밖 잡음은 무시\n      if (!currentItem) currentItem = {};\n      currentField = FIELD_KEY_MAP[m[1]];\n      currentItem[currentField] = m[2].trim();\n      continue;\n    }\n\n    // 모델이 긴 문장을 줄바꿈한 경우: 직전 필드에 이어붙임\n    if (currentItem && currentField) {\n      currentItem[currentField] =\n        `${currentItem[currentField]} ${line}`.trim();\n    }\n  }\n  flushItem();\n\n  function finalize(list) {\n    return list\n      .filter(it => it.title) // title 없는 항목은 파싱 실패로 간주\n      .map(it => ({\n        topic_id: it.topic_id || '',\n        title: it.title || '',\n        summary: it.summary || '',\n        implication: it.implication || '',\n        priority: it.priority || '',\n        evidence_level: it.evidence_level || '',\n        source_urls: splitMulti(it.source_urls),\n        source_titles: splitMulti(it.source_titles),\n        category: it.category || '',\n        target: it.target || '',\n        keyword: it.keyword || ''\n      }));\n  }\n\n  return {\n    client_watch: finalize(sections.CLIENT_WATCH),\n    business_work: finalize(sections.BUSINESS_WORK)\n  };\n}\n\nfunction getParsedOutput(json) {\n  const rawText = (typeof json?.text === 'string' && json.text)\n    ? json.text\n    : (typeof json === 'string' ? json : '');\n\n  if (!rawText) {\n    throw new Error(\n      'LLM 응답 텍스트를 찾지 못했습니다. ' +\n      `수신 데이터: ${JSON.stringify(json).slice(0, 800)}`\n    );\n  }\n\n  const parsed = parseDelimitedOutput(rawText);\n\n  if (!parsed.client_watch.length && !parsed.business_work.length) {\n    throw new Error(\n      '구분자 포맷 파싱 결과가 비어 있습니다(모델이 형식을 안 지켰을 수 있음). ' +\n      `원문(앞부분): ${rawText.slice(0, 800)}`\n    );\n  }\n\n  return parsed;\n}\n\nfunction arr(value) {\n  return Array.isArray(value) ? value : [];\n}\n\nfunction txt(value) {\n  if (value === null || value === undefined) return '';\n  return String(value).trim();\n}\n\nfunction num(value, fallback = 50) {\n  const parsed = Number(value);\n  return Number.isFinite(parsed) ? parsed : fallback;\n}\n\nfunction normalizeEvidence(value, urlCount = 0) {\n  const evidence = txt(value).toUpperCase();\n\n  if (['HIGH', 'MEDIUM', 'LOW'].includes(evidence)) {\n    return evidence;\n  }\n\n  return urlCount >= 2 ? 'HIGH' : 'MEDIUM';\n}\n\nfunction normalizeUrls(value) {\n  if (Array.isArray(value)) {\n    return [...new Set(\n      value.map(txt).filter(Boolean)\n    )].slice(0, 5);\n  }\n\n  if (typeof value === 'string') {\n    return [...new Set(\n      value\n        .split(/[\\n,]+/)\n        .map(x => x.trim())\n        .filter(Boolean)\n    )].slice(0, 5);\n  }\n\n  return [];\n}\n\nconst parsed = getParsedOutput($json);\n\n// 안전망: AI가 델리미터 포맷으로 URL을 다시 타이핑하는 과정에서\n// 지어낼 가능성에 대비해, 실제 후보(3-A-7이 만든 grouped_candidates)에\n// 있던 URL과 대조해서 없는 건 제거한다.\nconst verifiedUrlSet = new Set(\n  Object.values(base.grouped_candidates || {})\n    .flat()\n    .flatMap(c => Array.isArray(c?.source_urls) ? c.source_urls.map(u => String(u).trim()) : [])\n    .filter(Boolean)\n);\n\nfunction keepOnlyVerifiedUrls(urls) {\n  return urls.filter(u => verifiedUrlSet.has(String(u).trim()));\n}\n\nconst now = new Date().toISOString();\nconst periodStart = txt(base.period_start);\nconst periodEnd = txt(base.period_end);\nconst period = periodStart && periodEnd\n  ? `${periodStart}~${periodEnd}`\n  : '';\n\nconst output = [];\nconst usedTopicIds = new Set();\nconst categoryCounts = new Map();\n\nfunction pushItems(items, section) {\n  const sectionItems = arr(items).slice(0, 10);\n\n  for (let index = 0; index < sectionItems.length; index++) {\n    const item = sectionItems[index] || {};\n    const category = txt(item.category) || 'GENERAL';\n    const topicId =\n      txt(item.topic_id) ||\n      `${section}-${category}-${index + 1}`;\n\n    const categoryKey = `${section}|${category}`;\n\n    if (usedTopicIds.has(topicId)) continue;\n\n    const currentCategoryCount =\n      categoryCounts.get(categoryKey) || 0;\n\n    if (currentCategoryCount >= 3) continue;\n\n    const title = txt(item.title);\n    const summary = txt(item.summary);\n    const implication = txt(item.implication);\n\n    if (!title || (!summary && !implication)) continue;\n\n    const urls = keepOnlyVerifiedUrls(normalizeUrls(item.source_urls));\n\n    usedTopicIds.add(topicId);\n    categoryCounts.set(\n      categoryKey,\n      currentCategoryCount + 1\n    );\n\n    const sequence = output.length + 1;\n    const randomCode = Math.random()\n      .toString(36)\n      .slice(2, 6)\n      .toUpperCase();\n\n    const dateCode = periodEnd\n      ? periodEnd.replace(/-/g, '')\n      : new Date()\n          .toISOString()\n          .slice(0, 10)\n          .replace(/-/g, '');\n\n    const itemId =\n      `NLR-${dateCode}-${section}-${sequence}-${randomCode}`;\n\n    const normalizedEvidence = normalizeEvidence(\n      item.evidence_level,\n      urls.length\n    );\n\n    const rawRecord = {\n      topic_id: topicId,\n      title,\n      summary,\n      implication,\n      priority: num(item.priority),\n      evidence_level: normalizedEvidence,\n      source_urls: urls,\n      source_titles: arr(item.source_titles)\n        .map(txt)\n        .filter(Boolean)\n        .slice(0, 5),\n      category,\n      target: txt(item.target),\n      keyword: txt(item.keyword)\n    };\n\n    output.push({\n      json: {\n        item_id: itemId,\n        collected_at: now,\n        research_period: period,\n        section,\n        source_pipeline: 'WEB_RESEARCH_TOPIC_CLUSTER',\n        category,\n        target: txt(item.target),\n        keyword: txt(item.keyword),\n        title,\n        summary,\n        implication,\n        source_urls: urls.join('\\n'),\n        evidence_level: normalizedEvidence,\n        priority: num(item.priority),\n        raw_json: rawRecord\n      }\n    });\n  }\n}\n\npushItems(parsed.client_watch, 'CLIENT_WATCH');\npushItems(parsed.business_work, 'BUSINESS_WORK');\n\nif (!output.length) {\n  throw new Error(\n    '파싱은 성공했지만 저장할 항목이 없습니다. ' +\n    `수신 데이터: ${JSON.stringify(parsed).slice(0, 1500)}`\n  );\n}\n\nreturn output;\n"
       },
       "id": "3714c784-d11b-4d9b-838d-f9790140bb95",
       "name": "3-B-12. Code - BUSINESS_WORK 평가 결과 정리 + 행 분리",
@@ -758,183 +622,44 @@
     },
     {
       "parameters": {
-        "operation": "append",
-        "documentId": {
-          "__rl": true,
-          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
-          "mode": "list",
-          "cachedResultName": "Research On DB",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": 1294785882,
-          "mode": "list",
-          "cachedResultName": "newsletter_research",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=1294785882"
-        },
-        "columns": {
-          "mappingMode": "autoMapInputData",
-          "value": {},
-          "matchingColumns": [],
-          "schema": [
+        "method": "POST",
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/newsletter_candidates",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "id": "item_id",
-              "displayName": "item_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
+              "name": "Content-Type",
+              "value": "application/json"
             },
             {
-              "id": "collected_at",
-              "displayName": "collected_at",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "research_period",
-              "displayName": "research_period",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "section",
-              "displayName": "section",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "source_pipeline",
-              "displayName": "source_pipeline",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "category",
-              "displayName": "category",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "target",
-              "displayName": "target",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "keyword",
-              "displayName": "keyword",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "title",
-              "displayName": "title",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "summary",
-              "displayName": "summary",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "implication",
-              "displayName": "implication",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "source_urls",
-              "displayName": "source_urls",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "evidence_level",
-              "displayName": "evidence_level",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "priority",
-              "displayName": "priority",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "raw_json",
-              "displayName": "raw_json",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
+              "name": "Prefer",
+              "value": "return=minimal"
             }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
+          ]
         },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
         "options": {}
       },
       "id": "3249b772-5d09-4de3-a407-43956f9c40b0",
       "name": "3-B-13. Google Sheets - BUSINESS_WORK 저장",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.6,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         291040,
         95056
       ],
       "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "F55rrvsZtvhOvoA3",
-          "name": "Google Sheets(7/14)"
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
         }
       },
       "continueOnFail": true,
-      "notes": "newsletter_research 시트에 BUSINESS_WORK 항목만 저장합니다."
+      "notes": "newsletter_research 시트에 BUSINESS_WORK 항목만 저장합니다. (2026-07-25 Supabase 이관: 기존 Google Sheets/Docs 노드를 대체)"
     },
     {
       "parameters": {
@@ -1176,7 +901,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const base = $('3-C-10. Code - 웹 검증 취합 + 최종 분석 프롬프트').first().json;\nconst raw = $json.text || $json.output || $json.response || $json.result || '';\n\n\nfunction repairJsonText(input) {\n  let s = String(input || '')\n    .replace(/^\\uFEFF/, '')\n    .replace(/^```json\\s*/i, '')\n    .replace(/^```\\s*/i, '')\n    .replace(/```$/i, '')\n    .trim();\n\n  const first = s.indexOf('{');\n  const last = s.lastIndexOf('}');\n  if (first >= 0 && last >= first) s = s.slice(first, last + 1);\n\n  // 흔한 LLM JSON 오류 정리\n  s = s\n    .replace(/\\bNone\\b/g, 'null')\n    .replace(/\\bTrue\\b/g, 'true')\n    .replace(/\\bFalse\\b/g, 'false')\n    .replace(/,\\s*([}\\]])/g, '$1')\n    .replace(/}\\s*{/g, '},{')\n    .replace(/]\\s*\\[/g, '],[')\n    .replace(/}\\s*\"/g, '},\"')\n    .replace(/]\\s*\"/g, '],\"')\n    .replace(/\"(\\s+)\"/g, '\",$1\"');\n\n  // 문자열 안의 실제 개행·탭을 JSON escape로 교체\n  let out = '';\n  let inString = false;\n  let escaped = false;\n\n  for (let i = 0; i < s.length; i++) {\n    const ch = s[i];\n\n    if (inString) {\n      if (escaped) {\n        out += ch;\n        escaped = false;\n        continue;\n      }\n      if (ch === '\\\\') {\n        out += ch;\n        escaped = true;\n        continue;\n      }\n      if (ch === '\"') {\n        inString = false;\n        out += ch;\n        continue;\n      }\n      if (ch === '\\n') {\n        out += '\\\\n';\n        continue;\n      }\n      if (ch === '\\r') continue;\n      if (ch === '\\t') {\n        out += '\\\\t';\n        continue;\n      }\n      out += ch;\n    } else {\n      if (ch === '\"') inString = true;\n      out += ch;\n    }\n  }\n\n  return out;\n}\n\nfunction parseJsonRobust(v) {\n  if (v && typeof v === 'object') return v;\n\n  const original = String(v || '');\n  const repaired = repairJsonText(original);\n\n  try {\n    return JSON.parse(repaired);\n  } catch (firstError) {\n    // 객체 사이 쉼표 누락을 한 번 더 넓게 보정\n    const secondPass = repaired\n      .replace(/}\\s*,?\\s*(?={)/g, '},')\n      .replace(/]\\s*,?\\s*(?=\"(?:client_watch|business_work|people_culture|trend_candidates)\")/g, '],');\n\n    try {\n      return JSON.parse(secondPass);\n    } catch (secondError) {\n      throw new Error(\n        `${secondError.message} | RAW_PREVIEW=${original.slice(0, 1800)}`\n      );\n    }\n  }\n}\n\nlet parsed;\ntry { parsed=parseJsonRobust(raw); }\ncatch(e) { throw new Error(`3-C 최종 JSON 파싱 실패: ${e.message}`); }\n\nconst list = Array.isArray(parsed.people_culture) ? parsed.people_culture.slice(0,8) : [];\nif (!list.length) throw new Error('PEOPLE & CULTURE 최종 항목이 없습니다.');\n\n// 안전망: AI가 프롬프트를 어기고 URL을 지어낸 경우를 대비해,\n// 실제로 웹 검증(Serper)이 반환한 URL 목록과 대조해서 없는 건 전부 버린다.\nconst verifiedUrlSet = new Set(\n  (Array.isArray(base.verified_candidates) ? base.verified_candidates : [])\n    .flatMap(c => Array.isArray(c.web_sources) ? c.web_sources.map(s => String(s.url || '').trim()) : [])\n    .filter(Boolean)\n);\n\nfunction keepOnlyVerifiedUrls(urls) {\n  return urls\n    .map(u => String(u).trim())\n    .filter(u => u && verifiedUrlSet.has(u));\n}\n\nconst now = new Date().toISOString();\nconst period = `${base.period_start}~${base.period_end}`;\n\nreturn list.map((x, idx) => {\n  const rawUrls = Array.isArray(x.source_urls) ? x.source_urls.map(String).filter(Boolean) : [];\n  const urls = keepOnlyVerifiedUrls(rawUrls);\n  const itemId = `NLR-${base.period_end.replace(/-/g,'')}-PEOPLE_CULTURE-${idx+1}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;\n  const rawRecord = {\n    ...x,\n    mentioned_mail_ids: Array.isArray(x.mentioned_mail_ids) ? x.mentioned_mail_ids : []\n  };\n  return {\n    json: {\n      item_id: itemId,\n      collected_at: now,\n      research_period: period,\n      section: 'PEOPLE_CULTURE',\n      source_pipeline: 'EMAIL_TREND_WEB_VERIFY',\n      category: 'PEOPLE_CULTURE',\n      target: '',\n      keyword: String(x.keyword || ''),\n      title: String(x.title || ''),\n      summary: String(x.summary || ''),\n      implication: String(x.organization_view || ''),\n      source_urls: urls.join('\\n'),\n      evidence_level: ['HIGH','MEDIUM','LOW'].includes(String(x.evidence_level || '').toUpperCase()) ? String(x.evidence_level).toUpperCase() : 'MEDIUM',\n      priority: Number(x.priority || 50),\n      raw_json: JSON.stringify(rawRecord)\n    }\n  };\n});"
+        "jsCode": "const base = $('3-C-10. Code - 웹 검증 취합 + 최종 분석 프롬프트').first().json;\nconst raw = $json.text || $json.output || $json.response || $json.result || '';\n\n\nfunction repairJsonText(input) {\n  let s = String(input || '')\n    .replace(/^\\uFEFF/, '')\n    .replace(/^```json\\s*/i, '')\n    .replace(/^```\\s*/i, '')\n    .replace(/```$/i, '')\n    .trim();\n\n  const first = s.indexOf('{');\n  const last = s.lastIndexOf('}');\n  if (first >= 0 && last >= first) s = s.slice(first, last + 1);\n\n  // 흔한 LLM JSON 오류 정리\n  s = s\n    .replace(/\\bNone\\b/g, 'null')\n    .replace(/\\bTrue\\b/g, 'true')\n    .replace(/\\bFalse\\b/g, 'false')\n    .replace(/,\\s*([}\\]])/g, '$1')\n    .replace(/}\\s*{/g, '},{')\n    .replace(/]\\s*\\[/g, '],[')\n    .replace(/}\\s*\"/g, '},\"')\n    .replace(/]\\s*\"/g, '],\"')\n    .replace(/\"(\\s+)\"/g, '\",$1\"');\n\n  // 문자열 안의 실제 개행·탭을 JSON escape로 교체\n  let out = '';\n  let inString = false;\n  let escaped = false;\n\n  for (let i = 0; i < s.length; i++) {\n    const ch = s[i];\n\n    if (inString) {\n      if (escaped) {\n        out += ch;\n        escaped = false;\n        continue;\n      }\n      if (ch === '\\\\') {\n        out += ch;\n        escaped = true;\n        continue;\n      }\n      if (ch === '\"') {\n        inString = false;\n        out += ch;\n        continue;\n      }\n      if (ch === '\\n') {\n        out += '\\\\n';\n        continue;\n      }\n      if (ch === '\\r') continue;\n      if (ch === '\\t') {\n        out += '\\\\t';\n        continue;\n      }\n      out += ch;\n    } else {\n      if (ch === '\"') inString = true;\n      out += ch;\n    }\n  }\n\n  return out;\n}\n\nfunction parseJsonRobust(v) {\n  if (v && typeof v === 'object') return v;\n\n  const original = String(v || '');\n  const repaired = repairJsonText(original);\n\n  try {\n    return JSON.parse(repaired);\n  } catch (firstError) {\n    // 객체 사이 쉼표 누락을 한 번 더 넓게 보정\n    const secondPass = repaired\n      .replace(/}\\s*,?\\s*(?={)/g, '},')\n      .replace(/]\\s*,?\\s*(?=\"(?:client_watch|business_work|people_culture|trend_candidates)\")/g, '],');\n\n    try {\n      return JSON.parse(secondPass);\n    } catch (secondError) {\n      throw new Error(\n        `${secondError.message} | RAW_PREVIEW=${original.slice(0, 1800)}`\n      );\n    }\n  }\n}\n\nlet parsed;\ntry { parsed=parseJsonRobust(raw); }\ncatch(e) { throw new Error(`3-C 최종 JSON 파싱 실패: ${e.message}`); }\n\nconst list = Array.isArray(parsed.people_culture) ? parsed.people_culture.slice(0,8) : [];\nif (!list.length) throw new Error('PEOPLE & CULTURE 최종 항목이 없습니다.');\n\n// 안전망: AI가 프롬프트를 어기고 URL을 지어낸 경우를 대비해,\n// 실제로 웹 검증(Serper)이 반환한 URL 목록과 대조해서 없는 건 전부 버린다.\nconst verifiedUrlSet = new Set(\n  (Array.isArray(base.verified_candidates) ? base.verified_candidates : [])\n    .flatMap(c => Array.isArray(c.web_sources) ? c.web_sources.map(s => String(s.url || '').trim()) : [])\n    .filter(Boolean)\n);\n\nfunction keepOnlyVerifiedUrls(urls) {\n  return urls\n    .map(u => String(u).trim())\n    .filter(u => u && verifiedUrlSet.has(u));\n}\n\nconst now = new Date().toISOString();\nconst period = `${base.period_start}~${base.period_end}`;\n\nreturn list.map((x, idx) => {\n  const rawUrls = Array.isArray(x.source_urls) ? x.source_urls.map(String).filter(Boolean) : [];\n  const urls = keepOnlyVerifiedUrls(rawUrls);\n  const itemId = `NLR-${base.period_end.replace(/-/g,'')}-PEOPLE_CULTURE-${idx+1}-${Math.random().toString(36).slice(2,6).toUpperCase()}`;\n  const rawRecord = {\n    ...x,\n    mentioned_mail_ids: Array.isArray(x.mentioned_mail_ids) ? x.mentioned_mail_ids : []\n  };\n  return {\n    json: {\n      item_id: itemId,\n      collected_at: now,\n      research_period: period,\n      section: 'PEOPLE_CULTURE',\n      source_pipeline: 'EMAIL_TREND_WEB_VERIFY',\n      category: 'PEOPLE_CULTURE',\n      target: '',\n      keyword: String(x.keyword || ''),\n      title: String(x.title || ''),\n      summary: String(x.summary || ''),\n      implication: String(x.organization_view || ''),\n      source_urls: urls.join('\\n'),\n      evidence_level: ['HIGH','MEDIUM','LOW'].includes(String(x.evidence_level || '').toUpperCase()) ? String(x.evidence_level).toUpperCase() : 'MEDIUM',\n      priority: Number(x.priority || 50),\n      raw_json: rawRecord\n    }\n  };\n});"
       },
       "id": "29e50ec5-da49-42bd-80f4-da7fb4856d0e",
       "name": "3-C-12. Code - 최종 JSON 정리 + 행 분리",
@@ -1189,183 +914,44 @@
     },
     {
       "parameters": {
-        "operation": "append",
-        "documentId": {
-          "__rl": true,
-          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
-          "mode": "list",
-          "cachedResultName": "Research On DB",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": 1294785882,
-          "mode": "list",
-          "cachedResultName": "newsletter_research",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=1294785882"
-        },
-        "columns": {
-          "mappingMode": "autoMapInputData",
-          "value": {},
-          "matchingColumns": [],
-          "schema": [
+        "method": "POST",
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/newsletter_candidates",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "id": "item_id",
-              "displayName": "item_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
+              "name": "Content-Type",
+              "value": "application/json"
             },
             {
-              "id": "collected_at",
-              "displayName": "collected_at",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "research_period",
-              "displayName": "research_period",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "section",
-              "displayName": "section",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "source_pipeline",
-              "displayName": "source_pipeline",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "category",
-              "displayName": "category",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "target",
-              "displayName": "target",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "keyword",
-              "displayName": "keyword",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "title",
-              "displayName": "title",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "summary",
-              "displayName": "summary",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "implication",
-              "displayName": "implication",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "source_urls",
-              "displayName": "source_urls",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "evidence_level",
-              "displayName": "evidence_level",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "priority",
-              "displayName": "priority",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "raw_json",
-              "displayName": "raw_json",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
+              "name": "Prefer",
+              "value": "return=minimal"
             }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
+          ]
         },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
         "options": {}
       },
       "id": "e9229cb2-a31f-42ec-aa85-c342490d35e5",
       "name": "3-C-13. Google Sheets - PEOPLE & CULTURE 저장",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.6,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         291376,
         95728
       ],
       "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "F55rrvsZtvhOvoA3",
-          "name": "Google Sheets(7/14)"
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
         }
       },
       "continueOnFail": true,
-      "notes": "newsletter_research 시트에 PEOPLE_CULTURE 항목을 저장합니다."
+      "notes": "newsletter_research 시트에 PEOPLE_CULTURE 항목을 저장합니다. (2026-07-25 Supabase 이관: 기존 Google Sheets/Docs 노드를 대체)"
     },
     {
       "parameters": {

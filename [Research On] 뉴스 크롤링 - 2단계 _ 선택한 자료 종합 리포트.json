@@ -70,26 +70,41 @@
     },
     {
       "parameters": {
-        "operation": "get",
-        "documentURL": "https://docs.google.com/document/d/1spDCHL_2Rhq1XGonbPY4FZm0lt2J_DJjwkqqHTK6r1I/edit?usp=drive_link"
+        "method": "GET",
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/context_docs",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "eq.org_context_808"
+            },
+            {
+              "name": "select",
+              "value": "content"
+            }
+          ]
+        },
+        "options": {}
       },
       "id": "b745c24d-b14a-47c6-be73-789e0a05ab03",
       "name": "4-A. Google Docs - 회사 맥락 문서 읽기",
-      "type": "n8n-nodes-base.googleDocs",
-      "typeVersion": 2,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         1184,
         624
       ],
-      "alwaysOutputData": true,
       "credentials": {
-        "googleDocsOAuth2Api": {
-          "id": "cL4GHzurJWdHGv4W",
-          "name": "Google Docs(7/14)"
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
         }
       },
       "continueOnFail": true,
-      "notes": "선택 기사 종합 리포트 생성 시 참고할 회사 맥락 문서를 Google Docs에서 읽습니다. Webhook body에 company_context_doc_url 또는 company_context_doc_id를 전달하세요. 오류가 나도 fallback 문맥으로 진행합니다."
+      "notes": "선택 기사 종합 리포트 생성 시 참고할 회사 맥락 문서를 Google Docs에서 읽습니다. Webhook body에 company_context_doc_url 또는 company_context_doc_id를 전달하세요. 오류가 나도 fallback 문맥으로 진행합니다. (2026-07-25 Supabase 이관: 기존 Google Sheets/Docs 노드를 대체)"
     },
     {
       "parameters": {
@@ -309,7 +324,7 @@
     {
       "parameters": {
         "mode": "runOnceForEachItem",
-        "jsCode": "// Workflow 2 최종 리포트를 Google Sheets 저장용 1행 데이터로 변환\nconst result = ($json && typeof $json === 'object' && !Array.isArray($json)) ? $json : {};\nconst now = new Date();\n\nconst datePart = now.toISOString().slice(0, 10).replace(/-/g, '');\nconst randomPart = Math.random().toString(36).slice(2, 7).toUpperCase();\nconst researchId = `RES-${datePart}-${randomPart}`;\n\nconst raw =\n  result.raw && typeof result.raw === 'object' && !Array.isArray(result.raw)\n    ? result.raw\n    : {};\n\nconst executiveBrief =\n  raw.executive_brief && typeof raw.executive_brief === 'object'\n    ? raw.executive_brief\n    : {};\n\nlet rawJson = '{}';\ntry {\n  rawJson = JSON.stringify(raw);\n} catch (e) {\n  rawJson = JSON.stringify({\n    serialization_error: true,\n    message: e.message || 'raw JSON serialization failed'\n  });\n}\n\n// AI 응답 파싱이 실패했으면(success !== true) 뉴스레터로는 절대 흘려보내지 않는다.\n// 시트에는 감사(audit)를 위해 기록은 남기되, newsletter_candidate를 false로 표시해\n// 다운스트림(뉴스레터 파이프라인)에서 자동으로 제외되도록 한다.\nconst parseOk = result.success === true;\n\nreturn {\n  json: {\n    research_id: researchId,\n    created_at: result.summarized_at || result.requested_at || now.toISOString(),\n    keyword: String(result.keyword || ''),\n    report_type: String(result.report_type || ''),\n    analysis_viewpoint: String(result.analysis_viewpoint || ''),\n    audience_level: String(result.audience_level || ''),\n    source_count: Number.isFinite(Number(result.source_count))\n      ? Number(result.source_count)\n      : 0,\n    newsletter_candidate: parseOk,\n    newsletter_priority: 50,\n    newsletter_reason: parseOk ? '' : `AI 응답 파싱 실패: ${String(result.parse_error || '').slice(0, 200)}`,\n    one_line_conclusion: parseOk ? String(executiveBrief.one_line_conclusion || '') : '',\n    raw_json: rawJson,\n    original_response: {\n      ...result,\n      research_id: researchId,\n      saved_to_research_db: true\n    }\n  }\n};"
+        "jsCode": "// Workflow 2 최종 리포트를 Google Sheets 저장용 1행 데이터로 변환\nconst result = ($json && typeof $json === 'object' && !Array.isArray($json)) ? $json : {};\nconst now = new Date();\n\nconst datePart = now.toISOString().slice(0, 10).replace(/-/g, '');\nconst randomPart = Math.random().toString(36).slice(2, 7).toUpperCase();\nconst researchId = `RES-${datePart}-${randomPart}`;\n\nconst raw =\n  result.raw && typeof result.raw === 'object' && !Array.isArray(result.raw)\n    ? result.raw\n    : {};\n\nconst executiveBrief =\n  raw.executive_brief && typeof raw.executive_brief === 'object'\n    ? raw.executive_brief\n    : {};\n\n// AI 응답 파싱이 실패했으면(success !== true) 뉴스레터로는 절대 흘려보내지 않는다.\n// 시트에는 감사(audit)를 위해 기록은 남기되, newsletter_candidate를 false로 표시해\n// 다운스트림(뉴스레터 파이프라인)에서 자동으로 제외되도록 한다.\nconst parseOk = result.success === true;\n\nreturn {\n  json: {\n    research_id: researchId,\n    created_at: result.summarized_at || result.requested_at || now.toISOString(),\n    keyword: String(result.keyword || ''),\n    report_type: String(result.report_type || ''),\n    analysis_viewpoint: String(result.analysis_viewpoint || ''),\n    audience_level: String(result.audience_level || ''),\n    source_count: Number.isFinite(Number(result.source_count))\n      ? Number(result.source_count)\n      : 0,\n    newsletter_candidate: parseOk,\n    newsletter_priority: 50,\n    newsletter_reason: parseOk ? '' : `AI 응답 파싱 실패: ${String(result.parse_error || '').slice(0, 200)}`,\n    one_line_conclusion: parseOk ? String(executiveBrief.one_line_conclusion || '') : '',\n    raw_json: raw,\n    original_response: {\n      ...result,\n      research_id: researchId,\n      saved_to_research_db: true\n    }\n  }\n};"
       },
       "id": "a93789ca-0c9c-4bab-980a-ca2deb6fcd14",
       "name": "8-A. Code - Google Sheets 저장 데이터 생성",
@@ -322,157 +337,44 @@
     },
     {
       "parameters": {
-        "operation": "append",
-        "documentId": {
-          "__rl": true,
-          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
-          "mode": "list",
-          "cachedResultName": "Research On DB",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": "gid=0",
-          "mode": "list",
-          "cachedResultName": "research_results",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=0"
-        },
-        "columns": {
-          "mappingMode": "autoMapInputData",
-          "value": {},
-          "matchingColumns": [],
-          "schema": [
+        "method": "POST",
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/research_reports",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
             {
-              "id": "research_id",
-              "displayName": "research_id",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
+              "name": "Content-Type",
+              "value": "application/json"
             },
             {
-              "id": "created_at",
-              "displayName": "created_at",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "keyword",
-              "displayName": "keyword",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "report_type",
-              "displayName": "report_type",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "analysis_viewpoint",
-              "displayName": "analysis_viewpoint",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "audience_level",
-              "displayName": "audience_level",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "source_count",
-              "displayName": "source_count",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "newsletter_candidate",
-              "displayName": "newsletter_candidate",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "newsletter_priority",
-              "displayName": "newsletter_priority",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "newsletter_reason",
-              "displayName": "newsletter_reason",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "one_line_conclusion",
-              "displayName": "one_line_conclusion",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
-            },
-            {
-              "id": "raw_json",
-              "displayName": "raw_json",
-              "required": false,
-              "defaultMatch": false,
-              "display": true,
-              "type": "string",
-              "canBeUsedToMatch": true
+              "name": "Prefer",
+              "value": "return=minimal"
             }
-          ],
-          "attemptToConvertTypes": false,
-          "convertFieldsToString": false
+          ]
         },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
         "options": {}
       },
       "id": "fb6b4303-c809-4664-8021-f274d0381af0",
       "name": "8-B. Google Sheets - research_results 저장",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.6,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         3040,
         528
       ],
-      "alwaysOutputData": true,
       "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "F55rrvsZtvhOvoA3",
-          "name": "Google Sheets(7/14)"
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
         }
       },
       "continueOnFail": true,
-      "notes": "Google Sheets Credential 연결 후 Document를 실제 Research On DB 시트로 지정하세요. 시트명은 research_results입니다."
+      "notes": "Google Sheets Credential 연결 후 Document를 실제 Research On DB 시트로 지정하세요. 시트명은 research_results입니다. (2026-07-25 Supabase 이관: 기존 Google Sheets/Docs 노드를 대체)"
     },
     {
       "parameters": {

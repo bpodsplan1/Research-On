@@ -115,37 +115,36 @@
     },
     {
       "parameters": {
-        "documentId": {
-          "__rl": true,
-          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
-          "mode": "list",
-          "cachedResultName": "Research On DB",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
-        },
-        "sheetName": {
-          "__rl": true,
-          "value": 1094582586,
-          "mode": "list",
-          "cachedResultName": "newsletters",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=1094582586"
+        "method": "GET",
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/newsletters",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "*"
+            }
+          ]
         },
         "options": {}
       },
       "id": "8ab3f6f2-77f0-484b-8e20-fe4feb2808c1",
       "name": "E3B. Google Sheets - newsletters 전체 조회",
-      "type": "n8n-nodes-base.googleSheets",
-      "typeVersion": 4.6,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         256,
         304
       ],
-      "alwaysOutputData": true,
       "credentials": {
-        "googleSheetsOAuth2Api": {
-          "id": "F55rrvsZtvhOvoA3",
-          "name": "Google Sheets(7/14)"
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
         }
-      }
+      },
+      "notes": "(2026-07-25 Supabase 이관: 기존 Google Sheets 노드를 대체)"
     },
     {
       "parameters": {

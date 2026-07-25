@@ -158,26 +158,41 @@
     },
     {
       "parameters": {
-        "operation": "get",
-        "documentURL": "={{ $json.company_context_doc_url }}"
+        "method": "GET",
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/context_docs",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "eq.org_context_900"
+            },
+            {
+              "name": "select",
+              "value": "content"
+            }
+          ]
+        },
+        "options": {}
       },
       "id": "362a4a76-0294-4765-b69b-39fad4836f3e",
       "name": "8-A. Google Docs - 회사 맥락 문서 읽기",
-      "type": "n8n-nodes-base.googleDocs",
-      "typeVersion": 2,
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
       "position": [
         59424,
         864
       ],
-      "alwaysOutputData": true,
       "credentials": {
-        "googleDocsOAuth2Api": {
-          "id": "cL4GHzurJWdHGv4W",
-          "name": "Google Docs(7/14)"
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
         }
       },
       "continueOnFail": true,
-      "notes": "Google Docs 노드로 회사 맥락 문서를 읽습니다. documentURL에는 반드시 https://docs.google.com/document/d/<ID>/edit 형태의 전체 URL을 넣습니다. 오류가 나도 워크플로우는 계속 진행되도록 continueOnFail=true 처리했습니다."
+      "notes": "Google Docs 노드로 회사 맥락 문서를 읽습니다. documentURL에는 반드시 https://docs.google.com/document/d/<ID>/edit 형태의 전체 URL을 넣습니다. 오류가 나도 워크플로우는 계속 진행되도록 continueOnFail=true 처리했습니다. (2026-07-25 Supabase 이관: 예전엔 웹훅 입력으로 문서 URL을 바꿀 수 있었지만 실제로 쓰인 적이 없어, 항상 org_context_900을 조회하도록 고정)"
     },
     {
       "parameters": {

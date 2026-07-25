@@ -1,0 +1,517 @@
+{
+  "name": "[Research On] 1회성 - Sheets 데이터 Supabase 이관 (실행 후 삭제 예정)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "62ed836e-9d05-4d95-9cfb-f508162d46fd",
+      "name": "M0. Manual Trigger - 1회성 이관 실행",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
+          "mode": "list",
+          "cachedResultName": "Research On DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 101230155,
+          "mode": "list",
+          "cachedResultName": "newsletter_keywords",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=101230155"
+        },
+        "options": {}
+      },
+      "id": "c4665c7e-a725-4f29-996b-02e99dccdfa7",
+      "name": "K1. Google Sheets - newsletter_keywords 전체 조회",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        300,
+        -300
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F55rrvsZtvhOvoA3",
+          "name": "Google Sheets(7/14)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(x => x.json || {});\nfunction truthy(v){ if (v===true||v===1) return true; return ['true','1','y','yes','예','o'].includes(String(v??'').trim().toLowerCase()); }\nfunction split(v){ if (Array.isArray(v)) return v.map(String).map(s=>s.trim()).filter(Boolean); return String(v??'').split(/[,，\\n]+/).map(s=>s.trim()).filter(Boolean); }\nreturn rows.filter(r => String(r.keyword||'').trim()).map(r => ({json: {\n  active: r.active===''||r.active===undefined ? true : truthy(r.active),\n  section: String(r.section||'').trim().toUpperCase(),\n  category: String(r.category||'').trim(),\n  target: String(r.target||'').trim(),\n  keyword: String(r.keyword||'').trim(),\n  include_terms: split(r.include_terms),\n  exclude_terms: split(r.exclude_terms)\n}}));"
+      },
+      "id": "a92a37a7-d531-420b-b35e-9107f381f0dc",
+      "name": "K2. Code - 배열 필드 정규화",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/newsletter_keywords",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "on_conflict",
+              "value": "keyword,section"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "fab62dfc-b6b8-48fb-a04d-51900cf77a64",
+      "name": "K3. HTTP Request - newsletter_keywords 저장",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        820,
+        -300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
+          "mode": "list",
+          "cachedResultName": "Research On DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1294785882,
+          "mode": "list",
+          "cachedResultName": "newsletter_research",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=1294785882"
+        },
+        "options": {}
+      },
+      "id": "051ad95f-c015-4a84-acaa-94ab6492ef4f",
+      "name": "C1. Google Sheets - newsletter_research 전체 조회",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        300,
+        -100
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F55rrvsZtvhOvoA3",
+          "name": "Google Sheets(7/14)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(x => x.json || {});\nfunction parseJson(v){ if (v && typeof v === 'object') return v; try { return v ? JSON.parse(v) : null; } catch { return null; } }\nreturn rows.filter(r => String(r.item_id||'').trim()).map(r => ({json: {\n  item_id: String(r.item_id).trim(),\n  collected_at: r.collected_at || null,\n  research_period: r.research_period || null,\n  section: r.section || null,\n  source_pipeline: r.source_pipeline || null,\n  category: r.category || null,\n  target: r.target || null,\n  keyword: r.keyword || null,\n  title: r.title || null,\n  summary: r.summary || null,\n  implication: r.implication || null,\n  source_urls: r.source_urls || null,\n  evidence_level: r.evidence_level || null,\n  priority: r.priority === '' || r.priority === undefined ? null : Number(r.priority),\n  raw_json: parseJson(r.raw_json)\n}}));"
+      },
+      "id": "d872aa67-5b94-49ae-aada-dd5527c0b58f",
+      "name": "C2. Code - raw_json 파싱 + 타입 정리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        -100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/newsletter_candidates",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "on_conflict",
+              "value": "item_id"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "5298d472-78f3-458b-a4d8-bd1748f40d9c",
+      "name": "C3. HTTP Request - newsletter_candidates 저장",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        820,
+        -100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
+          "mode": "list",
+          "cachedResultName": "Research On DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "research_results",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=gid=0"
+        },
+        "options": {}
+      },
+      "id": "01087949-c1f4-4eaa-b1dc-312ff4c23476",
+      "name": "R1. Google Sheets - research_results 전체 조회",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        300,
+        100
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F55rrvsZtvhOvoA3",
+          "name": "Google Sheets(7/14)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(x => x.json || {});\nfunction parseJson(v){ if (v && typeof v === 'object') return v; try { return v ? JSON.parse(v) : null; } catch { return null; } }\nfunction truthy(v){ if (v===true||v===1) return true; return ['true','1','y','yes'].includes(String(v??'').trim().toLowerCase()); }\nreturn rows.filter(r => String(r.research_id||'').trim()).map(r => ({json: {\n  research_id: String(r.research_id).trim(),\n  created_at: r.created_at || null,\n  keyword: r.keyword || null,\n  report_type: r.report_type || null,\n  analysis_viewpoint: r.analysis_viewpoint || null,\n  audience_level: r.audience_level || null,\n  source_count: r.source_count === '' || r.source_count === undefined ? null : Number(r.source_count),\n  newsletter_candidate: r.newsletter_candidate === undefined || r.newsletter_candidate === '' ? null : truthy(r.newsletter_candidate),\n  newsletter_priority: r.newsletter_priority === '' || r.newsletter_priority === undefined ? null : Number(r.newsletter_priority),\n  newsletter_reason: r.newsletter_reason || null,\n  one_line_conclusion: r.one_line_conclusion || null,\n  raw_json: parseJson(r.raw_json)\n}}));"
+      },
+      "id": "6107306c-ecf6-4153-a376-1f7d92556204",
+      "name": "R2. Code - raw_json 파싱 + 타입 정리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/research_reports",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "on_conflict",
+              "value": "research_id"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "2ddede58-af34-4249-8200-99048b0b5896",
+      "name": "R3. HTTP Request - research_reports 저장",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        820,
+        100
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8",
+          "mode": "list",
+          "cachedResultName": "Research On DB",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1094582586,
+          "mode": "list",
+          "cachedResultName": "newsletters",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1Y3yMF6vYK-TdoY3AkzGzRTVP2EhcKEvoFN7qhyFakb8/edit#gid=1094582586"
+        },
+        "options": {}
+      },
+      "id": "3e999a27-5467-4fc8-994c-5375b6402ed7",
+      "name": "N1. Google Sheets - newsletters 전체 조회",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        300,
+        300
+      ],
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "F55rrvsZtvhOvoA3",
+          "name": "Google Sheets(7/14)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(x => x.json || {});\nfunction parseJson(v){ if (v && typeof v === 'object') return v; try { return v ? JSON.parse(v) : null; } catch { return null; } }\nfunction splitIds(v){ if (Array.isArray(v)) return v.map(String); return String(v??'').split(/[,\\n]+/).map(s=>s.trim()).filter(Boolean); }\nreturn rows.filter(r => String(r.issue_id||'').trim()).map(r => ({json: {\n  issue_id: String(r.issue_id).trim(),\n  generated_at: r.generated_at || null,\n  period_start: r.period_start || null,\n  period_end: r.period_end || null,\n  status: r.status || null,\n  subject: r.subject || null,\n  issue_title: r.issue_title || null,\n  research_count: r.research_count === '' || r.research_count === undefined ? null : Number(r.research_count),\n  newsletter_json: parseJson(r.newsletter_json),\n  newsletter_html: r.newsletter_html || null,\n  editor_note: r.editor_note || null,\n  gmail_id: r.id || null,\n  gmail_thread_id: r.threadId || null,\n  gmail_label_ids: splitIds(r.labelIds)\n}}));"
+      },
+      "id": "4a7b3b74-23c0-4487-89a1-644ecb31f271",
+      "name": "N2. Code - json 파싱 + 필드명 정리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/newsletters",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "on_conflict",
+              "value": "issue_id"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "ea9862b2-e6fe-4465-b698-5ce0b7b6554e",
+      "name": "N3. HTTP Request - newsletters 저장",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        820,
+        300
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "M0. Manual Trigger - 1회성 이관 실행": {
+      "main": [
+        [
+          {
+            "node": "K1. Google Sheets - newsletter_keywords 전체 조회",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "C1. Google Sheets - newsletter_research 전체 조회",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "R1. Google Sheets - research_results 전체 조회",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "N1. Google Sheets - newsletters 전체 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "K1. Google Sheets - newsletter_keywords 전체 조회": {
+      "main": [
+        [
+          {
+            "node": "K2. Code - 배열 필드 정규화",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "K2. Code - 배열 필드 정규화": {
+      "main": [
+        [
+          {
+            "node": "K3. HTTP Request - newsletter_keywords 저장",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C1. Google Sheets - newsletter_research 전체 조회": {
+      "main": [
+        [
+          {
+            "node": "C2. Code - raw_json 파싱 + 타입 정리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C2. Code - raw_json 파싱 + 타입 정리": {
+      "main": [
+        [
+          {
+            "node": "C3. HTTP Request - newsletter_candidates 저장",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "R1. Google Sheets - research_results 전체 조회": {
+      "main": [
+        [
+          {
+            "node": "R2. Code - raw_json 파싱 + 타입 정리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "R2. Code - raw_json 파싱 + 타입 정리": {
+      "main": [
+        [
+          {
+            "node": "R3. HTTP Request - research_reports 저장",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "N1. Google Sheets - newsletters 전체 조회": {
+      "main": [
+        [
+          {
+            "node": "N2. Code - json 파싱 + 필드명 정리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "N2. Code - json 파싱 + 필드명 정리": {
+      "main": [
+        [
+          {
+            "node": "N3. HTTP Request - newsletters 저장",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

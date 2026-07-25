@@ -119,14 +119,19 @@ Gmail에서 최근 7일 트렌드레터 수집(뉴닉·캐릿·풋풋레터·까
 
 ## 5. 회사 맥락 문서 체계
 
-두 개의 문서를 용도에 따라 다르게 연결한다. (변경 없음)
+~~두 개의 Google Docs 문서를 용도에 따라 다르게 연결한다.~~ → **2026-07-25 Supabase `context_docs` 테이블로 이관 완료**(7번 섹션 35번 항목). Google Docs는 더 이상 n8n에서 읽지 않고, 원본은 백업용으로만 남아있음.
 
-| 문서 | 성격 | 길이 | 연결된 곳 |
+실제 점검 결과 문서는 4종이 아니라 **서로 다른 내용 3종**이었다 — 뉴스크롤링 1단계의 `8-A`는 이름은 "회사 맥락"이지만 실제로는 웹훅 입력이 비어있을 때 쓰는 기본값이 본부 맥락(900자) 문서였고, 이 기본값이 실제로 오버라이드된 적이 없어(프론트엔드가 해당 파라미터를 보낸 적이 없음) 사실상 항상 본부 맥락(900자)을 읽고 있었다. 이관하면서 이 실제 동작을 그대로 고정했다.
+
+| context_docs.id | 성격 | 길이 | 연결된 곳 |
 |---|---|---|---|
-| **A. 회사 맥락** | 회사 전체 차원의 넓은 정체성/서비스 설명. "이게 우리랑 관련 있나" 판단용 | 2000자(뉴스레터 1단계) / 600자(뉴스크롤링 1단계) | 뉴스레터 1단계 `0-C`, 뉴스크롤링 1단계 `8-A` |
-| **B. 본부 맥락** | 센터·팀 단위 세부 조직/담당 직무. "그래서 누가 뭘 해야 하나" 판단용 | 900자(뉴스레터 2단계) / 808자(뉴스크롤링 2단계) | 뉴스레터 2단계 `4번`, 뉴스크롤링 2단계 `4-A` |
+| **company_context_2000** | 회사 전체 차원의 넓은 정체성/서비스 설명. "이게 우리랑 관련 있나" 판단용 | 2000자 | 뉴스레터 1단계 `0-C` |
+| **org_context_808** | 센터·팀 단위 세부 조직/담당 직무. "그래서 누가 뭘 해야 하나" 판단용 (노드 이름은 "회사 맥락"이지만 실제 내용은 본부 맥락) | 808자 | 뉴스크롤링 2단계 `4-A` |
+| **org_context_900** | 센터·팀 단위 세부 조직/담당 직무 (org_context_808과 거의 동일한 내용, 글자수만 다름) | 900자 | 뉴스레터 2단계 `A1`, 뉴스크롤링 1단계 `8-A`(고정값으로 이관) |
 
-**본부 맥락(B) 핵심 내용**: 사업 개요(BPO 도급+ESOP), 조직/담당 직무(GA센터·BW센터·POC센터·ESOP워크센터·ESOP에듀센터별 담당 업무), 고객사(삼성전자 DS부문 우선·DX 후순위, ESOP 입주사는 별개), 전략 방향(Pain Point 기반 신사업, AX 정렬), AI 판단 지시(어느 센터·직무와 연결되는지 판단하라).
+**본부 맥락 핵심 내용**: 사업 개요(BPO 도급+ESOP), 조직/담당 직무(GA센터·BW센터·POC센터·ESOP워크센터·ESOP에듀센터별 담당 업무), 고객사(삼성전자 DS부문 우선·DX 후순위, ESOP 입주사는 별개), 전략 방향(Pain Point 기반 신사업, AX 정렬), AI 판단 지시(어느 센터·직무와 연결되는지 판단하라).
+
+문서 내용을 고치고 싶으면 이제 Google Docs가 아니라 Supabase `context_docs` 테이블의 해당 행(`content` 컬럼)을 Table Editor에서 직접 수정하면 된다.
 
 ---
 
@@ -156,6 +161,13 @@ Gmail에서 최근 7일 트렌드레터 수집(뉴닉·캐릿·풋풋레터·까
 | `profiles.newsletter_last_send_status` | 마지막 발송 성공/실패 기록용 (컬럼만 준비, 값 채우는 로직은 아직 없음) |
 | `support_requests` (신규 테이블) | 계정 설정 > 지원 및 문의(계정 문의/오류 신고) 제출 내용 저장. 2026-07-25에 `admin_reply`/`replied_at`/`replied_by` 컬럼 추가(관리자 답변 기능) |
 | `newsletter_guest_subscribers` (신규 테이블) | Research On 계정이 없는 사람을 뉴스레터에 대리 등록할 때 사용 |
+| `context_docs` (신규 테이블, 2026-07-25) | 회사/본부 맥락 문서 3종 (예전: Google Docs). id/label/content. 5번 섹션 참고 |
+| `newsletter_keywords` (신규 테이블, 2026-07-25) | 뉴스레터 1단계 검색 Job 생성용 키워드 목록 (예전: `newsletter_keywords` 시트 탭) |
+| `newsletter_candidates` (신규 테이블, 2026-07-25) | 뉴스레터 1단계가 쌓는 후보, 2단계가 조회 (예전: `newsletter_research` 시트 탭) |
+| `research_reports` (신규 테이블, 2026-07-25) | 뉴스크롤링 2단계가 쌓는 리포트, 뉴스레터 2단계가 RESEARCH ON INSIGHT 후보로 조회 (예전: `research_results` 시트 탭). **사용자 개인 저장함인 `insight_reports`와는 별개** — 이쪽은 리포트가 생성될 때마다 전부 쌓이는 전체 피드 |
+| `newsletters` (신규 테이블, 2026-07-25) | 뉴스레터 발송 큐/이력 (예전: `newsletters` 시트 탭) |
+
+> 위 5개 신규 테이블은 n8n만 접근하는 백엔드 전용 테이블 — 프론트엔드는 직접 조회/수정하지 않으므로 RLS는 켜두되 anon/authenticated 권한은 아예 주지 않았음(n8n은 secret 키로 RLS를 우회). 정책 SQL은 `supabase/migrations/20260725020000_n8n_sheets_docs_to_supabase.sql` 참고.
 
 > ~~RLS(Row Level Security) 정책 미확인 상태~~ → **2026-07-25 RLS 전면 적용 완료**(7번 섹션 새 항목 참고). `profiles` 등 9개 테이블이 RLS 없이 `anon`(비로그인) 롤에 풀 CRUD 권한이 열려있던 심각한 취약점을 발견해 전부 잠갔음. `is_admin()` security-definer 함수로 "본인 행 또는 관리자만" 접근 가능하도록 정책을 설계했고, RLS 때문에 막히는 소수의 "타인 데이터 조회/수정" 흐름(로그인, 회원가입 중복확인, 뉴스레터 타인 대신 구독)은 좁은 권한의 RPC로 대체함. SQL은 `supabase/migrations/`에 기록. Supabase Management API 접근용 Personal Access Token은 로컬 `~/.supabase_pat`에 보관(git 제외).
 
@@ -223,6 +235,16 @@ Gmail에서 최근 7일 트렌드레터 수집(뉴닉·캐릿·풋풋레터·까
 33. **n8n [뉴스레터 2단계]에 발송상태 갱신 노드 추가** — 관리자 구독자 관리 화면에 있던 "발송성공/실패" 배지가 그 값을 채우는 로직이 없어 항상 비어 있던 문제. 실제 발송 대상 `bpo.dsplan1@gmail.com`이 (구독자 전원에게 자동 전달되는) Google Group임을 확인한 뒤, 기존 노드는 하나도 건드리지 않고 발송 성공 직후(C5 뒤) 새 노드 `C5B. HTTP Request`만 추가해 구독 중인 전체 `profiles` 행의 `newsletter_last_send_status`를 `success`로 일괄 갱신하도록 함. 실패 케이스는 기존 워크플로우도 원래 별도 처리가 없어(Gmail 실패 시 워크플로우 자체가 중단됨) 이번 범위에서는 다루지 않음 — 손대면 오히려 기존 Google Sheets 상태 기록 로직까지 건드려야 해서 리스크가 크다고 판단.
 34. **저장 키워드 세트(`keyword_sets`) 저장 기능은 보류 확정** — 점검 중 저장 UI/로직 자체가 아예 없다는 걸(조회·삭제 함수만 있고 어디서도 호출되지 않는 죽은 코드) 발견해 신규로 설계하려다, 사용자가 "지금으로 충분, 딱히 필요 없을듯"이라고 확인해 보류. `js/keywords-state.js`의 `searchKeywordSet`/`deleteKeywordSet`는 여전히 죽은 코드로 남아있음.
 
+**(이하 2026-07-25 세션에서 새로 진행 — n8n이 쓰던 Google Sheets/Docs를 전부 Supabase로 이관)**
+
+35. **n8n 5개 워크플로우가 쓰던 Google Sheets 4탭 + Google Docs 맥락 문서 3종을 Supabase로 전면 이관** — 사용자가 "Google Sheets/Docs 데이터를 모두 Supabase로 바꾸고 싶다"고 요청. Google Drive 조회(MCP)로 실제 시트 컬럼/문서 내용을 먼저 확인한 뒤 설계.
+    - **신규 Supabase 테이블 5개**: `context_docs`(맥락 문서 3종), `newsletter_keywords`, `newsletter_candidates`(구 newsletter_research), `research_reports`(구 research_results — 사용자 개인 저장함 `insight_reports`와는 별개 테이블), `newsletters`(발송 큐/이력). 전부 n8n 전용 백엔드 테이블이라 RLS는 켜고 anon/authenticated 권한은 주지 않음(SQL: `supabase/migrations/20260725020000_n8n_sheets_docs_to_supabase.sql`).
+    - **기존 데이터까지 이관**(사용자가 히스토리 보존을 원함). 맥락 문서 3종은 Drive에서 읽은 내용을 그대로 SQL INSERT. Google Sheets 4탭(newsletter_keywords/newsletter_research/research_results/newsletters)은 Drive 조회 API가 스프레드시트의 첫 번째 탭만 내보내는 한계가 있어, 대신 **1회성 이관 전용 n8n 워크플로우**(`[Research On] 1회성 - Sheets 데이터 Supabase 이관.json`)를 새로 만듦 — 기존 프로덕션 워크플로우들이 이미 쓰고 있던 Google Sheets OAuth 크리덴셜을 그대로 재사용해 4탭을 읽고 Supabase로 POST(upsert)한다. **사용자가 n8n에 이 파일을 가져와 한 번 실행한 뒤 삭제하면 됨** — 8번 섹션에 미완료 항목으로 기록.
+    - **5개 프로덕션 워크플로우 수정**(뉴스레터 1/2단계, 뉴스크롤링 1/2단계, 웰컴메일): 각 Google Sheets/Docs 노드를 Supabase REST API 호출(HTTP Request, 기존 `C5B` 노드와 동일하게 `Supabase` HTTP Header Auth 크리덴셜 재사용)로 교체. **노드 이름·id·position은 그대로 유지**하고 타입/파라미터/크리덴셜만 바꿔서, 다운스트림 Code 노드가 `$('노드이름')`으로 참조하는 부분을 거의 손대지 않아도 되게 설계함.
+    - Code 노드 쪽 최소 수정: (a) `raw_json`/`newsletter_json` 필드를 `JSON.stringify()`한 문자열로 Sheets 텍스트 컬럼에 넣던 부분을, Supabase `jsonb` 컬럼에 맞게 객체 그대로 보내도록 수정(뉴스레터 1단계 3곳, 뉴스크롤링 2단계 1곳, 뉴스레터 2단계 2곳: `B2`/`B-T0`), (b) 뉴스레터 2단계 `A4`의 `getDocText()`가 Google Docs의 중첩 `textRun` 구조만 파싱할 수 있었던 것을, Supabase가 돌려주는 평문 `content` 문자열도 바로 읽도록 fast-path 추가.
+    - 뉴스크롤링 1단계 `8-A`는 원래 웹훅 입력으로 문서 URL을 바꿀 수 있게 설계돼 있었지만 실제로는 한 번도 오버라이드된 적이 없어(프론트엔드가 해당 파라미터를 보낸 적 없음) 항상 같은 기본값 문서(본부맥락 900자)를 읽고 있었던 것을 확인 — 이관하면서 이 실제 동작 그대로 고정(`org_context_900` 고정 조회).
+    - Google Sheets/Docs 원본은 전혀 손대지 않고 그대로 둠(백업용). 실제 n8n 반영은 이전 세션과 동일하게, 이번에 수정한 JSON 파일들을 사용자가 n8n으로 재가져오기 해야 적용됨 — 아직 미착수(8번 섹션 참고).
+
 ---
 
 ## 8. 진행 중 / 미해결 사항
@@ -240,6 +262,11 @@ Gmail에서 최근 7일 트렌드레터 수집(뉴닉·캐릿·풋풋레터·까
 - **뉴스레터 신규 구독 웰컴 메일 — 실사용 전 설정 필요** → `[Research On] 뉴스레터 - 신규 구독 웰컴 메일 및 최신호 즉시 발송` 워크플로우를 n8n에서 활성화(Active)해야 실제로 동작함(아직 미착수). 웰컴 메일 문구는 참고 파일 없이 직접 작성한 초안이므로, 실제 톤·포맷을 맞출 참고 자료가 있으면 다시 다듬을 것.
 - **n8n [뉴스레터 2단계] 신규 노드(`C5B`) 활성화 전 설정 필요** (7번 섹션 33번 항목) — 위 비밀번호 초기화용과 동일한 Supabase secret 키 크리덴셜을 새 노드에 연결하고, 파일을 n8n에 재병합 후 활성화해야 `newsletter_last_send_status` 배지가 실제로 채워짐. 실패(발송 자체가 안 된 경우) 상태는 이번 범위에서 다루지 않음 — 필요해지면 별도 에러 브랜치 설계부터 다시 논의할 것.
 - **키워드 세트(`keyword_sets`) 저장 UI는 만들지 않기로 확정** (7번 섹션 34번 항목) — `searchKeywordSet`/`deleteKeywordSet`는 죽은 코드로 남겨둠. 나중에 필요해지면 그때 다시 설계.
+- **n8n Sheets/Docs → Supabase 이관 후속 작업 필요** (7번 섹션 35번 항목, 아직 미착수) — 순서대로:
+  1. n8n에 `[Research On] 1회성 - Sheets 데이터 Supabase 이관.json`을 가져와 **한 번 실행**해서 기존 시트 데이터(newsletter_keywords/newsletter_candidates/research_reports/newsletters)를 Supabase로 채운다(맥락 문서 3종은 이미 이관 완료됨). 실행 후 Supabase Table Editor에서 행 수가 원본 시트와 비슷한지 확인하고, 이 1회성 워크플로우는 **삭제**할 것.
+  2. 수정된 5개 프로덕션 워크플로우 JSON을 n8n에 재가져오기(import)하고, 각 HTTP Request 노드에 `Supabase` 크리덴셜이 제대로 연결됐는지 확인(재가져오기 시 크리덴셜 연결이 풀릴 수 있음 — C5B 때와 동일 패턴).
+  3. 뉴스레터 1단계를 수동 트리거로 1회 실행해 `newsletter_candidates`에 정상 저장되는지, 뉴스레터 2단계에서 그 후보들이 정상 조회되는지 순서대로 검증.
+  4. 검증 끝나면 Google Sheets("Research On DB")와 Google Docs 3종은 백업용으로만 남기고 더 이상 수동으로 갱신하지 않아도 됨(맥락 문서를 고치고 싶으면 이제 Supabase `context_docs` 테이블에서 수정).
 - **이번 세션(2026-07-24~25) 변경사항 실사용 검증 필요** — 아래는 전부 샌드박스(헤드리스 브라우저·로컬 라이브러리 실행·Supabase RLS 시뮬레이션 쿼리)로 로직 단위까지는 검증했지만, 실제 배포 환경·실사용자 기준 확인은 아직 안 됨: 사이드바 로그아웃 버튼(100dvh 수정, 24번), 리서치 결과 카드 전체클릭 선택 + 상세보기 버튼(25번), PDF 섹션 잘림 방지(25번), 회원가입 부서/직위 저장(26번), 부서 경로 미리보기(27번), **파일 분리 후 전체 기능 정상 동작 여부(29번)**, **저장 자료함 다중 선택 삭제(30번)**, **RLS 적용 후 기존 관리자 기능들이 전부 정상 동작하는지(31번 — 특히 계정 관리/뉴스레터 구독 관리 화면)**, **지원 및 문의 내역확인·관리자 답변(32번)**.
 
 ---
