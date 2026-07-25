@@ -252,6 +252,7 @@ Gmail에서 최근 7일 트렌드레터 수집(뉴닉·캐릿·풋풋레터·까
     - **신규 Supabase 테이블 `client_trend_articles`**: id/title/url/source/published_at/summary/created_at. 로그인 사용자는 읽기 전용(RLS `auth.role()='authenticated'` + `GRANT SELECT`), 쓰기는 n8n service_role 전용.
     - **신규 n8n 워크플로우 `[Research On] 클라이언트 동향 - 삼성전자 일간 수집`**: 매일 07시 Schedule Trigger → 기존 파이프라인과 동일한 Naver+Serper 크리덴셜로 "삼성전자" 뉴스 검색(Naver `sort=date`, Serper `tbs=qdr:d`로 최근 24시간 우선) → URL 정규화 + 제목 유사도로 중복 제거 → 발행일 최신순 상위 5건 → 매 실행마다 `client_trend_articles` 전체 삭제 후 5건 새로 저장(항상 5건 이하로 유지되는 갈아끼우기 방식). 아직 n8n에 가져오기·크리덴셜 연결·활성화 전(8번 섹션 참고).
     - **프론트엔드 캐러셀**: `js/keywords-state.js`에 `loadTrendCarousel()`(Supabase 조회+렌더) 및 `showTrendSlide`/`trendNext`/`trendPrev`/`startTrendAutoplay`/`stopTrendAutoplay` 추가, `js/event-bindings.js`에 좌우 버튼·점(dot) 클릭·마우스 오버 정지 이벤트 바인딩. 10초마다 자동 전환되고 캐러셀 위에 마우스를 올리면 멈췄다가 벗어나면 재개되는, 일반적인 포털 사이트 배너 캐러셀과 동일한 동작.
+    - **(같은 세션 내 보완) 중복 판단 고도화 + 주식 시황 기사 하드 제외**: 실제 실행 결과를 사용자가 확인해보니, "삼성전자-브로드컴 2000억달러 협력"을 8개 매체가 각자 다른 제목으로 보도한 게 전부 별개 기사로 잡히는 문제와, 단순 주가 등락을 다루는 기사(예: "5주 연속 약세", "패닉")가 섞여 나오는 문제가 발견됨. `T4` 코드를 다음과 같이 보강: (a) 제목에 `주가/주식/증시/코스피/코스닥/상한가/하한가/급등/급락` 등 주가·시황 키워드가 있으면 하드 제외(단, "투자"는 사업 협력 기사에도 쓰이는 단어라 제외 목록에서 뺌), (b) 뉴스레터 1단계 파이프라인의 검증된 "동일 사건 클러스터링" 로직(제목·요약 Jaccard 유사도 기반 `sameIssue()`)을 그대로 이식해 URL/제목이 달라도 같은 사건이면 하나로 묶고, 대표 기사의 `source`에 "OO 외 N곳"으로 몇 개 매체가 같이 보도했는지 표시.
 
 ---
 
