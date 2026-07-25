@@ -65,15 +65,7 @@
         "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/newsletter_keywords",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {
-              "name": "on_conflict",
-              "value": "keyword,section"
-            }
-          ]
-        },
+        "sendQuery": false,
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
