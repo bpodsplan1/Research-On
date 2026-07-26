@@ -19,6 +19,16 @@ function switchAuthTab(tab){
   const tabsEl = document.querySelector('.auth-tabs');
   if(tabsEl) tabsEl.style.display = isTopTab ? '' : 'none';
   clearAuthStatus();
+  // 아이디 찾기/비밀번호 초기화 패널은 들어올 때마다 입력값을 비워 이전 조회 내용이 남지 않게 한다.
+  if(tab==='find-id'){
+    document.getElementById('findid-name').value = '';
+    document.getElementById('findid-email').value = '';
+  }
+  if(tab==='reset-pw'){
+    document.getElementById('resetpw-id').value = '';
+    document.getElementById('resetpw-name').value = '';
+    document.getElementById('resetpw-email').value = '';
+  }
 }
 
 // ── 아이디 찾기 ──
