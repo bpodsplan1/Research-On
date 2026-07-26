@@ -37,9 +37,7 @@
         "queryParameters": {
           "parameters": [
             {"name": "user_id", "value": "=eq.{{ $json.user_id }}"},
-            {"name": "name", "value": "=eq.{{ $json.name }}"},
-            {"name": "email", "value": "=eq.{{ $json.email }}"},
-            {"name": "select", "value": "id"}
+            {"name": "select", "value": "id,name,email"}
           ]
         },
         "options": {}
@@ -58,7 +56,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const rows = $input.all().map(x => x.json || {});\nconst matchedId = rows.length === 1 ? String(rows[0].id || '') : '';\nreturn [{ json: { matched_id: matchedId, matched: matchedId.length > 0 } }];"
+        "jsCode": "const rows = $input.all().map(x => x.json || {});\nconst input = $('U1. Code - 입력 검증').first().json;\nconst profile = rows.length === 1 ? rows[0] : null;\n\nif (!profile) {\n  return [{ json: { matched: false, id_exists: false, mismatch_fields: [], matched_id: '' } }];\n}\n\nconst mismatches = [];\nif (String(profile.name || '').trim() !== input.name) mismatches.push('성명');\nif (String(profile.email || '').trim() !== input.email) mismatches.push('이메일');\n\nreturn [{ json: {\n  matched: mismatches.length === 0,\n  id_exists: true,\n  mismatch_fields: mismatches,\n  matched_id: mismatches.length === 0 ? profile.id : ''\n} }];"
       },
       "id": "b0000000-0000-4000-8000-000000000004",
       "name": "U3. Code - 매칭 결과 정리",
@@ -120,7 +118,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return [{ json: { success: false, message: '입력하신 아이디·성명·이메일과 일치하는 계정을 찾을 수 없습니다.' } }];"
+        "jsCode": "const prep = $('U3. Code - 매칭 결과 정리').first().json;\nlet message;\nif (!prep.id_exists) {\n  message = '입력하신 아이디를 찾을 수 없습니다.';\n} else {\n  const fields = prep.mismatch_fields || [];\n  message = fields.join('·') + '이(가) 입력하신 아이디와 일치하지 않습니다.';\n}\nreturn [{ json: { success: false, message } }];"
       },
       "id": "b0000000-0000-4000-8000-000000000009",
       "name": "U7. Code - 불일치 응답 정리",
