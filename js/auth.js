@@ -90,13 +90,8 @@ async function enterApp(user){
     // 계정 설정 페이지(프로필 읽기전용 표시) 동기화
     renderProfileDisplay();
     // 역할별 사이드바 분기
-    const navReqSection = document.getElementById('nav-section-account-request');
     if(role==='admin'){
       showAdminNav();
-      if(navReqSection) navReqSection.style.display='none';
-    } else {
-      if(navReqSection) navReqSection.style.display='';
-      loadMyRequestStatus(profile.user_id);
     }
     // 오버레이 숨기기
     document.getElementById('auth-overlay').classList.add('hidden');
@@ -171,40 +166,6 @@ function showAdminNav(){
   });
   initNavTooltips();
   loadAdminRequests();
-}
-
-// ── 관리자 권한 신청 ──
-async function handleAdminRequest(){
-  const btn = document.getElementById('admin-request-btn');
-  const statusEl = document.getElementById('admin-request-status');
-  btn.disabled=true; statusEl.className='auth-status loading'; statusEl.style.display='block'; statusEl.textContent='신청 중...';
-  try{
-    const { data:{ session } } = await _sb.auth.getSession();
-    if(!session?.user) throw new Error('로그인 상태를 확인해주세요.');
-    const { data:profile, error:profileErr } = await _sb.from('profiles').select('*').eq('id',session.user.id).single();
-    if(profileErr) throw new Error('프로필 조회 실패: '+profileErr.message);
-    if(profile.role==='admin') throw new Error('이미 관리자 계정입니다.');
-    const { data:existing, error:existErr } = await _sb.from('admin_requests').select('id').eq('user_id',profile.user_id).maybeSingle();
-    if(existErr)  throw new Error('중복 확인 오류: '+existErr.message);
-    if(existing)  throw new Error('이미 신청한 내역이 있습니다. 관리자 검토를 기다려주세요.');
-    const { error:insertErr } = await _sb.from('admin_requests').insert({ user_id:profile.user_id, email:profile.email, name:profile.name, affiliation:profile.affiliation });
-    if(insertErr) throw new Error('신청 저장 실패: '+insertErr.message);
-    statusEl.className='auth-status success'; statusEl.textContent='✅ 관리자 권한 신청이 완료되었습니다.';
-    btn.textContent='신청 완료';
-    loadMyRequestStatus(profile.user_id);
-  } catch(e){
-    statusEl.className='auth-status error'; statusEl.textContent=e.message; btn.disabled=false;
-  }
-}
-
-// ── 내 신청 현황 ──
-async function loadMyRequestStatus(userId){
-  const el = document.getElementById('my-request-status'); if(!el) return;
-  const { data, error } = await _sb.from('admin_requests').select('*').eq('user_id',userId).maybeSingle();
-  if(error||!data){ el.innerHTML='<div class="empty-state"><h3>신청 내역 없음</h3><p>아직 관리자 권한 신청 내역이 없습니다.</p></div>'; return; }
-  const badge = data.status==='approved'?'<span class="badge green">승인됨</span>':data.status==='rejected'?'<span class="badge red">거절됨</span>':'<span class="badge orange">검토 중</span>';
-  const date = new Date(data.requested_at).toLocaleString('ko-KR');
-  el.innerHTML=`<div class="list-item"><div class="list-icon">🔐</div><div><h4>관리자 권한 신청 ${badge}</h4><p>신청일시: ${date}</p><p style="margin-top:4px">소속: ${data.affiliation} · ID: ${data.user_id}</p></div></div>`;
 }
 
 // ── 관리자: 대기 중인 신청 목록 ──

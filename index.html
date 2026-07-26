@@ -107,9 +107,6 @@
       <button class="nav-item" data-page="newsletter" type="button"><span class="nav-icon">📮</span><span class="nav-label">뉴스레터</span></button>
       <button class="nav-item" data-page="newsletter-subscribe" type="button"><span class="nav-icon">🔔</span><span class="nav-label">구독 신청</span></button>
     </div>
-    <div class="nav-section" id="nav-section-account-request" style="display:none"><div class="nav-title">계정</div>
-      <button class="nav-item" id="nav-admin-request" data-page="admin-request" type="button"><span class="nav-icon">🔐</span><span class="nav-label">관리자 권한 신청</span></button>
-    </div>
   </nav>
   <button class="sidebar-logout-btn" id="logoutBtn" type="button"><span class="logout-icon">🚪</span><span class="logout-label">로그아웃</span></button>
 </aside>
@@ -678,25 +675,6 @@
   </div>
 </section>
 
-<section class="page" id="admin-request">
-  <div class="page-title"><div><h2>관리자 권한 신청</h2><p>관리자 계정 승인을 요청합니다. 기존 관리자가 검토 후 승인합니다.</p></div></div>
-  <div class="split">
-    <div class="card">
-      <h3>신청 안내</h3>
-      <div class="list" style="margin-bottom:20px">
-        <div class="list-item"><div class="list-icon">1</div><div><h4>신청서 제출</h4><p>아래 버튼을 누르면 관리자에게 검토 요청이 전달됩니다.</p></div></div>
-        <div class="list-item"><div class="list-icon">2</div><div><h4>검토 및 승인</h4><p>관리자가 신청 내용을 확인하고 승인 또는 거절 처리합니다.</p></div></div>
-        <div class="list-item"><div class="list-icon">3</div><div><h4>권한 부여</h4><p>승인 시 다음 로그인부터 관리자 메뉴가 활성화됩니다.</p></div></div>
-      </div>
-      <div id="admin-request-status"></div>
-      <button class="btn dark" style="width:100%;margin-top:8px" id="admin-request-btn" onclick="handleAdminRequest()">관리자 권한 신청하기</button>
-    </div>
-    <div class="card">
-      <h3>신청 현황</h3>
-      <div id="my-request-status"><div class="empty-state"><h3>신청 내역 없음</h3><p>아직 관리자 권한 신청 내역이 없습니다.</p></div></div>
-    </div>
-  </div>
-</section>
 <!-- 관리자 전용: 뉴스레터 구독 관리 -->
 <section class="page" id="newsletter-subscribers">
   <div class="page-title"><div><h2>뉴스레터 구독 관리</h2><p>현재 구독 중인 인원을 확인하고 발송·구독 상태를 관리합니다.</p></div><button class="btn line" onclick="loadNewsletterSubscribers()">새로고침</button></div>
