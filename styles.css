@@ -132,7 +132,7 @@ th:nth-child(4),td:nth-child(4){display:none}
 .auth-status{margin-top:14px;padding:12px 14px;border-radius:14px;font-size:13px;font-weight:700;display:none}
 .auth-status.error{background:var(--redSoft);color:var(--red);display:block}
 .auth-status.success{background:var(--greenSoft);color:var(--green);display:block}
-.auth-status.loading{background:var(--soft);color:var(--primary2);display:block}
+.auth-status.loading{background:var(--soft);color:var(--primary2);display:block}.auth-links{display:flex;justify-content:center;align-items:center;gap:8px;margin:-6px 0 16px}.auth-link{background:none;border:0;padding:2px;color:var(--primary2);font-weight:800;font-size:12.5px;cursor:pointer}.auth-link:hover{text-decoration:underline}.auth-links-divider{color:var(--line);font-size:12px}.auth-back-btn{display:inline-flex;align-items:center;background:none;border:0;padding:0;margin-bottom:18px;color:#475569;font-weight:800;font-size:13px;cursor:pointer}.auth-back-btn:hover{color:var(--primary)}.auth-subtitle{font-size:19px;font-weight:950;margin:0 0 8px;letter-spacing:-.02em}.auth-subdesc{font-size:13px;color:var(--muted);line-height:1.55;margin:0 0 22px}
 .auth-domain-badge{display:inline-flex;align-items:center;gap:5px;background:#eaf1ff;color:var(--primary2);font-size:12px;font-weight:900;padding:4px 10px;border-radius:999px;margin-bottom:18px}
 
 /* ── 계정 설정: 프로필 읽기전용 표시 ── */

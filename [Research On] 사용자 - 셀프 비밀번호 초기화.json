@@ -1,0 +1,140 @@
+{
+  "name": "[Research On] 사용자 - 셀프 비밀번호 초기화",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "user/self-reset-password",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "b0000000-0000-4000-8000-000000000001",
+      "name": "U0. Webhook - 셀프 비밀번호 초기화 요청",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "webhookId": "user-self-reset-password"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body || {};\n\nconst userId = String(body.user_id || '').trim();\nconst name = String(body.name || '').trim();\nconst email = String(body.email || '').trim();\n\nif (!userId || !name || !email) {\n  throw new Error('아이디, 성명, 이메일을 모두 입력해주세요.');\n}\n\nreturn [{ json: { user_id: userId, name, email } }];"
+      },
+      "id": "b0000000-0000-4000-8000-000000000002",
+      "name": "U1. Code - 입력 검증",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [260, 0]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/profiles",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {"name": "user_id", "value": "=eq.{{ $json.user_id }}"},
+            {"name": "name", "value": "=eq.{{ $json.name }}"},
+            {"name": "email", "value": "=eq.{{ $json.email }}"},
+            {"name": "select", "value": "id"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "b0000000-0000-4000-8000-000000000003",
+      "name": "U2. HTTP Request - profiles 일치 조회",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [520, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const rows = $input.all().map(x => x.json || {});\nconst matchedId = rows.length === 1 ? rows[0].id : null;\nreturn [{ json: { matched_id: matchedId } }];"
+      },
+      "id": "b0000000-0000-4000-8000-000000000004",
+      "name": "U3. Code - 매칭 결과 정리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [780, 0]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://aiftpranlfudkbobxyll.supabase.co/auth/v1/admin/users/{{ $json.matched_id || '00000000-0000-0000-0000-000000000000' }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ password: 'dlxmsjtm1!' }) }}",
+        "options": {}
+      },
+      "id": "b0000000-0000-4000-8000-000000000005",
+      "name": "U4. HTTP Request - Supabase Auth 비밀번호 초기화",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1040, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
+        }
+      },
+      "continueOnFail": true,
+      "notes": "매칭되는 계정이 없으면 matched_id가 더미 UUID가 되어 이 요청이 자연스럽게 실패함(=계정 없음으로 처리). 인증: Supabase 크리덴셜(apikey 헤더, secret 키) 연결 필요."
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json;\nconst failed = !!raw.error;\nif (failed) {\n  return [{ json: { success: false, message: '입력하신 정보와 일치하는 계정을 찾을 수 없습니다.' } }];\n}\nreturn [{ json: { success: true, message: '비밀번호가 초기화되었습니다.' } }];"
+      },
+      "id": "b0000000-0000-4000-8000-000000000006",
+      "name": "U5. Code - 응답 정리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 0]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "b0000000-0000-4000-8000-000000000007",
+      "name": "U6. Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1560, 0]
+    }
+  ],
+  "connections": {
+    "U0. Webhook - 셀프 비밀번호 초기화 요청": {
+      "main": [[{"node": "U1. Code - 입력 검증", "type": "main", "index": 0}]]
+    },
+    "U1. Code - 입력 검증": {
+      "main": [[{"node": "U2. HTTP Request - profiles 일치 조회", "type": "main", "index": 0}]]
+    },
+    "U2. HTTP Request - profiles 일치 조회": {
+      "main": [[{"node": "U3. Code - 매칭 결과 정리", "type": "main", "index": 0}]]
+    },
+    "U3. Code - 매칭 결과 정리": {
+      "main": [[{"node": "U4. HTTP Request - Supabase Auth 비밀번호 초기화", "type": "main", "index": 0}]]
+    },
+    "U4. HTTP Request - Supabase Auth 비밀번호 초기화": {
+      "main": [[{"node": "U5. Code - 응답 정리", "type": "main", "index": 0}]]
+    },
+    "U5. Code - 응답 정리": {
+      "main": [[{"node": "U6. Respond to Webhook", "type": "main", "index": 0}]]
+    }
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1", "timezone": "Asia/Seoul"},
+  "pinData": {}
+}

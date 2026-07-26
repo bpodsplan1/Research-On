@@ -4,15 +4,65 @@ function showAuthStatus(id, type, msg){
   el.className = 'auth-status ' + type; el.textContent = msg;
 }
 function clearAuthStatus(){
-  document.getElementById('login-status').className  = 'auth-status';
-  document.getElementById('signup-status').className = 'auth-status';
+  ['login-status','signup-status','findid-status','resetpw-status'].forEach(id=>{
+    const el = document.getElementById(id); if(el) el.className = 'auth-status';
+  });
 }
 function switchAuthTab(tab){
-  ['login','signup'].forEach(t=>{
-    document.getElementById('panel-'+t).classList.toggle('active', t===tab);
-    document.getElementById('tab-'+t).classList.toggle('active', t===tab);
+  ['login','signup','find-id','reset-pw'].forEach(t=>{
+    const panel = document.getElementById('panel-'+t);
+    if(panel) panel.classList.toggle('active', t===tab);
   });
+  const isTopTab = tab==='login' || tab==='signup';
+  document.getElementById('tab-login').classList.toggle('active', tab==='login');
+  document.getElementById('tab-signup').classList.toggle('active', tab==='signup');
+  const tabsEl = document.querySelector('.auth-tabs');
+  if(tabsEl) tabsEl.style.display = isTopTab ? '' : 'none';
   clearAuthStatus();
+}
+
+// ── 아이디 찾기 ──
+async function handleFindId(){
+  const name = document.getElementById('findid-name').value.trim();
+  const email = document.getElementById('findid-email').value.trim();
+  if(!name || !email){ showAuthStatus('findid-status','error','성명과 이메일을 모두 입력해주세요.'); return; }
+  const btn = document.getElementById('findid-btn');
+  btn.disabled = true; showAuthStatus('findid-status','loading','조회 중...');
+  try{
+    const { data, error } = await _sb.rpc('find_masked_user_id', { p_name: name, p_email: email });
+    if(error) throw new Error(error.message);
+    if(!data) throw new Error('입력하신 정보와 일치하는 계정을 찾을 수 없습니다.');
+    showAuthStatus('findid-status','success', `회원님의 아이디는 ${data} 입니다.`);
+  } catch(e){
+    showAuthStatus('findid-status','error', e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── 비밀번호 초기화(셀프서비스) ──
+async function handleResetPw(){
+  const userId = document.getElementById('resetpw-id').value.trim();
+  const name = document.getElementById('resetpw-name').value.trim();
+  const email = document.getElementById('resetpw-email').value.trim();
+  if(!userId || !name || !email){ showAuthStatus('resetpw-status','error','아이디, 성명, 이메일을 모두 입력해주세요.'); return; }
+  if(!confirm('입력하신 정보가 일치하면 비밀번호가 기본값으로 초기화됩니다. 계속하시겠습니까?')) return;
+  const btn = document.getElementById('resetpw-btn');
+  btn.disabled = true; showAuthStatus('resetpw-status','loading','확인 중...');
+  try{
+    const resp = await fetch(N8N_SELF_RESET_PW_URL, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ user_id:userId, name, email })
+    });
+    const data = await resp.json().catch(()=>({}));
+    if(!resp.ok || data.success===false) throw new Error(data.message || '초기화에 실패했습니다.');
+    showAuthStatus('resetpw-status','success', '비밀번호가 초기화되었습니다.');
+    alert('비밀번호가 기본값으로 초기화되었습니다.\n\n임시 비밀번호: dlxmsjtm1!\n\n로그인 후 반드시 비밀번호를 변경해주세요.');
+  } catch(e){
+    showAuthStatus('resetpw-status','error', e.message);
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 // ── 로그인 ──

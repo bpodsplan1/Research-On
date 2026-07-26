@@ -31,6 +31,8 @@ const N8N_NEWSLETTER_QUEUE_URL = 'https://n8n.mokai.kr/webhook/newsletter/queue'
 // 신규 연동(관리자 전용 기능) — production 웹훅 주소
 const N8N_ADMIN_RESET_PW_URL = 'https://n8n.mokai.kr/webhook/admin/reset-password';
 const N8N_NEWSLETTER_FORCE_SEND_URL = 'https://n8n.mokai.kr/webhook/newsletter/force-send';
+// 로그인 화면의 셀프서비스 비밀번호 초기화(아이디·성명·이메일 일치 확인) — 관리자 토큰 불필요
+const N8N_SELF_RESET_PW_URL = 'https://n8n.mokai.kr/webhook/user/self-reset-password';
 // 신규 구독(본인 구독/타인 대리 등록) 성공 시 웰컴 메일 + 5분 뒤 최신호 발송을 트리거하는 웹훅
 const N8N_NEWSLETTER_WELCOME_URL = 'https://n8n.mokai.kr/webhook/newsletter/welcome';
 // 위 두 관리자 전용 웹훅 호출 시 함께 보내는 최소 방어용 토큰.

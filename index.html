@@ -23,8 +23,34 @@
     <div class="auth-panel active" id="panel-login">
       <div class="auth-field"><label>ID</label><input type="text" id="login-id" placeholder="아이디 입력" autocomplete="username" /></div>
       <div class="auth-field"><label>비밀번호</label><input type="password" id="login-pw" placeholder="비밀번호 입력" autocomplete="current-password" /></div>
+      <div class="auth-links">
+        <button type="button" class="auth-link" onclick="switchAuthTab('find-id')">아이디 찾기</button>
+        <span class="auth-links-divider">·</span>
+        <button type="button" class="auth-link" onclick="switchAuthTab('reset-pw')">비밀번호 초기화</button>
+      </div>
       <button class="auth-btn" id="login-btn" onclick="handleLogin()">로그인</button>
       <div class="auth-status" id="login-status"></div>
+    </div>
+    <!-- 아이디 찾기 패널 -->
+    <div class="auth-panel" id="panel-find-id">
+      <button type="button" class="auth-back-btn" onclick="switchAuthTab('login')">← 돌아가기</button>
+      <h3 class="auth-subtitle">아이디 찾기</h3>
+      <p class="auth-subdesc">가입 시 등록한 성명과 이메일을 입력하시면, 일치하는 계정의 아이디를 일부 마스킹해서 보여드립니다.</p>
+      <div class="auth-field"><label>성명</label><input type="text" id="findid-name" placeholder="홍길동" autocomplete="name" /></div>
+      <div class="auth-field"><label>이메일</label><input type="email" id="findid-email" placeholder="example@etners.com" autocomplete="email" /></div>
+      <button class="auth-btn" id="findid-btn" onclick="handleFindId()">아이디 찾기</button>
+      <div class="auth-status" id="findid-status"></div>
+    </div>
+    <!-- 비밀번호 초기화 패널 -->
+    <div class="auth-panel" id="panel-reset-pw">
+      <button type="button" class="auth-back-btn" onclick="switchAuthTab('login')">← 돌아가기</button>
+      <h3 class="auth-subtitle">비밀번호 초기화</h3>
+      <p class="auth-subdesc">아이디·성명·이메일이 모두 일치하면 비밀번호가 기본값으로 초기화됩니다. 로그인 후 반드시 비밀번호를 변경해주세요.</p>
+      <div class="auth-field"><label>ID</label><input type="text" id="resetpw-id" placeholder="아이디 입력" autocomplete="username" /></div>
+      <div class="auth-field"><label>성명</label><input type="text" id="resetpw-name" placeholder="홍길동" autocomplete="name" /></div>
+      <div class="auth-field"><label>이메일</label><input type="email" id="resetpw-email" placeholder="example@etners.com" autocomplete="email" /></div>
+      <button class="auth-btn" id="resetpw-btn" onclick="handleResetPw()">비밀번호 초기화</button>
+      <div class="auth-status" id="resetpw-status"></div>
     </div>
     <!-- 회원가입 패널 -->
     <div class="auth-panel" id="panel-signup">
