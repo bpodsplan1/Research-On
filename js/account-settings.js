@@ -139,19 +139,39 @@ function closeSupportHistoryModal(){ $('#supportHistoryModalOverlay')?.classList
 function renderSupportHistoryList(list){
   $('#supportHistoryList').innerHTML = list.length ? list.map(r=>{
     const resolved = r.status === 'resolved';
+    const replyText = resolved
+      ? (r.admin_reply && r.admin_reply.trim()
+          ? esc(r.admin_reply)
+          : '관리자가 답변을 남기지 않고 처리 완료하였습니다. 추가 문의 또는 요청 사항이 있을 경우 다시 작성해 주시기를 바랍니다.')
+      : '';
     return `<div class="list-item" style="cursor:default;flex-direction:column;align-items:stretch;gap:8px">
-      <div style="display:flex;align-items:center;gap:8px">
+      <div style="display:flex;align-items:flex-start;gap:8px">
         <span class="badge ${resolved?'green':'orange'}">${resolved?'답변 완료':'접수됨'}</span>
         <b style="flex:1">${esc(r.title||'(제목 없음)')}</b>
-        <span style="color:var(--muted);font-size:12px;white-space:nowrap">${esc((r.created_at||'').slice(0,10))}</span>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0">
+          <span style="color:var(--muted);font-size:12px;white-space:nowrap">${esc((r.created_at||'').slice(0,10))}</span>
+          ${resolved
+            ? `<button class="btn line" type="button" disabled style="min-height:28px;padding:0 10px;font-size:12px;opacity:.45;cursor:not-allowed">삭제 불가</button>`
+            : `<button class="btn line" type="button" style="min-height:28px;padding:0 10px;font-size:12px;color:var(--red);border-color:var(--red)" onclick="handleDeleteSupportRequest('${r.id}')">삭제</button>`}
+        </div>
       </div>
       <p style="white-space:pre-line;margin:0;color:#334155">${esc(r.content||'')}</p>
       ${resolved ? `<div style="background:var(--soft);border-radius:12px;padding:10px 12px;margin-top:4px">
         <p style="margin:0 0 4px;font-size:12px;font-weight:900;color:var(--primary2)">관리자 답변</p>
-        <p style="margin:0;white-space:pre-line">${esc(r.admin_reply||'')}</p>
+        <p style="margin:0;white-space:pre-line${r.admin_reply && r.admin_reply.trim() ? '' : ';color:var(--muted);font-style:italic'}">${replyText}</p>
       </div>` : ''}
     </div>`;
   }).join('') : '<div class="empty-state"><h3>제출한 내역이 없어요</h3></div>';
+}
+async function handleDeleteSupportRequest(id){
+  if(!confirm('이 문의 내역을 삭제하시겠습니까?')) return;
+  try{
+    const { error } = await _sb.from('support_requests').delete().eq('id', id).eq('user_id', currentUserId);
+    if(error) throw error;
+    openSupportHistoryModal(currentSupportType);
+  } catch(e){
+    alert('삭제에 실패했습니다: ' + e.message);
+  }
 }
 function openInfoModal(type){
   $('#infoModalTitle').textContent = type==='privacy' ? '개인정보 처리방침' : '이용 가이드';
