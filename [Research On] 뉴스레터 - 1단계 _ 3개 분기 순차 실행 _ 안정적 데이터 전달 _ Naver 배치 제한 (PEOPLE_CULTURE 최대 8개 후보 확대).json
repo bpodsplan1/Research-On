@@ -1672,7 +1672,8 @@
   "active": true,
   "settings": {
     "executionOrder": "v1",
-    "binaryMode": "separate"
+    "binaryMode": "separate",
+    "timezone": "Asia/Seoul"
   },
   "versionId": "b2f045f0-b4a4-47eb-a258-59344063d7fc",
   "meta": {
