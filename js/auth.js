@@ -55,7 +55,7 @@ async function handleResetPw(){
       body: JSON.stringify({ user_id:userId, name, email })
     });
     const data = await resp.json().catch(()=>({}));
-    if(!resp.ok || data.success===false) throw new Error(data.message || '초기화에 실패했습니다.');
+    if(!resp.ok || data.success!==true) throw new Error(data.message || '초기화에 실패했습니다.');
     showAuthStatus('resetpw-status','success', '비밀번호가 초기화되었습니다.');
     alert('비밀번호가 기본값으로 초기화되었습니다.\n\n임시 비밀번호: dlxmsjtm1!\n\n로그인 후 반드시 비밀번호를 변경해주세요.');
   } catch(e){

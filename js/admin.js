@@ -102,7 +102,7 @@ async function handlePwReset(id, email, name){
       body: JSON.stringify({ user_id:id, email, admin_token:ADMIN_ACTION_TOKEN })
     });
     const data = await resp.json().catch(()=>({}));
-    if(!resp.ok || data.success===false) throw new Error(data.message || 'n8n 응답 오류');
+    if(!resp.ok || data.success!==true) throw new Error(data.message || 'n8n 응답 오류');
     showToast(data.message || '비밀번호가 초기화되었습니다.');
   } catch(e){
     alert('비밀번호 초기화에 실패했습니다: ' + e.message + '\n(n8n 워크플로우가 활성화되어 있는지, Supabase 서비스 키 자격증명이 설정되어 있는지 확인해주세요.)');
@@ -332,7 +332,7 @@ async function handleForceSend(email, name){
       body: JSON.stringify({ email, name, admin_token:ADMIN_ACTION_TOKEN })
     });
     const data = await resp.json().catch(()=>({}));
-    if(!resp.ok || data.success===false) throw new Error(data.message || 'n8n 응답 오류');
+    if(!resp.ok || data.success!==true) throw new Error(data.message || 'n8n 응답 오류');
     showToast(data.message || '뉴스레터를 발송했습니다.');
   } catch(e){
     alert('뉴스레터 발송에 실패했습니다: ' + e.message + '\n(n8n 워크플로우가 활성화되어 있는지 확인해주세요.)');

@@ -58,7 +58,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const rows = $input.all().map(x => x.json || {});\nconst matchedId = rows.length === 1 ? rows[0].id : null;\nreturn [{ json: { matched_id: matchedId } }];"
+        "jsCode": "const rows = $input.all().map(x => x.json || {});\nconst matchedId = rows.length === 1 ? String(rows[0].id || '') : '';\nreturn [{ json: { matched_id: matchedId, matched: matchedId.length > 0 } }];"
       },
       "id": "b0000000-0000-4000-8000-000000000004",
       "name": "U3. Code - 매칭 결과 정리",
@@ -68,8 +68,25 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.matched }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "b0000000-0000-4000-8000-000000000008",
+      "name": "U4. IF - 일치하는 계정 존재",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1000, 0]
+    },
+    {
+      "parameters": {
         "method": "PUT",
-        "url": "=https://aiftpranlfudkbobxyll.supabase.co/auth/v1/admin/users/{{ $json.matched_id || '00000000-0000-0000-0000-000000000000' }}",
+        "url": "=https://aiftpranlfudkbobxyll.supabase.co/auth/v1/admin/users/{{ $json.matched_id }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
@@ -78,10 +95,10 @@
         "options": {}
       },
       "id": "b0000000-0000-4000-8000-000000000005",
-      "name": "U4. HTTP Request - Supabase Auth 비밀번호 초기화",
+      "name": "U5. HTTP Request - Supabase Auth 비밀번호 초기화",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1040, 0],
+      "position": [1260, -120],
       "credentials": {
         "httpHeaderAuth": {
           "id": "emV7HjmG16pBRr4q",
@@ -89,17 +106,27 @@
         }
       },
       "continueOnFail": true,
-      "notes": "매칭되는 계정이 없으면 matched_id가 더미 UUID가 되어 이 요청이 자연스럽게 실패함(=계정 없음으로 처리). 인증: Supabase 크리덴셜(apikey 헤더, secret 키) 연결 필요."
+      "notes": "일치하는 계정이 확인된 경우에만 호출됨(U4 IF에서 이미 걸러짐). 인증: Supabase 크리덴셜(apikey 헤더, secret 키) 연결 필요."
     },
     {
       "parameters": {
-        "jsCode": "const raw = $json;\nconst failed = !!raw.error;\nif (failed) {\n  return [{ json: { success: false, message: '입력하신 정보와 일치하는 계정을 찾을 수 없습니다.' } }];\n}\nreturn [{ json: { success: true, message: '비밀번호가 초기화되었습니다.' } }];"
+        "jsCode": "const items = $input.all();\nconst raw = items.length ? (items[0].json || {}) : {};\nconst failed = !!raw.error;\nif (failed) {\n  const detail = raw.error && (raw.error.message || JSON.stringify(raw.error));\n  return [{ json: { success: false, message: '비밀번호 초기화 중 오류가 발생했습니다: ' + String(detail || '알 수 없는 오류').slice(0, 300) } }];\n}\nreturn [{ json: { success: true, message: '비밀번호가 초기화되었습니다.' } }];"
       },
       "id": "b0000000-0000-4000-8000-000000000006",
-      "name": "U5. Code - 응답 정리",
+      "name": "U6. Code - 성공 응답 정리",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1300, 0]
+      "position": [1500, -120]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { success: false, message: '입력하신 아이디·성명·이메일과 일치하는 계정을 찾을 수 없습니다.' } }];"
+      },
+      "id": "b0000000-0000-4000-8000-000000000009",
+      "name": "U7. Code - 불일치 응답 정리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1260, 140]
     },
     {
       "parameters": {
@@ -108,10 +135,10 @@
         "options": {}
       },
       "id": "b0000000-0000-4000-8000-000000000007",
-      "name": "U6. Respond to Webhook",
+      "name": "U8. Respond to Webhook",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [1560, 0]
+      "position": [1740, 0]
     }
   ],
   "connections": {
@@ -125,13 +152,22 @@
       "main": [[{"node": "U3. Code - 매칭 결과 정리", "type": "main", "index": 0}]]
     },
     "U3. Code - 매칭 결과 정리": {
-      "main": [[{"node": "U4. HTTP Request - Supabase Auth 비밀번호 초기화", "type": "main", "index": 0}]]
+      "main": [[{"node": "U4. IF - 일치하는 계정 존재", "type": "main", "index": 0}]]
     },
-    "U4. HTTP Request - Supabase Auth 비밀번호 초기화": {
-      "main": [[{"node": "U5. Code - 응답 정리", "type": "main", "index": 0}]]
+    "U4. IF - 일치하는 계정 존재": {
+      "main": [
+        [{"node": "U5. HTTP Request - Supabase Auth 비밀번호 초기화", "type": "main", "index": 0}],
+        [{"node": "U7. Code - 불일치 응답 정리", "type": "main", "index": 0}]
+      ]
     },
-    "U5. Code - 응답 정리": {
-      "main": [[{"node": "U6. Respond to Webhook", "type": "main", "index": 0}]]
+    "U5. HTTP Request - Supabase Auth 비밀번호 초기화": {
+      "main": [[{"node": "U6. Code - 성공 응답 정리", "type": "main", "index": 0}]]
+    },
+    "U6. Code - 성공 응답 정리": {
+      "main": [[{"node": "U8. Respond to Webhook", "type": "main", "index": 0}]]
+    },
+    "U7. Code - 불일치 응답 정리": {
+      "main": [[{"node": "U8. Respond to Webhook", "type": "main", "index": 0}]]
     }
   },
   "active": false,
