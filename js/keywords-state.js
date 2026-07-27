@@ -6,6 +6,11 @@ let subscribedKws = [];
 let savedDocs = [];
 let keywordSets = [];
 
+// 저장 자료함에 같은 제목+유형의 자료가 이미 있는지 확인 (뉴스 기사/리포트 중복 저장 방지)
+function isAlreadySaved(title, type){
+  return savedDocs.some(d=>d.title===title && d.type===type);
+}
+
 // ── 앱 상태 전체 초기화 ──
 function resetAppState(){
   subscribedKws = []; savedDocs = []; keywordSets = [];

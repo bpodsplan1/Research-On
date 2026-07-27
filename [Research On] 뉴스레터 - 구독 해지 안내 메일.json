@@ -1,0 +1,114 @@
+{
+  "name": "[Research On] 뉴스레터 - 구독 해지 안내 메일",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "newsletter/goodbye",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "2d8bff90-92c2-41f8-a85e-482eefe8d6ad",
+      "name": "G0. Webhook - 구독 해지 안내 요청",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-528, 144],
+      "webhookId": "newsletter-goodbye"
+    },
+    {
+      "parameters": {
+        "jsCode": "// '구독 신청' 페이지에서 본인 구독 해지가 완료되었을 때 프론트엔드가 호출한다.\n// 신규 구독 웰컴 메일(newsletter/welcome)과 대칭되는 해지 안내 메일 전용 웹훅.\nconst data = $json.body || $json;\nfunction txt(v){ return v===null||v===undefined?'':String(v).trim(); }\nfunction esc(v){\n  return txt(v).replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c]));\n}\n\nconst email = txt(data.email);\nconst name = txt(data.name) || '구독자';\nif (!email) throw new Error('email이 필요합니다.');\n\nconst subject = '[Research On] 뉴스레터 구독이 해지되었습니다';\nconst goodbyeHtml = `\n<div style=\"font-family:'Malgun Gothic',sans-serif;max-width:600px;margin:0 auto;color:#0f172a\">\n  <div style=\"background:linear-gradient(135deg,#475569,#1e293b);padding:28px 32px;border-radius:16px 16px 0 0\">\n    <div style=\"color:#ffffff;font-size:13px;font-weight:800;letter-spacing:.08em;opacity:.85\">RESEARCH ON</div>\n    <div style=\"color:#ffffff;font-size:22px;font-weight:900;margin-top:6px\">뉴스레터 구독이 해지되었습니다</div>\n  </div>\n  <div style=\"background:#ffffff;border:1px solid #e5eaf2;border-top:0;border-radius:0 0 16px 16px;padding:28px 32px\">\n    <p style=\"font-size:15px;line-height:1.7;margin:0 0 16px\">${esc(name)}님, 안녕하세요.</p>\n    <p style=\"font-size:14px;line-height:1.8;color:#334155;margin:0 0 20px\">\n      요청하신 대로 Research On 뉴스레터 구독이 정상적으로 해지되었습니다.\n      더 이상 정기 발송 메일이 발송되지 않습니다.\n    </p>\n    <div style=\"background:#f1f5f9;border-radius:12px;padding:16px 18px;margin-bottom:20px\">\n      <div style=\"font-size:13px;font-weight:800;color:#334155;margin-bottom:4px\">다시 구독하고 싶다면</div>\n      <div style=\"font-size:13.5px;color:#475569;line-height:1.6\">Research On 리서치허브의 \"구독 신청\" 메뉴에서 언제든 다시 신청하실 수 있습니다.</div>\n    </div>\n    <p style=\"font-size:13px;color:#697386;line-height:1.7;margin:0\">\n      그동안 Research On 뉴스레터를 구독해주셔서 감사합니다.\n    </p>\n    <p style=\"font-size:13px;color:#94a3b8;margin-top:24px\">Research On · BPO사업본부</p>\n  </div>\n</div>`;\n\nreturn [{ json: { email, name, subject, goodbye_html: goodbyeHtml } }];\n"
+      },
+      "id": "f84a6f18-5b55-432c-82b5-7b9f2a76a501",
+      "name": "G1. Code - 입력 검증 + 해지 안내 메일 본문 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-256, 144]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.email }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.goodbye_html }}",
+        "options": {}
+      },
+      "id": "272663be-f153-41f3-94e9-6397e811a7a9",
+      "name": "G2. Gmail - 해지 안내 메일 발송",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [0, 144],
+      "webhookId": "274a1caf-9c22-4e9d-b67f-b2c8351e342e",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "qa6HS0nnuLRBT7uR",
+          "name": "Gmail(7/14)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const g = $json;\nconst ctx = $('G1. Code - 입력 검증 + 해지 안내 메일 본문 구성').first().json;\nreturn [{ json: {\n  success: true,\n  message: `${ctx.name}님(${ctx.email})에게 구독 해지 안내 메일을 발송했습니다.`,\n  email: ctx.email,\n  gmail_message_id: g.id || g.messageId || ''\n}}];\n"
+      },
+      "id": "7b6b3a2c-12d6-487f-a493-5ecaa4e2d0bf",
+      "name": "G3. Code - 응답 데이터 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [256, 144]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "f6c69263-d73a-4f29-9cf9-15f82298086b",
+      "name": "G4. Respond to Webhook - 해지 처리 결과 반환",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [512, 144]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "G0. Webhook - 구독 해지 안내 요청": {
+      "main": [[{ "node": "G1. Code - 입력 검증 + 해지 안내 메일 본문 구성", "type": "main", "index": 0 }]]
+    },
+    "G1. Code - 입력 검증 + 해지 안내 메일 본문 구성": {
+      "main": [[{ "node": "G2. Gmail - 해지 안내 메일 발송", "type": "main", "index": 0 }]]
+    },
+    "G2. Gmail - 해지 안내 메일 발송": {
+      "main": [[{ "node": "G3. Code - 응답 데이터 구성", "type": "main", "index": 0 }]]
+    },
+    "G3. Code - 응답 데이터 구성": {
+      "main": [[{ "node": "G4. Respond to Webhook - 해지 처리 결과 반환", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timezone": "Asia/Seoul"
+  },
+  "versionId": "a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d",
+  "meta": {
+    "instanceId": "1dbf02fc19e4bfd97b9fe74c58b21c46219b2aed60e7d66cdce419ae0a4d7f7e"
+  },
+  "id": "gY7hR2kLpM9wXqNz",
+  "tags": []
+}

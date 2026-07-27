@@ -87,8 +87,9 @@ function reportToPlainText(report){
 }
 async function saveCurrentReport(){
   if(!currentReport){ showToast('저장할 리포트가 없습니다.'); return; }
-  const uid = await getUid(); if(!uid){ showToast('로그인이 필요합니다.'); return; }
   const title = '[AI 리포트] ' + (currentReport.subtitle || currentReport.title || '리포트');
+  if(isAlreadySaved(title, 'AI 인사이트 리포트')){ showToast('이미 저장된 자료입니다.'); return; }
+  const uid = await getUid(); if(!uid){ showToast('로그인이 필요합니다.'); return; }
   const row = { profile_id:uid, title, body: reportToPlainText(currentReport), type:'AI 인사이트 리포트', badge:'purple' };
   const { data } = await _sb.from('saved_docs').insert(row).select().single();
   savedDocs.unshift({ id:data?.id, ...row });

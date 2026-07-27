@@ -257,7 +257,27 @@ async function loadNewsletterSubscribers(){
     if(cardsWrap) cardsWrap.innerHTML = `<div class="card" style="text-align:center;color:var(--red);padding:30px">오류: ${error.message}</div>`;
     return;
   }
-  allSubscribersCache = data || [];
+  const profileRows = (data || []).map(p=>({ ...p, kind:'profile' }));
+
+  // Research On 계정이 없는 외부 구독자(다른 구성원이 대리 등록한 이메일)도 함께 관리할 수 있어야 한다.
+  // 없어서 발생했던 문제: 이 목록이 비어 있으면(테이블 없음 등) 외부 구독자만 조용히 빠지고
+  // 계정 기반 구독자는 그대로 보여준다 (best-effort).
+  let guestRows = [];
+  try{
+    const { data:guestData, error:guestErr } = await _sb.from('newsletter_guest_subscribers')
+      .select('*').neq('status', 'cancelled').order('created_at', {ascending:false});
+    if(guestErr) throw guestErr;
+    guestRows = (guestData || []).map(g=>({
+      id:g.id, name:g.name, email:g.email,
+      newsletter_subscribed_at:g.created_at,
+      newsletter_paused: g.status === 'paused',
+      newsletter_last_send_status: null,
+      kind:'guest'
+    }));
+  } catch(e){ /* newsletter_guest_subscribers 테이블이 아직 없어도 계정 기반 구독자는 정상 표시 */ }
+
+  allSubscribersCache = [...profileRows, ...guestRows]
+    .sort((a,b)=> new Date(b.newsletter_subscribed_at||0) - new Date(a.newsletter_subscribed_at||0));
   renderSubscribersTable(allSubscribersCache);
 }
 function renderSubscribersTable(list){
@@ -275,14 +295,16 @@ function renderSubscribersTable(list){
     if(p.newsletter_paused) statusBadge = '<span class="badge orange">일시정지</span>';
     else if(p.newsletter_last_send_status==='success') statusBadge = '<span class="badge green">발송 성공</span>';
     else if(p.newsletter_last_send_status==='failed') statusBadge = '<span class="badge red">발송 실패</span>';
+    else if(p.kind==='guest') statusBadge = '<span class="badge blue">외부 구독자</span>';
     else statusBadge = '<span class="badge gray">발송 이력 없음</span>';
     const safeName = (p.name||'').replace(/'/g,"\\'");
     const pauseLabel = p.newsletter_paused ? '정지 해제' : '일시 정지';
-    return { i, p, date, statusBadge, safeName, pauseLabel };
+    const kind = p.kind || 'profile';
+    return { i, p, date, statusBadge, safeName, pauseLabel, kind };
   });
 
   if(cardsWrap){
-    cardsWrap.innerHTML = rows.map(({i,p,date,statusBadge,safeName,pauseLabel})=>`
+    cardsWrap.innerHTML = rows.map(({i,p,date,statusBadge,safeName,pauseLabel,kind})=>`
       <div class="result-card">
         <div class="result-card-head">
           <div class="result-card-title"><span>${p.name||'-'}</span>${statusBadge}</div>
@@ -291,14 +313,14 @@ function renderSubscribersTable(list){
         <div style="color:var(--muted);font-size:12px;margin-bottom:10px">구독일 ${date}</div>
         <div class="result-card-actions">
           <button class="btn line" type="button" onclick="handleForceSend('${p.email}','${safeName}')">뉴스레터 발송</button>
-          <button class="btn line" type="button" onclick="handleTogglePause('${p.id}',${!p.newsletter_paused},'${safeName}')">${pauseLabel}</button>
-          <button class="btn red" type="button" onclick="handleAdminUnsubscribe('${p.id}','${safeName}')">구독 취소</button>
+          <button class="btn line" type="button" onclick="handleTogglePause('${p.id}',${!p.newsletter_paused},'${safeName}','${kind}')">${pauseLabel}</button>
+          <button class="btn red" type="button" onclick="handleAdminUnsubscribe('${p.id}','${safeName}','${kind}')">구독 취소</button>
         </div>
       </div>
     `).join('');
   }
 
-  tbody.innerHTML = rows.map(({i,p,date,statusBadge,safeName,pauseLabel})=>`<tr>
+  tbody.innerHTML = rows.map(({i,p,date,statusBadge,safeName,pauseLabel,kind})=>`<tr>
       <td>${i+1}</td>
       <td><b>${p.name||'-'}</b></td>
       <td style="font-size:13px">${p.email||'-'}</td>
@@ -307,8 +329,8 @@ function renderSubscribersTable(list){
       <td>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="btn line" style="min-height:32px;padding:0 10px;font-size:12.5px" onclick="handleForceSend('${p.email}','${safeName}')">뉴스레터 발송</button>
-          <button class="btn line" style="min-height:32px;padding:0 10px;font-size:12.5px" onclick="handleTogglePause('${p.id}',${!p.newsletter_paused},'${safeName}')">${pauseLabel}</button>
-          <button class="btn red" style="min-height:32px;padding:0 10px;font-size:12.5px" onclick="handleAdminUnsubscribe('${p.id}','${safeName}')">구독 취소</button>
+          <button class="btn line" style="min-height:32px;padding:0 10px;font-size:12.5px" onclick="handleTogglePause('${p.id}',${!p.newsletter_paused},'${safeName}','${kind}')">${pauseLabel}</button>
+          <button class="btn red" style="min-height:32px;padding:0 10px;font-size:12.5px" onclick="handleAdminUnsubscribe('${p.id}','${safeName}','${kind}')">구독 취소</button>
         </div>
       </td>
     </tr>`).join('');
@@ -338,20 +360,24 @@ async function handleForceSend(email, name){
     alert('뉴스레터 발송에 실패했습니다: ' + e.message + '\n(n8n 워크플로우가 활성화되어 있는지 확인해주세요.)');
   }
 }
-async function handleTogglePause(id, pause, name){
+async function handleTogglePause(id, pause, name, kind){
   const label = pause ? '일시 정지' : '정지 해제';
   if(!confirm(`${name}님의 뉴스레터 수신을 ${label}하시겠습니까?`)) return;
   try{
-    const { error } = await _sb.from('profiles').update({ newsletter_paused: pause }).eq('id', id);
+    const { error } = kind === 'guest'
+      ? await _sb.from('newsletter_guest_subscribers').update({ status: pause ? 'paused' : 'active' }).eq('id', id)
+      : await _sb.from('profiles').update({ newsletter_paused: pause }).eq('id', id);
     if(error) throw error;
     showToast(`${label}되었습니다.`);
     loadNewsletterSubscribers();
   } catch(e){ alert('오류: ' + e.message); }
 }
-async function handleAdminUnsubscribe(id, name){
+async function handleAdminUnsubscribe(id, name, kind){
   if(!confirm(`${name}님의 뉴스레터 구독을 취소하시겠습니까?`)) return;
   try{
-    const { error } = await _sb.from('profiles').update({ newsletter_subscribed: false }).eq('id', id);
+    const { error } = kind === 'guest'
+      ? await _sb.from('newsletter_guest_subscribers').update({ status: 'cancelled' }).eq('id', id)
+      : await _sb.from('profiles').update({ newsletter_subscribed: false }).eq('id', id);
     if(error) throw error;
     showToast('구독이 취소되었습니다.');
     loadNewsletterSubscribers();

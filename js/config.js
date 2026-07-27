@@ -35,6 +35,8 @@ const N8N_NEWSLETTER_FORCE_SEND_URL = 'https://n8n.mokai.kr/webhook/newsletter/f
 const N8N_SELF_RESET_PW_URL = 'https://n8n.mokai.kr/webhook/user/self-reset-password';
 // 신규 구독(본인 구독/타인 대리 등록) 성공 시 웰컴 메일 + 5분 뒤 최신호 발송을 트리거하는 웹훅
 const N8N_NEWSLETTER_WELCOME_URL = 'https://n8n.mokai.kr/webhook/newsletter/welcome';
+// 본인 구독 해지 성공 시 해지 안내 메일을 트리거하는 웹훅 (신규 워크플로우: "[Research On] 뉴스레터 - 구독 해지 안내 메일")
+const N8N_NEWSLETTER_GOODBYE_URL = 'https://n8n.mokai.kr/webhook/newsletter/goodbye';
 // 위 두 관리자 전용 웹훅 호출 시 함께 보내는 최소 방어용 토큰.
 // n8n 워크플로우의 "입력 검증" 코드 노드에 있는 ADMIN_ACTION_TOKEN 값과 반드시 동일해야 하며,
 // 완전한 인증 수단은 아니므로(프론트 JS에 노출됨) 값을 바꾸고 싶다면 양쪽을 함께 수정할 것.
@@ -248,18 +250,21 @@ function reorderCombo(fromIdx, toIdx){
   updateSelection(); updatePayload();
 }
 let comboDragSrcIdx = null;
+// Pointer Events(mouse/touch/pen 공용)로 구현 — 터치 기기에서도 드래그로 순서 변경 가능.
 function bindComboDragEvents(){
   const box = $('#selectedTags'); if(!box) return;
-  box.addEventListener('mousedown', e=>{
+  box.addEventListener('pointerdown', e=>{
     if(e.target.closest('.x')) return; // × 버튼 클릭은 드래그로 취급하지 않음
     const chip = e.target.closest('[data-combo-idx]');
     if(!chip) return;
     e.preventDefault();
+    chip.setPointerCapture(e.pointerId);
     comboDragSrcIdx = +chip.dataset.comboIdx;
     let targetIdx = null;
     chip.classList.add('dragging');
 
     function onMove(ev){
+      if(ev.pointerId !== e.pointerId) return;
       const overEl = document.elementFromPoint(ev.clientX, ev.clientY);
       const overChip = overEl && overEl.closest('[data-combo-idx]');
       $$('.chip', box).forEach(c=>c.classList.remove('drop-before','drop-after'));
@@ -273,9 +278,12 @@ function bindComboDragEvents(){
         targetIdx = null;
       }
     }
-    function onUp(){
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
+    function onUp(ev){
+      if(ev.pointerId !== e.pointerId) return;
+      chip.releasePointerCapture(e.pointerId);
+      chip.removeEventListener('pointermove', onMove);
+      chip.removeEventListener('pointerup', onUp);
+      chip.removeEventListener('pointercancel', onUp);
       $$('.chip', box).forEach(c=>c.classList.remove('dragging','drop-before','drop-after'));
       if(targetIdx !== null){
         let t = targetIdx;
@@ -284,8 +292,9 @@ function bindComboDragEvents(){
       }
       comboDragSrcIdx = null;
     }
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
+    chip.addEventListener('pointermove', onMove);
+    chip.addEventListener('pointerup', onUp);
+    chip.addEventListener('pointercancel', onUp);
   });
 }
 function renderCore(){

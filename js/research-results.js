@@ -448,6 +448,7 @@ function updateExportBtnLabel(){
 }
 async function saveResultDoc(i){
   const d = displayedDocs[i]; if(!d) return;
+  if(isAlreadySaved(d.title, '리서치 결과')){ showToast('이미 저장된 자료입니다.'); return; }
   const uid = await getUid(); if(!uid){ showToast('로그인이 필요합니다.'); return; }
   const row = { profile_id:uid, title:d.title, body:d.body, type:'리서치 결과', badge:'blue' };
   const { data } = await _sb.from('saved_docs').insert(row).select().single();
@@ -478,11 +479,15 @@ async function saveAllResults(){
   const selected = getSelectedDocs();
   if(selected.length===0){ showToast('저장할 결과가 없습니다.'); return; }
   const uid = await getUid(); if(!uid){ showToast('로그인이 필요합니다.'); return; }
-  const rows = selected.filter(d=>d.status==='success').map(d=>({ profile_id:uid, title:d.title, body:d.body, type:'리서치 결과', badge:'blue' }));
-  if(!rows.length){ showToast('저장할 성공 결과가 없습니다.'); return; }
+  const successDocs = selected.filter(d=>d.status==='success');
+  if(!successDocs.length){ showToast('저장할 성공 결과가 없습니다.'); return; }
+  const dupCount = successDocs.filter(d=>isAlreadySaved(d.title, '리서치 결과')).length;
+  const rows = successDocs.filter(d=>!isAlreadySaved(d.title, '리서치 결과'))
+    .map(d=>({ profile_id:uid, title:d.title, body:d.body, type:'리서치 결과', badge:'blue' }));
+  if(!rows.length){ showToast('이미 저장된 자료입니다.'); return; }
   const { data } = await _sb.from('saved_docs').insert(rows).select();
   (data||[]).reverse().forEach(r=>savedDocs.unshift({ id:r.id, profile_id:uid, title:r.title, body:r.body, type:r.type, badge:r.badge }));
-  showToast(rows.length+'건이 저장되었습니다.');
+  showToast(rows.length+'건이 저장되었습니다.'+(dupCount?` (이미 저장된 ${dupCount}건 제외)`:''));
 }
 function openDocModal(i, kind){
   let doc;

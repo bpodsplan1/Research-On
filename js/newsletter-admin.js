@@ -176,7 +176,7 @@ function nlSourceLinks(urls){
 function nlDivider(){
   return `<tr><td style="padding:0 40px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="border-top:1px solid #E5E7EB;font-size:1px;line-height:1px;">&nbsp;</td></tr></table></td></tr>`;
 }
-function nlItemBlock(item, section, idx, isFirst, isLast, culture, last){
+function nlItemBlock(item, section, idx, isFirst, isLast, culture, last, editable){
   const bg = culture ? '#F2F7F4' : '#EEF3FF';
   const labelColor = culture ? '#2F6B4F' : '#274690';
   const textColor = culture ? '#3F5B4C' : '#35415E';
@@ -193,16 +193,18 @@ function nlItemBlock(item, section, idx, isFirst, isLast, culture, last){
   const downBtnStyle = isLast
     ? 'border:1px solid #EDF1F5;background:#F8FAFC;color:#CBD5E1;font-size:11px;padding:5px 9px;border-radius:999px;cursor:default;font-family:inherit;'
     : 'border:1px solid #DBE2EA;background:#fff;color:#475569;font-size:11px;padding:5px 9px;border-radius:999px;cursor:pointer;font-family:inherit;';
-  const block = `
-    <tr><td style="padding:26px 40px ${last?'32px':'26px'};">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;">
-        <div style="font-size:20px;line-height:30px;font-weight:bold;color:#111827;flex:1;min-width:0;">${esc(item.title)}</div>
+  const controlsHtml = editable ? `
         <div style="display:flex;gap:6px;flex-shrink:0;">
           <button type="button" ${isFirst?'disabled':`onclick="parent.nlMoveItem('${section}',${idx},-1)"`} style="${upBtnStyle}" title="위로">▲</button>
           <button type="button" ${isLast?'disabled':`onclick="parent.nlMoveItem('${section}',${idx},1)"`} style="${downBtnStyle}" title="아래로">▼</button>
           <button type="button" onclick="parent.nlEditItem('${section}',${idx})" style="border:1px solid #DBE2EA;background:#fff;color:#475569;font-size:11px;font-weight:700;padding:5px 11px;border-radius:999px;cursor:pointer;font-family:inherit;">편집</button>
           <button type="button" onclick="parent.nlDeleteItem('${section}',${idx})" style="border:1px solid #FBD5D5;background:#fff;color:#DC2626;font-size:11px;font-weight:700;padding:5px 11px;border-radius:999px;cursor:pointer;font-family:inherit;">삭제</button>
-        </div>
+        </div>` : '';
+  const block = `
+    <tr><td style="padding:26px 40px ${last?'32px':'26px'};">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;">
+        <div style="font-size:20px;line-height:30px;font-weight:bold;color:#111827;flex:1;min-width:0;">${esc(item.title)}</div>
+        ${controlsHtml}
       </div>
       <div style="margin-top:12px;font-size:15px;line-height:26px;color:#3F4652;">${nlP(item.summary)}</div>
       ${implicationHtml}
@@ -210,29 +212,30 @@ function nlItemBlock(item, section, idx, isFirst, isLast, culture, last){
     </td></tr>`;
   return block + (last ? '' : nlDivider());
 }
-function nlCultureViewBlock(view){
+function nlCultureViewBlock(view, editable){
   const hasView = !!view;
+  const editBtnHtml = editable ? `<button type="button" onclick="parent.nlEditCultureView()" style="border:1px solid #C7DFD0;background:#fff;color:#2F6B4F;font-size:11px;font-weight:700;padding:5px 11px;border-radius:999px;cursor:pointer;font-family:inherit;flex-shrink:0;">편집</button>` : '';
   return `
     <tr><td style="padding:0 40px 32px;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
         <tr><td style="padding:15px 17px;background-color:#F2F7F4;">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
             <div style="font-size:12px;line-height:18px;font-weight:bold;color:#2F6B4F;">종합 코멘트</div>
-            <button type="button" onclick="parent.nlEditCultureView()" style="border:1px solid #C7DFD0;background:#fff;color:#2F6B4F;font-size:11px;font-weight:700;padding:5px 11px;border-radius:999px;cursor:pointer;font-family:inherit;flex-shrink:0;">편집</button>
+            ${editBtnHtml}
           </div>
           <div style="margin-top:5px;font-size:14px;line-height:24px;color:${hasView?'#3F5B4C':'#94A3B8'};">${hasView ? nlP(view) : '아직 종합 코멘트가 없습니다. 편집 버튼을 눌러 추가하세요.'}</div>
         </td></tr>
       </table>
     </td></tr>`;
 }
-function nlSectionBlock(no, code, title, description, sectionKey, items, culture, trailingView){
+function nlSectionBlock(no, code, title, description, sectionKey, items, culture, trailingView, editable){
   const list = Array.isArray(items) ? items : [];
   const hasTrailing = culture;
   const lastIdx = list.length-1;
-  const itemsHtml = list.map((x,i)=>nlItemBlock(x, sectionKey, i, i===0, i===lastIdx, culture, hasTrailing?false:i===lastIdx)).join('');
+  const itemsHtml = list.map((x,i)=>nlItemBlock(x, sectionKey, i, i===0, i===lastIdx, culture, hasTrailing?false:i===lastIdx, editable)).join('');
   const emptyHtml = list.length ? '' : `<tr><td style="padding:8px 40px 20px;"><p style="margin:0;font-size:13px;color:#94A3B8;">아직 추가된 항목이 없습니다.</p></td></tr>`;
-  const addBtnHtml = `<tr><td style="padding:${list.length?'0':'0'} 40px 26px;"><button type="button" onclick="parent.nlAddItem('${sectionKey}')" style="width:100%;border:1.5px dashed #CBD5E1;background:#F8FAFC;color:#475569;font-size:13px;font-weight:700;padding:13px;border-radius:12px;cursor:pointer;font-family:inherit;">+ 항목 추가</button></td></tr>`;
-  const trailingHtml = hasTrailing ? nlCultureViewBlock(trailingView) : '';
+  const addBtnHtml = editable ? `<tr><td style="padding:${list.length?'0':'0'} 40px 26px;"><button type="button" onclick="parent.nlAddItem('${sectionKey}')" style="width:100%;border:1.5px dashed #CBD5E1;background:#F8FAFC;color:#475569;font-size:13px;font-weight:700;padding:13px;border-radius:12px;cursor:pointer;font-family:inherit;">+ 항목 추가</button></td></tr>` : '';
+  const trailingHtml = hasTrailing ? nlCultureViewBlock(trailingView, editable) : '';
   return `
     <tr><td style="padding:26px 40px 12px;background-color:#F8FAFC;border-top:1px solid #E5E7EB;">
       <div style="font-size:12px;line-height:18px;letter-spacing:1.2px;font-weight:bold;color:#274690;">${no} · ${esc(code)}</div>
@@ -241,13 +244,15 @@ function nlSectionBlock(no, code, title, description, sectionKey, items, culture
     </td></tr>
     ${itemsHtml}${emptyHtml}${addBtnHtml}${trailingHtml}`;
 }
-function buildNewsletterHtml(nl){
+// editable=true: 관리자 미리보기(iframe 안에서 parent.nlXxx 편집 콜백 사용) 전용 렌더링.
+// editable=false(기본값): 실제 발송·저장되는 최종 HTML — 편집용 버튼을 절대 포함하지 않는다.
+function buildNewsletterHtml(nl, editable){
   const sections = nl.sections || {};
   const sectionHtml = [
-    nlSectionBlock('01','CLIENT WATCH','주요 클라이언트와 고객 산업 동향','핵심 고객사의 사업·조직·AI·운영 변화를 중심으로 정리했습니다.', 'client_watch', sections.client_watch||[], false),
-    nlSectionBlock('02','RESEARCH ON INSIGHT','지난주 내부 리서치에서 발견한 핵심 흐름','사용자들이 직접 수행한 리서치에서 반복적으로 나타난 관심사를 정리했습니다.', 'research_on_insight', sections.research_on_insight||[], false),
-    nlSectionBlock('03','BUSINESS & WORK','BPO·AI·조직 운영의 주요 변화','본부 사업과 운영에 영향을 줄 수 있는 외부 변화를 정리했습니다.', 'business_work', sections.business_work||[], false),
-    nlSectionBlock('04','PEOPLE & CULTURE','요즘 구성원은 무엇에 반응하는가','젊은 세대의 행동과 가치관을 조직 운영 관점에서 해석했습니다.', 'people_culture', sections.people_culture||[], true, sections.people_culture_view||'')
+    nlSectionBlock('01','CLIENT WATCH','주요 클라이언트와 고객 산업 동향','핵심 고객사의 사업·조직·AI·운영 변화를 중심으로 정리했습니다.', 'client_watch', sections.client_watch||[], false, undefined, editable),
+    nlSectionBlock('02','RESEARCH ON INSIGHT','지난주 내부 리서치에서 발견한 핵심 흐름','사용자들이 직접 수행한 리서치에서 반복적으로 나타난 관심사를 정리했습니다.', 'research_on_insight', sections.research_on_insight||[], false, undefined, editable),
+    nlSectionBlock('03','BUSINESS & WORK','BPO·AI·조직 운영의 주요 변화','본부 사업과 운영에 영향을 줄 수 있는 외부 변화를 정리했습니다.', 'business_work', sections.business_work||[], false, undefined, editable),
+    nlSectionBlock('04','PEOPLE & CULTURE','요즘 구성원은 무엇에 반응하는가','젊은 세대의 행동과 가치관을 조직 운영 관점에서 해석했습니다.', 'people_culture', sections.people_culture||[], true, sections.people_culture_view||'', editable)
   ].join('');
   const subject = `[Research On Weekly] ${nl.period_end||''} 주간 뉴스레터`;
   const html = `<!DOCTYPE html>
@@ -315,7 +320,7 @@ function setupNlPreviewFrameHandlers(){
 function refreshNewsletterPreview(preserveScroll){
   setupNlPreviewFrameHandlers();
   if(preserveScroll) nlPreviewRestoreScrollY = nlPreviewScrollY;
-  const { subject, html } = buildNewsletterHtml(newsletterDraft);
+  const { subject, html } = buildNewsletterHtml(newsletterDraft, true);
   $('#nlPreviewSubject').textContent = subject;
   $('#nlPreviewRefreshBtn').style.display = 'none';
   nlPreviewInitialLoadPending = true;
@@ -392,6 +397,16 @@ async function triggerNewsletterWelcome(email, name){
     });
   } catch(e){ /* 웰컴 메일 웹훅 미연동/실패 시에도 구독 처리는 계속 진행 */ }
 }
+// 본인 구독 해지 성공 직후 호출 — 해지 안내 메일을 트리거한다.
+// best-effort로 처리: 이 호출이 실패해도 해지 자체는 이미 완료된 상태이므로 사용자에게 별도 에러를 띄우지 않는다.
+async function triggerNewsletterGoodbye(email, name){
+  try{
+    await fetch(N8N_NEWSLETTER_GOODBYE_URL, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ email, name })
+    });
+  } catch(e){ /* 해지 안내 메일 웹훅 미연동/실패 시에도 해지 처리는 계속 진행 */ }
+}
 async function confirmNewsletterSub(){
   const email = ($('#newsletterSubEmailInput').value || '').trim();
   if(!email || !email.includes('@')){ showToast('올바른 이메일 주소를 입력해주세요.'); return; }
@@ -405,7 +420,9 @@ async function confirmNewsletterSub(){
 async function unsubscribeNewsletter(){
   const uid = await getUid(); if(!uid){ showToast('로그인이 필요합니다.'); return; }
   if(!confirm('정말 뉴스레터 구독을 해지하시겠어요?')) return;
+  const { data: profile } = await _sb.from('profiles').select('newsletter_email').eq('id', uid).maybeSingle();
   await _sb.from('profiles').update({ newsletter_subscribed: false }).eq('id', uid);
+  triggerNewsletterGoodbye(profile?.newsletter_email || currentUserEmail, currentUserProfile?.name || '');
   showToast('뉴스레터 구독이 해지되었습니다.');
   renderNewsletterSubscribePage();
 }
