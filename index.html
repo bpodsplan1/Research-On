@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Research On — 이트너스 리서치 자동화 허브</title>
-<link rel="stylesheet" href="styles.css?v=20260727b" />
+<link rel="stylesheet" href="styles.css?v=20260727c" />
 </head>
 <body>
 
@@ -227,11 +227,11 @@
         <div class="grid cols-2" style="gap:14px">
           <div class="field">
             <label>검색 시작일</label>
-            <input type="date" id="startDate" />
+            <div class="date-input-wrap"><input type="date" id="startDate" /></div>
           </div>
           <div class="field">
             <label>검색 종료일</label>
-            <input type="date" id="endDate" />
+            <div class="date-input-wrap"><input type="date" id="endDate" /></div>
           </div>
           <div class="field">
             <label>포함할 사이트</label>
@@ -550,9 +550,9 @@
     <div class="form">
       <div class="grid cols-2">
         <div class="field"><label>발행 회차 제목</label><input id="nlIssueTitle" placeholder="Research-On 주간 뉴스레터" /></div>
-        <div class="field"><label>시작일</label><input type="date" id="nlPeriodStart" /><small id="nlPeriodHint" style="display:block;margin-top:6px;color:var(--muted)"></small></div>
+        <div class="field"><label>시작일</label><div class="date-input-wrap"><input type="date" id="nlPeriodStart" /></div><small id="nlPeriodHint" style="display:block;margin-top:6px;color:var(--muted)"></small></div>
       </div>
-      <div class="field"><label>마감일 (제목·구독자 화면의 발행일로 사용)</label><input type="date" id="nlPeriodEnd" /></div>
+      <div class="field"><label>마감일 (제목·구독자 화면의 발행일로 사용)</label><div class="date-input-wrap"><input type="date" id="nlPeriodEnd" /></div></div>
     </div>
   </div>
 
@@ -976,17 +976,17 @@
     </div>
   </div>
 </div>
-<script src="js/config.js?v=20260727b"></script>
-<script src="js/keywords-state.js?v=20260727b"></script>
-<script src="js/research-results.js?v=20260727b"></script>
-<script src="js/insight-report.js?v=20260727b"></script>
-<script src="js/newsletter-subscriber.js?v=20260727b"></script>
-<script src="js/newsletter-admin.js?v=20260727b"></script>
-<script src="js/search-history.js?v=20260727b"></script>
-<script src="js/account-settings.js?v=20260727b"></script>
-<script src="js/event-bindings.js?v=20260727b"></script>
-<script src="js/auth.js?v=20260727b"></script>
-<script src="js/admin.js?v=20260727b"></script>
+<script src="js/config.js?v=20260727c"></script>
+<script src="js/keywords-state.js?v=20260727c"></script>
+<script src="js/research-results.js?v=20260727c"></script>
+<script src="js/insight-report.js?v=20260727c"></script>
+<script src="js/newsletter-subscriber.js?v=20260727c"></script>
+<script src="js/newsletter-admin.js?v=20260727c"></script>
+<script src="js/search-history.js?v=20260727c"></script>
+<script src="js/account-settings.js?v=20260727c"></script>
+<script src="js/event-bindings.js?v=20260727c"></script>
+<script src="js/auth.js?v=20260727c"></script>
+<script src="js/admin.js?v=20260727c"></script>
 
 </body>
 </html>
