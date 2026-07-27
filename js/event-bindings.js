@@ -344,6 +344,10 @@ function bindEvents(){
   $('#selectAllDetail')?.addEventListener('change', e=>{
     $$('.detail-chk').forEach(c=>{ c.checked = e.target.checked; });
   });
+  $('#deselectAllDetailBtn')?.addEventListener('click', ()=>{
+    $$('.detail-chk').forEach(c=>{ c.checked = false; });
+    const selectAll = $('#selectAllDetail'); if(selectAll) selectAll.checked = false;
+  });
   $('#generateInsightBtn')?.addEventListener('click', deriveInsight);
   $('#userLinkAddBtn')?.addEventListener('click', addUserLink);
   $('#userLinkUrlInput')?.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); addUserLink(); } });
