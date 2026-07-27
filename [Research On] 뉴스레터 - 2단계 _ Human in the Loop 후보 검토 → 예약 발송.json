@@ -531,85 +531,6 @@
     },
     {
       "parameters": {
-        "amount": 1,
-        "unit": "minutes"
-      },
-      "id": "ac23afb2-4455-45af-9322-9927c69c7119",
-      "name": "B-T. Wait - 승인 후 1분 대기 (테스트용)",
-      "type": "n8n-nodes-base.wait",
-      "typeVersion": 1.1,
-      "position": [
-        45216,
-        3216
-      ],
-      "webhookId": "35a63d3e-af5d-4396-b7aa-d0b2178b76c7",
-      "notes": "테스트 전용 경로입니다. 실제 서비스에서는 C0(매주 월요일 08시) 스케줄로 발송되지만, 테스트 중에는 관리자가 '발송 예약'을 누르면 이 노드에서 1분만 기다렸다가 바로 C1(대기열 조회)로 넘어가 실제 Gmail 발송까지 진행됩니다. 운영 전환 시 이 노드와 아래 연결을 제거(또는 비활성화)하세요."
-    },
-    {
-      "parameters": {
-        "jsCode": "// 테스트 전용: 실제 발송 예약시각(다음 월요일 08시) 대신, 지금 시각으로 강제 조정한 newsletter_json을 만든다.\nconst b2 = $('B2. Code - 승인본 HTML 렌더링 + QUEUED 행 생성').item.json;\nconst wrap = (b2.newsletter_json && typeof b2.newsletter_json === 'object') ? b2.newsletter_json : JSON.parse(b2.newsletter_json || '{}');\nwrap.delivery = wrap.delivery || {};\nwrap.delivery.scheduled_for = new Date().toISOString();\nreturn [{json:{\n  issue_id: b2.issue_id,\n  newsletter_json: wrap\n}}];"
-      },
-      "id": "852e6996-ec67-4c3a-8ce5-716b2ca69d7b",
-      "name": "B-T0. Code - 테스트용 발송시각 즉시화",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        45232,
-        2960
-      ],
-      "notes": "테스트 전용: C2의 '예약시각이 지난 것만 발송' 필터를 통과시키기 위해 scheduled_for를 지금 시각으로 임시 재작성합니다."
-    },
-    {
-      "parameters": {
-        "method": "PATCH",
-        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/newsletters",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
-            {
-              "name": "issue_id",
-              "value": "=eq.{{ $json.issue_id }}"
-            }
-          ]
-        },
-        "sendHeaders": true,
-        "headerParameters": {
-          "parameters": [
-            {
-              "name": "Content-Type",
-              "value": "application/json"
-            },
-            {
-              "name": "Prefer",
-              "value": "return=minimal"
-            }
-          ]
-        },
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ newsletter_json: $json.newsletter_json }) }}",
-        "options": {}
-      },
-      "id": "72eafead-dbf4-4ba6-ae6a-53409abfc2db",
-      "name": "B-T1. Google Sheets - 예약시각 테스트용 갱신",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        45232,
-        3088
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "emV7HjmG16pBRr4q",
-          "name": "Supabase"
-        }
-      },
-      "notes": "B-T0에서 만든 newsletter_json(scheduled_for=지금)으로 방금 저장한 행을 issue_id 기준으로 덮어씁니다. (2026-07-25 Supabase 이관: 기존 Google Sheets/Docs 노드를 대체)"
-    },
-    {
-      "parameters": {
         "httpMethod": "POST",
         "path": "newsletter/force-send",
         "responseMode": "responseNode",
@@ -931,11 +852,6 @@
             "node": "B4. Code - 예약 접수 응답",
             "type": "main",
             "index": 0
-          },
-          {
-            "node": "B-T0. Code - 테스트용 발송시각 즉시화",
-            "type": "main",
-            "index": 0
           }
         ]
       ]
@@ -1022,39 +938,6 @@
         [
           {
             "node": "C5B. HTTP Request - 구독자 발송상태 갱신",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "B-T. Wait - 승인 후 1분 대기 (테스트용)": {
-      "main": [
-        [
-          {
-            "node": "C1. Google Sheets - newsletters 대기열 조회",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "B-T0. Code - 테스트용 발송시각 즉시화": {
-      "main": [
-        [
-          {
-            "node": "B-T1. Google Sheets - 예약시각 테스트용 갱신",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "B-T1. Google Sheets - 예약시각 테스트용 갱신": {
-      "main": [
-        [
-          {
-            "node": "B-T. Wait - 승인 후 1분 대기 (테스트용)",
             "type": "main",
             "index": 0
           }
