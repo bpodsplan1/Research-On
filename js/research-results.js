@@ -16,6 +16,24 @@ function generateFallbackResults(kw){
     body: `"${kw}" 검색 결과를 가져오지 못했습니다.\n\n가능한 원인:\n• 계정 설정에 뉴스 기사 검색 Webhook이 입력되지 않음\n• n8n 워크플로우가 비활성(Inactive) 상태\n• Serper/Naver API 키가 만료되었거나 호출 한도 초과\n\n계정 설정에서 뉴스 기사 검색 Webhook 주소를 확인해주세요.`
   }];
 }
+const OVERLOAD_MESSAGE = '현재 분석 요청이 많아 일시적으로 이용이 어렵습니다. 잠시 후 다시 시도해 주세요.';
+// 여러 사용자가 동시에 검색/인사이트 도출을 실행할 때 Naver/Serper/Gemini 등의
+// API 동시 요청 수 제한에 걸려 n8n이 에러를 낼 수 있다. 이 경우 "n8n 미연동"류의
+// 혼란스러운 안내 대신, 원인이 분명한 안내 문구를 보여준다.
+function isOverloadResponse(status, bodyText){
+  if(status === 429) return true;
+  return /(rate.?limit|too many requests|quota|not enough credit|credits? exhausted|429)/i.test(bodyText || '');
+}
+function generateOverloadResults(kw){
+  return [{
+    title: OVERLOAD_MESSAGE,
+    desc: '잠시 후 다시 시도해 주세요.',
+    source: '일시적 오류',
+    score: 0,
+    status: 'fail',
+    body: `"${kw}" 검색을 처리하지 못했습니다.\n\n${OVERLOAD_MESSAGE}`
+  }];
+}
 
 async function saveResultSession(kw, parts){
   const uid = await getUid(); if(!uid) return;
@@ -53,8 +71,15 @@ async function generateResultsFor(kw, parts){
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify(buildSearchPayload(kw, parts))
     });
+    const raw = await resp.text();
+    if(isOverloadResponse(resp.status, raw)){
+      resultDocs = generateOverloadResults(kw);
+      showToast(OVERLOAD_MESSAGE);
+      saveResultSession(kw, parts);
+      return;
+    }
     if(!resp.ok) throw new Error('n8n 응답 오류');
-    const data = await resp.json();
+    const data = JSON.parse(raw);
     // n8n 워크플로우([Research On] 뉴스 크롤링 - 1단계)는 결과를 data.list 배열로 반환함
     // (구버전 호환을 위해 data.articles도 함께 지원)
     const list = Array.isArray(data.list) ? data.list : (Array.isArray(data.articles) ? data.articles : []);
@@ -272,6 +297,7 @@ async function deriveInsight(){
   const timer = setInterval(()=>{ if(pct<85 && bar){ pct+=12; bar.style.width = pct+'%'; } }, 350);
 
   let report;
+  let overloaded = false;
   try {
     const resp = await fetch(N8N_INSIGHT_URL, {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -287,11 +313,20 @@ async function deriveInsight(){
         selected_results: combined.slice(0,10)
       })
     });
-    const data = await resp.json();
-    if(!resp.ok || data.success===false || !data.display) throw new Error(data.message || '리포트 생성 실패');
-    report = data.display;
+    const raw = await resp.text();
+    if(isOverloadResponse(resp.status, raw)){
+      overloaded = true;
+    } else {
+      const data = JSON.parse(raw);
+      if(!resp.ok || data.success===false || !data.display) throw new Error(data.message || '리포트 생성 실패');
+      report = data.display;
+    }
   } catch(e){
     report = generateFallbackReport(kw, withUrl);
+  }
+  if(overloaded){
+    report = generateOverloadReport(kw);
+    showToast(OVERLOAD_MESSAGE);
   }
 
   clearInterval(timer);
@@ -301,7 +336,7 @@ async function deriveInsight(){
   saveInsightSession(kw, combined.length, report);
   insightLoading = false; currentReport = report;
   renderInsightDetail();
-  showToast('인사이트가 도출되었습니다.');
+  if(!overloaded) showToast('인사이트가 도출되었습니다.');
 }
 function generateFallbackReport(kw, docs){
   return {
@@ -319,6 +354,21 @@ function generateFallbackReport(kw, docs){
     ],
     recommended_next_search: [],
     limitations: 'n8n 연동 전이라 실제 AI 분석 결과가 아닙니다.'
+  };
+}
+function generateOverloadReport(kw){
+  return {
+    title: '리포트를 생성하지 못했습니다',
+    subtitle: `${kw} · 일시적 오류`,
+    tabs: [
+      { tab_id:'executive_brief', tab_label:'Executive Brief', type:'executive_brief', content:{
+        one_line_conclusion: OVERLOAD_MESSAGE,
+        importance: '-', urgency: '-',
+        relevance_to_organization: '', recommended_owner: [], recommended_action: '잠시 후 다시 시도해주세요.'
+      }}
+    ],
+    recommended_next_search: [],
+    limitations: OVERLOAD_MESSAGE
   };
 }
 function reportTabsHtml(report){

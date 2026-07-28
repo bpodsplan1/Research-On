@@ -19,7 +19,7 @@
             {
               "field": "weeks",
               "triggerAtDay": [
-                4
+                3
               ],
               "triggerAtHour": 8
             }
@@ -34,7 +34,7 @@
         288240,
         94992
       ],
-      "notes": "매주 목요일 오전 8시 실행. 운영 일정에 맞게 변경하세요."
+      "notes": "[임시] 2026-07-29(수) 08시 1회 테스트용으로 변경됨 — 테스트 확인 후 triggerAtDay를 4(목요일)로 되돌릴 것. 원래: 매주 목요일 오전 8시 실행."
     },
     {
       "parameters": {
@@ -1140,6 +1140,88 @@
         95520
       ],
       "notes": "IF 분기로 갈라진 뒤라 $itemIndex 정렬이 어긋날 수 있어, .all()[index] 대신 pairedItem 기반 .item으로 원본(job/naver/serper)을 복원한다."
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "newsletter/force-collect",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "f1d04dde-ce16-4187-b732-afe42d126c12",
+      "name": "0-D. Webhook - 관리자 강제 실행 요청",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        288240,
+        95200
+      ],
+      "webhookId": "newsletter-force-collect"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body || {};\nconst ADMIN_ACTION_TOKEN = 'ro-admin-8f2c1d9e41';\nconst token = String(body.admin_token || '').trim();\nreturn [{ json: { matched: token === ADMIN_ACTION_TOKEN } }];"
+      },
+      "id": "bbeea56d-b703-4835-96e7-0f382219cdcd",
+      "name": "0-E. Code - 관리자 토큰 검증",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        288240,
+        95400
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.matched }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "27b4f32f-c74e-4488-b03b-d3047dd2ff5a",
+      "name": "0-F. IF - 관리자 토큰 확인",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        288240,
+        95600
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, message: '뉴스레터 1단계 실행을 요청했습니다. 몇 분 후 관리자 화면에서 새 후보가 반영됐는지 확인하세요.' }) }}",
+        "options": {}
+      },
+      "id": "56f3d308-5d21-4392-83a1-47fd2d838cc9",
+      "name": "0-G. Respond to Webhook - 접수 완료",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        288496,
+        95700
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: false, message: '관리자 인증에 실패했습니다.' }) }}",
+        "options": {}
+      },
+      "id": "0ecc5208-67cb-4172-8028-55fc1214759e",
+      "name": "0-H. Respond to Webhook - 인증 실패",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        288496,
+        95500
+      ]
     }
   ],
   "pinData": {},
@@ -1662,6 +1744,51 @@
         [
           {
             "node": "3-C-10. Code - 웹 검증 취합 + 최종 분석 프롬프트",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "0-D. Webhook - 관리자 강제 실행 요청": {
+      "main": [
+        [
+          {
+            "node": "0-E. Code - 관리자 토큰 검증",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "0-E. Code - 관리자 토큰 검증": {
+      "main": [
+        [
+          {
+            "node": "0-F. IF - 관리자 토큰 확인",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "0-F. IF - 관리자 토큰 확인": {
+      "main": [
+        [
+          {
+            "node": "0-C. Google Docs - 회사 맥락 문서 읽기",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "0-G. Respond to Webhook - 접수 완료",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "0-H. Respond to Webhook - 인증 실패",
             "type": "main",
             "index": 0
           }

@@ -17,6 +17,29 @@ function renderNewsletterAdminPage(){
   $('#nlEditorNote').value = newsletterDraft.editor_note;
   refreshNewsletterPreview();
   loadNewsletterAdminStats();
+  maybeAutoFetchNewsletterDraft();
+}
+// 뉴스레터 1단계(후보 수집)의 정기 스케줄 실행 시각(매주 목요일 08시, Asia/Seoul) 이후에
+// 이 화면에 접속했을 때만 "AI 초안 가져오기"를 자동으로 한 번 실행한다.
+// - 08시 이전 접속: 아직 정기 실행 전이라 자동으로 안 부름(어제자 후보로 잘못 채워지는 것 방지)
+// - "⚡ 지금 실행"(강제 실행) 버튼으로 임의 시각에 채운 경우는 이 자동 실행과 무관하게 취급—
+//   즉 08시 이전에 강제 실행해서 후보가 이미 쌓여 있어도 08시 전에는 자동으로 안 불러온다.
+// - 기존에 불러오거나 편집해둔 내용이 있으면(섹션이 비어있지 않으면) 자동 실행하지 않음
+//   (AI 재호출 비용 + 편집 중이던 내용을 덮어쓸 위험 방지), 세션당 1회만 시도.
+function isAfterStage1ScheduledHour(){
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone:'Asia/Seoul', hour:'2-digit', hourCycle:'h23' }).formatToParts(new Date());
+  const hour = parseInt(parts.find(p=>p.type==='hour').value, 10);
+  return hour >= 8;
+}
+let nlAutoFetchAttempted = false;
+function maybeAutoFetchNewsletterDraft(){
+  if(nlAutoFetchAttempted) return;
+  if(!isAfterStage1ScheduledHour()) return;
+  const s = newsletterDraft.sections;
+  const isEmpty = !s.client_watch.length && !s.research_on_insight.length && !s.business_work.length && !s.people_culture.length;
+  if(!isEmpty) return;
+  nlAutoFetchAttempted = true;
+  fetchNewsletterDraft();
 }
 // 시작일 변경 시 자동으로 일주일 뒤 날짜를 마감일로 채우고, "기간 표기" 문자열을 자동 생성한다
 function updateNlPeriodHint(){
@@ -110,6 +133,28 @@ function nlDeleteItem(section, idx){
   refreshNewsletterPreview(true);
 }
 function nlEditCultureView(){ openNlItemModal({kind:'culture_view'}); }
+
+// ── 뉴스레터 1단계(후보 수집) 강제 실행 — 테스트 목적 ──
+// n8n 워크플로우: [Research On] 뉴스레터 - 1단계, "0-D. Webhook - 관리자 강제 실행 요청" 분기.
+// 웹훅은 접수 즉시 응답하고, 실제 수집 작업(3개 분기)은 뒤에서 계속 실행된다 — 완료까지 몇 분 걸릴 수 있음.
+async function handleForceCollectStage1(){
+  if(!confirm('뉴스레터 1단계(후보 수집)를 지금 즉시 실행하시겠습니까?\n완료까지 몇 분 걸릴 수 있습니다.')) return;
+  const btn = $('#nlForceCollectBtn');
+  if(btn){ btn.disabled = true; btn.textContent = '요청 중...'; }
+  try{
+    const resp = await fetch(N8N_NEWSLETTER_FORCE_COLLECT_URL, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ admin_token:ADMIN_ACTION_TOKEN })
+    });
+    const data = await resp.json().catch(()=>({}));
+    if(!resp.ok || data.success!==true) throw new Error(data.message || 'n8n 응답 오류');
+    showToast(data.message || '뉴스레터 1단계 실행을 요청했습니다.');
+  } catch(e){
+    alert('실행 요청에 실패했습니다: ' + e.message + '\n(n8n 워크플로우가 활성화되어 있는지 확인해주세요.)');
+  } finally {
+    if(btn){ btn.disabled = false; btn.textContent = '⚡ 지금 실행'; }
+  }
+}
 
 // ── n8n 뉴스레터 2단계 워크플로우에서 AI 초안 가져오기 ──
 // 워크플로우 노드 "6. Code - AI JSON 정리"가 반환하는 구조를 그대로 매핑한다:

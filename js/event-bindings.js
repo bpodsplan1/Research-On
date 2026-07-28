@@ -385,6 +385,7 @@ function bindEvents(){
   $('#nlPreviewRefreshBtn')?.addEventListener('click', goBackToNewsletterPreview);
   $('#nlSendBtn')?.addEventListener('click', sendNewsletter);
   $('#nlFetchDraftBtn')?.addEventListener('click', fetchNewsletterDraft);
+  $('#nlForceCollectBtn')?.addEventListener('click', handleForceCollectStage1);
   $('#newsletterUnsubscribeBtn')?.addEventListener('click', unsubscribeNewsletter);
   $('#proxySubBtn')?.addEventListener('click', submitProxySubscribe);
 }

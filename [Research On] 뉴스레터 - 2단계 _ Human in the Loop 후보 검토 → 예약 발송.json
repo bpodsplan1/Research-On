@@ -357,9 +357,9 @@
             {
               "field": "weeks",
               "triggerAtDay": [
-                1
+                3
               ],
-              "triggerAtHour": 8
+              "triggerAtHour": 9
             }
           ]
         }
@@ -372,7 +372,7 @@
         44688,
         3424
       ],
-      "notes": "웹에서 발송하기를 눌러 QUEUED로 저장된 승인본만 발송합니다. 워크플로우 timezone은 Asia/Seoul입니다."
+      "notes": "[임시] 2026-07-29(수) 09시 1회 테스트용으로 변경됨 — 테스트 확인 후 triggerAtDay를 1(월요일), triggerAtHour를 8로 되돌릴 것. 웹에서 발송하기를 눌러 QUEUED로 저장된 승인본만 발송합니다. 워크플로우 timezone은 Asia/Seoul입니다."
     },
     {
       "parameters": {},
