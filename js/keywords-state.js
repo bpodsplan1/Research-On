@@ -281,13 +281,8 @@ function renderDashboard(){
     recentEl.innerHTML = '<p style="color:var(--muted);font-size:13px">아직 검색한 리서치가 없어요. 새 리서치를 만들어보세요.</p>';
   }
 
-  const searchedKw = new Set();
-  resultHistory.forEach(h=>(h.core||[]).forEach(k=>searchedKw.add(k)));
-  const allKw = DATA.core.map(r=>r.keyword);
-  const unexplored = allKw.filter(k=>!searchedKw.has(k));
-  const pool = unexplored.length ? unexplored : allKw;
-  const picks = [...pool].sort(()=>Math.random()-0.5).slice(0,3);
-  $('#dashSuggestChips').innerHTML = picks.map(k=>`<button class="chip" type="button" data-suggest-kw="${esc(k)}">${esc(k)}</button>`).join('');
+  const comboPicks = [...SUGGESTED_COMBOS.keys()].sort(()=>Math.random()-0.5).slice(0,3);
+  $('#dashSuggestChips').innerHTML = comboPicks.map(i=>`<button class="chip" type="button" data-suggest-idx="${i}">${esc(SUGGESTED_COMBOS[i].label)}</button>`).join('');
 
   loadTrendCarousel();
 }

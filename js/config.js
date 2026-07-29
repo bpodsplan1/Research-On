@@ -146,17 +146,20 @@ function setStep(n){
   $('#prevStep').disabled = step===0;
   $('#nextStep').textContent = step===2 ? '고급 옵션으로 이동 →' : '다음 →';
 }
-// 대시보드 "오늘의 추천 키워드"를 클릭하면 바로 검색을 실행하지 않고,
-// 해당 키워드를 핵심 키워드로 선택한 채 "새 리서치 만들기"의 전방 확장
-// 단계로 이동시켜, 사용자가 조합을 이어서 완성할 수 있게 한다.
-function useSuggestedKeyword(kw){
-  if(!kw) return;
-  if(!selected.core.includes(kw)){ selected.core.push(kw); addToCombo('core', kw); }
+// 대시보드 "오늘의 추천 키워드"(핵심+핵심/핵심+확장 2개 조합)를 클릭하면 바로 검색을
+// 실행하지 않고, 조합을 이루는 각 항목을 종류(core/front/back)에 맞게 선택한 채
+// "새 리서치 만들기"의 전방 확장 단계로 이동시켜, 사용자가 조합을 이어서 완성할 수 있게 한다.
+function useSuggestedCombo(idx){
+  const combo = SUGGESTED_COMBOS[idx];
+  if(!combo) return;
+  combo.parts.forEach(({v,k})=>{
+    if(!selected[k].includes(v)){ selected[k].push(v); addToCombo(k, v); }
+  });
   showPage('new-research');
   switchMode('detail');
   setStep(1);
   updateSelection(); renderCore(); renderExt(); updatePayload();
-  showToast(`"${kw}"이(가) 핵심 키워드로 선택되었습니다. 전방 확장 키워드를 골라보세요.`);
+  showToast(`"${combo.label}" 조합이 선택되었습니다. 이어서 조합을 완성해보세요.`);
 }
 // 대시보드 검색창에 키워드를 입력하면 바로 웹훅 검색을 실행하지 않고,
 // 키워드 Pool·전방·후방 확장 데이터에서 유사한 항목을 찾아 자동으로 조합한 뒤

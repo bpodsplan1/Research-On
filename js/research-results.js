@@ -126,9 +126,13 @@ function viewResultSession(kw){
 function renderResultsPage(){
   renderResults();
 }
+// n8n [뉴스 크롤링 1단계]가 이미 finalScore<0.55인 자료는 "제외권장"으로 걸러서
+// 화면에 아예 안 보내므로, 실제로 화면에 뜨는 자료는 전부 0.55 이상이다.
+// 임계값을 0~1 전체 척도가 아니라 이 실제 노출 구간(0.55~1.0) 기준으로 낮춰서,
+// 이미 걸러진 자료가 "낮음"으로 과도하게 표시되는 문제를 완화한다.
 function relevanceBadge(score){
-  if(score>=0.85) return '<span class="badge green">높음</span>';
-  if(score>=0.65) return '<span class="badge orange">중간</span>';
+  if(score>=0.80) return '<span class="badge green">높음</span>';
+  if(score>=0.60) return '<span class="badge orange">중간</span>';
   return '<span class="badge red">낮음</span>';
 }
 function computeKwStats(h){

@@ -244,7 +244,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// 웹에서 관리자가 승인한 뉴스레터를 검증하고 예약 데이터로 정규화\nconst data=$json.body || $json;\nconst input=data.newsletter || {};\nfunction txt(v){return v===null||v===undefined?'':String(v).trim();}\nfunction arr(v){return Array.isArray(v)?v:[];}\nfunction safeUrls(v){return arr(v).map(txt).filter(u=>/^https?:\\/\\//i.test(u)).slice(0,4);}\nfunction cleanItem(x,hasImplication){\n  return {\n    title:txt(x?.title), summary:txt(x?.summary),\n    implication_label:hasImplication?txt(x?.implication_label||'시사점'):'',\n    implication:hasImplication?txt(x?.implication):'',\n    source_urls:safeUrls(x?.source_urls)\n  };\n}\nconst warnings=[];\n// 웹 화면(HITL 검토)에서 관리자가 섹션별로 남겨둔 항목을 '전부' 예약한다.\n// 한 섹션에 비정상적으로 많은 항목이 남아있을 경우를 대비해 섹션당 최대 6개(웹 화면의 최대 노출 개수와 동일)로만 안전장치를 둔다.\nconst MAX_PER_SECTION=6;\nfunction selectItems(key,hasImplication){\n  const valid=arr(input.sections?.[key]).map(x=>cleanItem(x,hasImplication)).filter(x=>x.title||x.summary);\n  if(valid.length>MAX_PER_SECTION) warnings.push(`${key}: ${valid.length}개 중 상위 ${MAX_PER_SECTION}개만 발송에 포함했습니다.`);\n  return valid.slice(0,MAX_PER_SECTION);\n}\nconst sections={\n  client_watch:selectItems('client_watch',true),\n  research_on_insight:selectItems('research_on_insight',true),\n  business_work:selectItems('business_work',true),\n  people_culture:selectItems('people_culture',true),\n  people_culture_view:txt(input.sections?.people_culture_view)\n};\nconst selectedCount=['client_watch','research_on_insight','business_work','people_culture'].reduce((s,k)=>s+sections[k].length,0);\nif(!selectedCount) throw new Error('최종 발송 항목이 없습니다. 섹션별로 최소 1개 후보를 남겨주세요.');\n\nconst now=new Date();\n// 다음 월요일 08:00 KST를 UTC ISO로 계산\nconst kstNow=new Date(now.getTime()+9*3600000);\nconst day=kstNow.getUTCDay();\nconst daysUntilMonday=(8-day)%7 || 7;\nconst targetUtcMs=Date.UTC(kstNow.getUTCFullYear(),kstNow.getUTCMonth(),kstNow.getUTCDate()+daysUntilMonday,8,0,0)-9*3600000;\nconst scheduledFor=new Date(targetUtcMs).toISOString();\nconst period=txt(input.period);\nconst periodEnd=txt(data.period_end || input.period_end || (period.match(/(20\\d{2}-\\d{2}-\\d{2})\\s*$/)||[])[1] || now.toISOString().slice(0,10));\nconst periodStart=txt((period.match(/^(20\\d{2}-\\d{2}-\\d{2})/)||[])[1]);\nconst newsletter={\n  newsletter_title:'Research On Weekly',\n  issue_title:txt(input.issue_title || `${periodEnd} 주간 브리핑`),\n  period:period || `${periodStart} ~ ${periodEnd}`,\n  executive_brief:{headline:txt(input.executive_brief?.headline),summary:txt(input.executive_brief?.summary)},\n  sections,\n  editor_note:txt(input.editor_note)\n};\nconst recipient=txt(data.recipient || 'bpo.dsplan1@gmail.com');\nif(!recipient) throw new Error('수신 이메일이 없습니다.');\nreturn [{json:{\n  issue_id:`NLQ-${periodEnd.replace(/-/g,'')}-${Math.random().toString(36).slice(2,7).toUpperCase()}`,\n  generated_at:now.toISOString(), queued_at:now.toISOString(), scheduled_for:scheduledFor,\n  period_start:periodStart, period_end:periodEnd, recipient,\n  selected_count:selectedCount, warnings, newsletter,\n  subject:txt(data.subject || `[Research On Weekly] ${periodEnd} 주간 뉴스레터`)\n}}];"
+        "jsCode": "// 웹에서 관리자가 승인한 뉴스레터를 검증하고 예약 데이터로 정규화\nconst data=$json.body || $json;\nconst input=data.newsletter || {};\nfunction txt(v){return v===null||v===undefined?'':String(v).trim();}\nfunction arr(v){return Array.isArray(v)?v:[];}\nfunction safeUrls(v){return arr(v).map(txt).filter(u=>/^https?:\\/\\//i.test(u)).slice(0,4);}\nfunction cleanItem(x,hasImplication){\n  return {\n    title:txt(x?.title), summary:txt(x?.summary),\n    implication_label:hasImplication?txt(x?.implication_label||'시사점'):'',\n    implication:hasImplication?txt(x?.implication):'',\n    source_urls:safeUrls(x?.source_urls)\n  };\n}\nconst warnings=[];\n// 웹 화면(HITL 검토)에서 관리자가 섹션별로 남겨둔 항목을 '전부' 예약한다.\n// 한 섹션에 비정상적으로 많은 항목이 남아있을 경우를 대비해 섹션당 최대 6개(웹 화면의 최대 노출 개수와 동일)로만 안전장치를 둔다.\nconst MAX_PER_SECTION=6;\nfunction selectItems(key,hasImplication){\n  const valid=arr(input.sections?.[key]).map(x=>cleanItem(x,hasImplication)).filter(x=>x.title||x.summary);\n  if(valid.length>MAX_PER_SECTION) warnings.push(`${key}: ${valid.length}개 중 상위 ${MAX_PER_SECTION}개만 발송에 포함했습니다.`);\n  return valid.slice(0,MAX_PER_SECTION);\n}\nconst sections={\n  client_watch:selectItems('client_watch',true),\n  research_on_insight:selectItems('research_on_insight',true),\n  business_work:selectItems('business_work',true),\n  people_culture:selectItems('people_culture',true),\n  people_culture_view:txt(input.sections?.people_culture_view)\n};\nconst selectedCount=['client_watch','research_on_insight','business_work','people_culture'].reduce((s,k)=>s+sections[k].length,0);\nif(!selectedCount) throw new Error('최종 발송 항목이 없습니다. 섹션별로 최소 1개 후보를 남겨주세요.');\n\nconst now=new Date();\n// 다음(오늘 포함) 목요일 09:00 KST를 UTC ISO로 계산 — 목요일 08시 수집 → 09시 발송 주기에 맞춤\nconst kstNow=new Date(now.getTime()+9*3600000);\nconst day=kstNow.getUTCDay();\nconst daysUntilThursday=(4-day+7)%7;\nconst targetUtcMs=Date.UTC(kstNow.getUTCFullYear(),kstNow.getUTCMonth(),kstNow.getUTCDate()+daysUntilThursday,9,0,0)-9*3600000;\nconst scheduledFor=new Date(targetUtcMs).toISOString();\nconst period=txt(input.period);\nconst periodEnd=txt(data.period_end || input.period_end || (period.match(/(20\\d{2}-\\d{2}-\\d{2})\\s*$/)||[])[1] || now.toISOString().slice(0,10));\nconst periodStart=txt((period.match(/^(20\\d{2}-\\d{2}-\\d{2})/)||[])[1]);\nconst newsletter={\n  newsletter_title:'Research On Weekly',\n  issue_title:txt(input.issue_title || `${periodEnd} 주간 브리핑`),\n  period:period || `${periodStart} ~ ${periodEnd}`,\n  executive_brief:{headline:txt(input.executive_brief?.headline),summary:txt(input.executive_brief?.summary)},\n  sections,\n  editor_note:txt(input.editor_note)\n};\nconst recipient=txt(data.recipient || 'bpo.dsplan1@gmail.com');\nif(!recipient) throw new Error('수신 이메일이 없습니다.');\nreturn [{json:{\n  issue_id:`NLQ-${periodEnd.replace(/-/g,'')}-${Math.random().toString(36).slice(2,7).toUpperCase()}`,\n  generated_at:now.toISOString(), queued_at:now.toISOString(), scheduled_for:scheduledFor,\n  period_start:periodStart, period_end:periodEnd, recipient,\n  selected_count:selectedCount, warnings, newsletter,\n  subject:txt(data.subject || `[Research On Weekly] ${periodEnd} 주간 뉴스레터`)\n}}];"
       },
       "id": "4c4555d5-59ee-433d-90d6-7ce6cd53d8e3",
       "name": "B1. Code - 승인본 검증 + 섹션별 항목 확정",
@@ -357,7 +357,7 @@
             {
               "field": "weeks",
               "triggerAtDay": [
-                3
+                4
               ],
               "triggerAtHour": 9
             }
@@ -365,14 +365,14 @@
         }
       },
       "id": "ccedc108-6bf5-4d12-8267-c7f59427e2a8",
-      "name": "C0. Schedule Trigger - 매주 월요일 08시 발송",
+      "name": "C0. Schedule Trigger - 매주 목요일 09시 발송",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
         44688,
         3424
       ],
-      "notes": "[임시] 2026-07-29(수) 09시 1회 테스트용으로 변경됨 — 테스트 확인 후 triggerAtDay를 1(월요일), triggerAtHour를 8로 되돌릴 것. 웹에서 발송하기를 눌러 QUEUED로 저장된 승인본만 발송합니다. 워크플로우 timezone은 Asia/Seoul입니다."
+      "notes": "매주 목요일 09시 실행(1단계 08시 수집 → 관리자 검토·승인 → 09시 발송, 1시간 검토 창) — 정기 운영 일정. 웹에서 발송하기를 눌러 QUEUED로 저장된 승인본만 발송합니다. 워크플로우 timezone은 Asia/Seoul입니다."
     },
     {
       "parameters": {},
@@ -433,7 +433,7 @@
     },
     {
       "parameters": {
-        "sendTo": "={{ $json.recipient }}",
+        "sendTo": "={{ $json.recipient_email }}",
         "subject": "={{ $json.subject }}",
         "message": "={{ $json.newsletter_html }}",
         "options": {}
@@ -452,11 +452,13 @@
           "id": "qa6HS0nnuLRBT7uR",
           "name": "Gmail(7/14)"
         }
-      }
+      },
+      "continueOnFail": true,
+      "notes": "recipient_email(구독자 개인)에게 1건씩 개별 발송. continueOnFail=true로 특정 수신자 발송 실패가 전체를 중단시키지 않도록 함."
     },
     {
       "parameters": {
-        "jsCode": "const q=$('C2. Code - QUEUED 승인본 발송 대상 분리').item.json;\nreturn [{json:{...q,status:'SENT',gmail_message_id:$json.id||$json.messageId||'',threadId:$json.threadId||''}}];"
+        "jsCode": "const q=$('C2D. Code - 발송 대상 × 뉴스레터 조합').item.json;\nconst failed = !!$json.error;\nreturn [{json:{\n  ...q,\n  status:'SENT',\n  gmail_message_id:$json.id||$json.messageId||'',\n  threadId:$json.threadId||'',\n  send_success: !failed,\n  send_error: failed ? String(($json.error && ($json.error.message||$json.error)) || '알 수 없는 오류') : ''\n}}];"
       },
       "id": "ea0b9eea-0da3-4105-a83c-3cc620adf25d",
       "name": "C4. Code - 발송 결과와 대기열 행 병합",
@@ -682,8 +684,8 @@
         "queryParameters": {
           "parameters": [
             {
-              "name": "newsletter_subscribed",
-              "value": "eq.true"
+              "name": "id",
+              "value": "=eq.{{ $json.recipient_id }}"
             }
           ]
         },
@@ -702,7 +704,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ newsletter_last_send_status: 'success' }) }}",
+        "jsonBody": "={{ JSON.stringify({ newsletter_last_send_status: $json.send_success ? 'success' : 'failed' }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -719,7 +721,95 @@
           "name": "Supabase"
         }
       },
-      "notes": "구독 중인(newsletter_subscribed=true) 전체 profiles 행의 newsletter_last_send_status를 'success'로 일괄 갱신합니다. bpo.dsplan1@gmail.com이 Google Group이라 실제 구독자 전원에게 한 번에 전달되므로, 이 지점(발송 성공 후)에 도달했다는 것 자체가 전체 구독자 발송 성공을 의미합니다. 인증: HTTP Header Auth 크리덴셜(헤더명 apikey, 값 = Supabase service_role 키)을 새로 만들어 이 노드에 연결해야 합니다."
+      "notes": "recipient_id 기준 개별 갱신 — guest(게스트) 구독자는 profiles에 해당 id가 없어 자동으로 no-op(0건 매칭) 처리됨."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/profiles",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,email,name,newsletter_subscribed,newsletter_paused"
+            },
+            {
+              "name": "newsletter_subscribed",
+              "value": "eq.true"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "279d2c6f-95b5-4466-a44d-3296c91b3792",
+      "name": "C2B. HTTP Request - 활성 구독자 조회 (profiles)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        45216,
+        3616
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
+        }
+      },
+      "notes": "구독 중(newsletter_subscribed=true)인 계정 기반 구독자 조회. 일시정지(newsletter_paused) 여부는 C2D에서 걸러낸다."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/newsletter_guest_subscribers",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "select",
+              "value": "id,email,name,status"
+            },
+            {
+              "name": "status",
+              "value": "eq.active"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6fc4bbd5-347f-4700-bdfa-aed8d8d37414",
+      "name": "C2C. HTTP Request - 활성 구독자 조회 (게스트)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        45216,
+        3776
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
+        }
+      },
+      "notes": "Research On 계정 없이 대리 등록된 외부 구독자(status=active) 조회."
+    },
+    {
+      "parameters": {
+        "jsCode": "// bpo.dsplan1@gmail.com 개인 Google 그룹에 의존하던 방식을 걷어내고,\n// Supabase의 실제 활성 구독자 목록을 발송 대상으로 직접 사용한다.\n// (그룹 멤버 자동 동기화 API가 개인 계정 그룹에는 없어서, 그룹을 거치지 않고\n//  n8n이 매번 최신 구독자 목록을 조회해 각자에게 개별 발송하는 방식으로 전환)\nconst newsletters = $('C2. Code - QUEUED 승인본 발송 대상 분리').all().map(x => x.json);\nconst profileRows = $('C2B. HTTP Request - 활성 구독자 조회 (profiles)').all().map(x => x.json);\nconst guestRows = $('C2C. HTTP Request - 활성 구독자 조회 (게스트)').all().map(x => x.json);\n\nfunction txt(v){ return v===null||v===undefined?'':String(v).trim(); }\n\nconst recipients = [];\nfor(const p of profileRows){\n  const email = txt(p.email);\n  if(email && !p.newsletter_paused) recipients.push({ id:p.id, kind:'profile', email, name:txt(p.name) });\n}\nfor(const g of guestRows){\n  const email = txt(g.email);\n  if(email) recipients.push({ id:g.id, kind:'guest', email, name:txt(g.name) });\n}\n\nif(!recipients.length){\n  throw new Error('발송 대상 활성 구독자가 없습니다(profiles/newsletter_guest_subscribers 확인 필요).');\n}\n\nconst out = [];\nfor(const nl of newsletters){\n  for(const r of recipients){\n    out.push({ json: {\n      issue_id: nl.issue_id,\n      subject: nl.subject,\n      newsletter_html: nl.newsletter_html,\n      recipient_id: r.id,\n      recipient_kind: r.kind,\n      recipient_email: r.email,\n      recipient_name: r.name\n    }});\n  }\n}\nreturn out;"
+      },
+      "id": "346a6cea-7394-41cb-ba9c-5c0fe2791d5b",
+      "name": "C2D. Code - 발송 대상 × 뉴스레터 조합",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        45472,
+        3600
+      ],
+      "notes": "newsletters(보낼 호) × 활성 구독자(profiles+게스트) 교차 조합 — 사람 수만큼 개별 발송 아이템을 만든다."
     }
   ],
   "pinData": {},
@@ -867,22 +957,21 @@
         ]
       ]
     },
-    "C0. Schedule Trigger - 매주 월요일 08시 발송": {
+    "C0-M. Manual Trigger - 예약 발송 테스트": {
       "main": [
         [
           {
             "node": "C1. Google Sheets - newsletters 대기열 조회",
             "type": "main",
             "index": 0
-          }
-        ]
-      ]
-    },
-    "C0-M. Manual Trigger - 예약 발송 테스트": {
-      "main": [
-        [
+          },
           {
-            "node": "C1. Google Sheets - newsletters 대기열 조회",
+            "node": "C2B. HTTP Request - 활성 구독자 조회 (profiles)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "C2C. HTTP Request - 활성 구독자 조회 (게스트)",
             "type": "main",
             "index": 0
           }
@@ -904,7 +993,7 @@
       "main": [
         [
           {
-            "node": "C3. Gmail - 승인 뉴스레터 발송",
+            "node": "C2D. Code - 발송 대상 × 뉴스레터 조합",
             "type": "main",
             "index": 0
           }
@@ -1015,6 +1104,60 @@
         [
           {
             "node": "C6. Code - 예약 발송 완료",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C2B. HTTP Request - 활성 구독자 조회 (profiles)": {
+      "main": [
+        [
+          {
+            "node": "C2D. Code - 발송 대상 × 뉴스레터 조합",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C2C. HTTP Request - 활성 구독자 조회 (게스트)": {
+      "main": [
+        [
+          {
+            "node": "C2D. Code - 발송 대상 × 뉴스레터 조합",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C2D. Code - 발송 대상 × 뉴스레터 조합": {
+      "main": [
+        [
+          {
+            "node": "C3. Gmail - 승인 뉴스레터 발송",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C0. Schedule Trigger - 매주 목요일 09시 발송": {
+      "main": [
+        [
+          {
+            "node": "C1. Google Sheets - newsletters 대기열 조회",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "C2B. HTTP Request - 활성 구독자 조회 (profiles)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "C2C. HTTP Request - 활성 구독자 조회 (게스트)",
             "type": "main",
             "index": 0
           }
