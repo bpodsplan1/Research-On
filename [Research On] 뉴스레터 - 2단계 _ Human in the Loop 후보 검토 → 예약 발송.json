@@ -126,7 +126,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Human-in-the-loop용 후보 정규화 및 '후보별 편집' 프롬프트 생성\n// 중요: 이 단계에서 AI는 후보를 선택하거나 탈락시키지 않습니다.\n\nconst request = $('A0. Webhook - 뉴스레터 후보 초안 조회').first().json.body || {};\nconst newsletterRows = $('A2. Google Sheets - newsletter_research 후보 조회').all().map(x => x.json || {});\nconst researchRows = $('A3. Google Sheets - research_results 후보 조회').all().map(x => x.json || {});\n\nfunction txt(v){ return v === null || v === undefined ? '' : String(v).trim(); }\nfunction truthy(v){\n  if (v === true || v === 1) return true;\n  return ['true','1','y','yes','예','o'].includes(txt(v).toLowerCase());\n}\nfunction parseDate(v){ const d = new Date(v || ''); return isNaN(d.getTime()) ? null : d; }\nfunction parseJson(v){\n  if (v && typeof v === 'object') return v;\n  try { return v ? JSON.parse(v) : {}; } catch { return {}; }\n}\nfunction urls(v){\n  if (Array.isArray(v)) return [...new Set(v.map(txt).filter(x => /^https?:\\/\\//i.test(x)))].slice(0,4);\n  return [...new Set(txt(v).split(/[\\n,]+/).map(x=>x.trim()).filter(x => /^https?:\\/\\//i.test(x)))].slice(0,4);\n}\nfunction getDocText(obj){\n  if (obj && typeof obj.content === 'string') {\n    return obj.content.replace(/\\r/g,'\\n').replace(/\\n{3,}/g,'\\n\\n').trim().slice(0,1200);\n  }\n  const chunks=[];\n  const walk=(x)=>{\n    if(!x || typeof x !== 'object') return;\n    if(x.textRun && typeof x.textRun.content === 'string') chunks.push(x.textRun.content);\n    for(const v of Object.values(x)){\n      if(Array.isArray(v)) v.forEach(walk);\n      else if(v && typeof v === 'object') walk(v);\n    }\n  };\n  walk(obj);\n  return chunks.join('').replace(/\\r/g,'\\n').replace(/\\n{3,}/g,'\\n\\n').trim().slice(0,1200);\n}\n\nconst days = Math.max(1, Math.min(30, Number(request.days || 7)));\nconst maxPerSection = Math.max(1, Math.min(10, Number(request.max_per_section || 6)));\nconst now = new Date();\nconst from = new Date(now.getTime() - days * 86400000);\nconst periodStart = from.toISOString().slice(0,10);\nconst periodEnd = now.toISOString().slice(0,10);\nfunction inWindow(v){ const d=parseDate(v); return !d || (d >= from && d <= now); }\n\nconst external = newsletterRows\n  .filter(r => inWindow(r.collected_at || r.generated_at || r.created_at))\n  .map((r,i)=>({\n    candidate_id: txt(r.item_id || `NLR-${i+1}`),\n    section: txt(r.section).toUpperCase(),\n    title: txt(r.title),\n    summary: txt(r.summary).slice(0,900),\n    implication: txt(r.implication).slice(0,500),\n    source_urls: urls(r.source_urls),\n    priority: Number(r.priority || 50),\n    evidence_level: txt(r.evidence_level || 'MEDIUM'),\n    target: txt(r.target),\n    keyword: txt(r.keyword)\n  }))\n  .filter(x => ['CLIENT_WATCH','BUSINESS_WORK','PEOPLE_CULTURE'].includes(x.section))\n  .filter(x => x.title || x.summary)\n  .sort((a,b)=>b.priority-a.priority);\n\nconst internal = researchRows\n  .filter(r => inWindow(r.created_at || r.generated_at || r.requested_at))\n  .filter(r => r.newsletter_candidate === undefined || r.newsletter_candidate === '' || truthy(r.newsletter_candidate))\n  .map((r,i)=>{\n    const raw=parseJson(r.raw_json || r.report_json || r.result_json);\n    const eb=raw.executive_brief || {};\n    // research_results 시트에는 원문 URL이 'source_urls'라는 별도 컬럼으로 저장되지 않고,\n    // raw_json(=raw) 안의 source_summaries 배열(각 항목에 title/url)에 들어있다.\n    // (뉴스 크롤링 2단계 워크플로우의 '8. Code - AI 응답 JSON 정리' 참고)\n    // 예전 코드가 존재하지 않는 raw.source_urls를 찾고 있어서 내부 리서치 결과에 링크가 비어 있었다.\n    return {\n      candidate_id: txt(r.research_id || `RES-${i+1}`),\n      section:'RESEARCH_ON_INSIGHT',\n      title: txt(r.keyword || raw.keyword || `내부 리서치 ${i+1}`),\n      summary: txt(r.one_line_conclusion || eb.one_line_conclusion).slice(0,900),\n      implication: txt(eb.relevance_to_organization || eb.recommended_action).slice(0,500),\n      source_urls: urls(r.source_urls || raw.source_urls || (Array.isArray(raw.source_summaries) ? raw.source_summaries.map(s => s && s.url) : [])),\n      priority: Number(r.newsletter_priority || 50),\n      evidence_level:'INTERNAL',\n      target:'', keyword:txt(r.keyword || raw.keyword)\n    };\n  })\n  .filter(x => x.title || x.summary)\n  .sort((a,b)=>b.priority-a.priority);\n\nconst groupedCandidates = {\n  client_watch: external.filter(x=>x.section==='CLIENT_WATCH').slice(0,maxPerSection),\n  research_on_insight: internal.slice(0,maxPerSection),\n  business_work: external.filter(x=>x.section==='BUSINESS_WORK').slice(0,maxPerSection),\n  people_culture: external.filter(x=>x.section==='PEOPLE_CULTURE').slice(0,maxPerSection)\n};\nconst candidateCount = Object.values(groupedCandidates).reduce((s,a)=>s+a.length,0);\nif(!candidateCount) throw new Error(`최근 ${days}일간 웹에 표시할 뉴스레터 후보가 없습니다.`);\n\nlet docJson={};\ntry { docJson=$('A1. Google Docs - 회사 맥락 읽기').first().json || {}; } catch {}\nconst companyContext = getDocText(docJson) || '회사 맥락 문서를 불러오지 못했습니다. 후보에 있는 사실만 사용합니다.';\n\nconst prompt = `너는 BPO사업본부 주간 뉴스레터의 후보 문구 편집자다.\n아래 후보를 웹페이지에 모두 보여줘야 한다. 후보를 선택·삭제·통합하거나 순서를 임의로 바꾸지 마라.\n각 candidate_id마다 정확히 하나의 편집 결과를 만들고 candidate_id를 그대로 복사하라.\n관리자가 웹에서 후보를 검토한 뒤 섹션별 최종 1건을 선택하므로, 너는 선택 판단을 하지 않는다.\n\n[편집 원칙 - 1차 독자는 CL4 이상 보직자(센터장·그룹장·사업부장·임원)다]\n- 바쁜 보직자가 이 항목만 읽고도 핵심과 맥락을 파악해 회의나 의사결정에 참고할 수 있는 수준으로 다듬는다. 짧게 쓰되 알맹이(수치·시점·구체적 근거)는 절대 빼지 않는다.\n- title: 원문 제목을 그대로 복사하지 말고 핵심을 15~25자 내외로 다시 쓴다.\n- summary: 후보의 구체적 숫자·고유명사·행동을 살려 2~3문장으로 정리한다. 후보에 이미 있는 구체성(수치·시점·기업명 등)을 절대 생략하거나 뭉뚱그리지 않는다.\n- implication: CLIENT WATCH, RESEARCH ON INSIGHT, BUSINESS & WORK, PEOPLE & CULTURE 네 섹션 모두 반드시 작성한다. \"~할 기회입니다\" 같은 상투적 한 줄로 끝내지 말고, 이 사안이 BPO사업본부 운영·사업에 어떤 의미인지와 보직자가 무엇을 검토·논의해야 하는지를 담아 1~2문장으로 정리한다. PEOPLE & CULTURE의 implication은 채용·유지·조직문화·세대 간 소통·복리후생 설계 관점에서 작성한다. 후보에 이미 implication/organization_view가 있다면 절대 비우거나 삭제하지 말고, 문장을 다듬어 최대한 살린다.\n- executive_brief.headline과 summary는 후보 중 중요도가 가장 높아 보이는 이슈 1~2개를 중심으로, 보직자가 이번 주 가장 먼저 알아야 할 것이 무엇인지 드러나게 작성한다. 관리자가 최종 후보를 고른 뒤 다시 다듬을 임시 초안이니 지금은 후보 전체를 보고 가장 비중 있어 보이는 것 위주로 작성하면 된다.\n- 후보에 없는 사실은 절대 추가하지 않는다.\n- source_urls는 출력하지 않는다. 시스템이 candidate_id를 기준으로 원본 URL을 다시 붙인다.\n- 반드시 JSON 객체만 출력한다.\n\n[회사 업무 맥락 - 우선순위와 문체 참고용]\n${companyContext}\n\n[기간]\n${periodStart} ~ ${periodEnd}\n\n[후보]\n${JSON.stringify(groupedCandidates)}\n\n[출력 형식]\n{\n  \"issue_title\":\"후보 검토용 주간 브리핑 제목\",\n  \"executive_brief\":{\"headline\":\"후보 전체를 관통하는 임시 헤드라인\",\"summary\":\"관리자가 선택 후 수정할 수 있는 임시 요약\"},\n  \"sections\":{\n    \"client_watch\":[{\"candidate_id\":\"\",\"title\":\"\",\"summary\":\"\",\"implication_label\":\"시사점\",\"implication\":\"\"}],\n    \"research_on_insight\":[{\"candidate_id\":\"\",\"title\":\"\",\"summary\":\"\",\"implication_label\":\"시사점\",\"implication\":\"\"}],\n    \"business_work\":[{\"candidate_id\":\"\",\"title\":\"\",\"summary\":\"\",\"implication_label\":\"시사점\",\"implication\":\"\"}],\n    \"people_culture\":[{\"candidate_id\":\"\",\"title\":\"\",\"summary\":\"\",\"implication_label\":\"시사점\",\"implication\":\"\"}]\n  },\n  \"people_culture_view\":\"후보 전체를 본 임시 종합 코멘트\",\n  \"editor_note\":\"Human in the loop 후보 초안\"\n}`;\n\nreturn [{json:{\n  issue_id:`DRAFT-${periodEnd.replace(/-/g,'')}-${Math.random().toString(36).slice(2,7).toUpperCase()}`,\n  generated_at:now.toISOString(), period_start:periodStart, period_end:periodEnd,\n  grouped_candidates:groupedCandidates, candidate_count:candidateCount,\n  editor_prompt:prompt\n}}];"
+        "jsCode": "// Human-in-the-loop용 후보 정규화 및 '후보별 편집' 프롬프트 생성\n// 중요: 이 단계에서 AI는 후보를 선택하거나 탈락시키지 않습니다.\n// 2026-07-30: request.section이 있으면 그 섹션 하나만 다시 생성하는 \"섹션별 재생성\" 모드로 동작한다.\n\nconst request = $('A0. Webhook - 뉴스레터 후보 초안 조회').first().json.body || {};\nconst VALID_SECTIONS = ['client_watch','research_on_insight','business_work','people_culture'];\nconst requestedSection = VALID_SECTIONS.includes(String(request.section||'').trim()) ? String(request.section).trim() : '';\nconst newsletterRows = $('A2. Google Sheets - newsletter_research 후보 조회').all().map(x => x.json || {});\nconst researchRows = $('A3. Google Sheets - research_results 후보 조회').all().map(x => x.json || {});\n\nfunction txt(v){ return v === null || v === undefined ? '' : String(v).trim(); }\nfunction truthy(v){\n  if (v === true || v === 1) return true;\n  return ['true','1','y','yes','예','o'].includes(txt(v).toLowerCase());\n}\nfunction parseDate(v){ const d = new Date(v || ''); return isNaN(d.getTime()) ? null : d; }\nfunction parseJson(v){\n  if (v && typeof v === 'object') return v;\n  try { return v ? JSON.parse(v) : {}; } catch { return {}; }\n}\nfunction urls(v){\n  if (Array.isArray(v)) return [...new Set(v.map(txt).filter(x => /^https?:\\/\\//i.test(x)))].slice(0,4);\n  return [...new Set(txt(v).split(/[\\n,]+/).map(x=>x.trim()).filter(x => /^https?:\\/\\//i.test(x)))].slice(0,4);\n}\nfunction getDocText(obj){\n  if (obj && typeof obj.content === 'string') {\n    return obj.content.replace(/\\r/g,'\\n').replace(/\\n{3,}/g,'\\n\\n').trim().slice(0,1200);\n  }\n  const chunks=[];\n  const walk=(x)=>{\n    if(!x || typeof x !== 'object') return;\n    if(x.textRun && typeof x.textRun.content === 'string') chunks.push(x.textRun.content);\n    for(const v of Object.values(x)){\n      if(Array.isArray(v)) v.forEach(walk);\n      else if(v && typeof v === 'object') walk(v);\n    }\n  };\n  walk(obj);\n  return chunks.join('').replace(/\\r/g,'\\n').replace(/\\n{3,}/g,'\\n\\n').trim().slice(0,1200);\n}\n\nconst days = Math.max(1, Math.min(30, Number(request.days || 7)));\nconst maxPerSection = Math.max(1, Math.min(10, Number(request.max_per_section || 6)));\nconst now = new Date();\nconst from = new Date(now.getTime() - days * 86400000);\nconst periodStart = from.toISOString().slice(0,10);\nconst periodEnd = now.toISOString().slice(0,10);\nfunction inWindow(v){ const d=parseDate(v); return !d || (d >= from && d <= now); }\n\nconst external = newsletterRows\n  .filter(r => inWindow(r.collected_at || r.generated_at || r.created_at))\n  .map((r,i)=>({\n    candidate_id: txt(r.item_id || `NLR-${i+1}`),\n    section: txt(r.section).toUpperCase(),\n    title: txt(r.title),\n    summary: txt(r.summary).slice(0,900),\n    implication: txt(r.implication).slice(0,500),\n    source_urls: urls(r.source_urls),\n    priority: Number(r.priority || 50),\n    evidence_level: txt(r.evidence_level || 'MEDIUM'),\n    target: txt(r.target),\n    keyword: txt(r.keyword)\n  }))\n  .filter(x => ['CLIENT_WATCH','BUSINESS_WORK','PEOPLE_CULTURE'].includes(x.section))\n  .filter(x => x.title || x.summary)\n  .sort((a,b)=>b.priority-a.priority);\n\nconst internal = researchRows\n  .filter(r => inWindow(r.created_at || r.generated_at || r.requested_at))\n  .filter(r => r.newsletter_candidate === undefined || r.newsletter_candidate === '' || truthy(r.newsletter_candidate))\n  .map((r,i)=>{\n    const raw=parseJson(r.raw_json || r.report_json || r.result_json);\n    const eb=raw.executive_brief || {};\n    // research_results 시트에는 원문 URL이 'source_urls'라는 별도 컬럼으로 저장되지 않고,\n    // raw_json(=raw) 안의 source_summaries 배열(각 항목에 title/url)에 들어있다.\n    // (뉴스 크롤링 2단계 워크플로우의 '8. Code - AI 응답 JSON 정리' 참고)\n    // 예전 코드가 존재하지 않는 raw.source_urls를 찾고 있어서 내부 리서치 결과에 링크가 비어 있었다.\n    return {\n      candidate_id: txt(r.research_id || `RES-${i+1}`),\n      section:'RESEARCH_ON_INSIGHT',\n      title: txt(r.keyword || raw.keyword || `내부 리서치 ${i+1}`),\n      summary: txt(r.one_line_conclusion || eb.one_line_conclusion).slice(0,900),\n      implication: txt(eb.relevance_to_organization || eb.recommended_action).slice(0,500),\n      source_urls: urls(r.source_urls || raw.source_urls || (Array.isArray(raw.source_summaries) ? raw.source_summaries.map(s => s && s.url) : [])),\n      priority: Number(r.newsletter_priority || 50),\n      evidence_level:'INTERNAL',\n      target:'', keyword:txt(r.keyword || raw.keyword)\n    };\n  })\n  .filter(x => x.title || x.summary)\n  .sort((a,b)=>b.priority-a.priority);\n\nconst groupedCandidatesFull = {\n  client_watch: external.filter(x=>x.section==='CLIENT_WATCH').slice(0,maxPerSection),\n  research_on_insight: internal.slice(0,maxPerSection),\n  business_work: external.filter(x=>x.section==='BUSINESS_WORK').slice(0,maxPerSection),\n  people_culture: external.filter(x=>x.section==='PEOPLE_CULTURE').slice(0,maxPerSection)\n};\nconst groupedCandidates = requestedSection\n  ? { [requestedSection]: groupedCandidatesFull[requestedSection] }\n  : groupedCandidatesFull;\nconst candidateCount = Object.values(groupedCandidates).reduce((s,a)=>s+a.length,0);\nif(!candidateCount) throw new Error(requestedSection\n  ? `최근 ${days}일간 웹에 표시할 \"${requestedSection}\" 섹션 후보가 없습니다.`\n  : `최근 ${days}일간 웹에 표시할 뉴스레터 후보가 없습니다.`);\n\nlet docJson={};\ntry { docJson=$('A1. Google Docs - 회사 맥락 읽기').first().json || {}; } catch {}\nconst companyContext = getDocText(docJson) || '회사 맥락 문서를 불러오지 못했습니다. 후보에 있는 사실만 사용합니다.';\n\nconst SECTION_LABELS = {\n  client_watch: 'CLIENT WATCH',\n  research_on_insight: 'RESEARCH ON INSIGHT',\n  business_work: 'BUSINESS & WORK',\n  people_culture: 'PEOPLE & CULTURE'\n};\n\nconst fullPrompt = `너는 BPO사업본부 주간 뉴스레터의 후보 문구 편집자다.\n아래 후보를 웹페이지에 모두 보여줘야 한다. 후보를 선택·삭제·통합하거나 순서를 임의로 바꾸지 마라.\n각 candidate_id마다 정확히 하나의 편집 결과를 만들고 candidate_id를 그대로 복사하라.\n관리자가 웹에서 후보를 검토한 뒤 섹션별 최종 1건을 선택하므로, 너는 선택 판단을 하지 않는다.\n\n[편집 원칙 - 1차 독자는 CL4 이상 보직자(센터장·그룹장·사업부장·임원)다]\n- 바쁜 보직자가 이 항목만 읽고도 핵심과 맥락을 파악해 회의나 의사결정에 참고할 수 있는 수준으로 다듬는다. 짧게 쓰되 알맹이(수치·시점·구체적 근거)는 절대 빼지 않는다.\n- title: 원문 제목을 그대로 복사하지 말고 핵심을 15~25자 내외로 다시 쓴다.\n- summary: 후보의 구체적 숫자·고유명사·행동을 살려 2~3문장으로 정리한다. 후보에 이미 있는 구체성(수치·시점·기업명 등)을 절대 생략하거나 뭉뚱그리지 않는다.\n- implication: CLIENT WATCH, RESEARCH ON INSIGHT, BUSINESS & WORK, PEOPLE & CULTURE 네 섹션 모두 반드시 작성한다. \"~할 기회입니다\" 같은 상투적 한 줄로 끝내지 말고, 이 사안이 BPO사업본부 운영·사업에 어떤 의미인지와 보직자가 무엇을 검토·논의해야 하는지를 담아 1~2문장으로 정리한다. PEOPLE & CULTURE의 implication은 채용·유지·조직문화·세대 간 소통·복리후생 설계 관점에서 작성한다. 후보에 이미 implication/organization_view가 있다면 절대 비우거나 삭제하지 말고, 문장을 다듬어 최대한 살린다.\n- executive_brief.headline과 summary는 후보 중 중요도가 가장 높아 보이는 이슈 1~2개를 중심으로, 보직자가 이번 주 가장 먼저 알아야 할 것이 무엇인지 드러나게 작성한다. 관리자가 최종 후보를 고른 뒤 다시 다듬을 임시 초안이니 지금은 후보 전체를 보고 가장 비중 있어 보이는 것 위주로 작성하면 된다.\n- 후보에 없는 사실은 절대 추가하지 않는다.\n- source_urls는 출력하지 않는다. 시스템이 candidate_id를 기준으로 원본 URL을 다시 붙인다.\n- 반드시 JSON 객체만 출력한다.\n\n[회사 업무 맥락 - 우선순위와 문체 참고용]\n${companyContext}\n\n[기간]\n${periodStart} ~ ${periodEnd}\n\n[후보]\n${JSON.stringify(groupedCandidates)}\n\n[출력 형식]\n{\n  \"issue_title\":\"후보 검토용 주간 브리핑 제목\",\n  \"executive_brief\":{\"headline\":\"후보 전체를 관통하는 임시 헤드라인\",\"summary\":\"관리자가 선택 후 수정할 수 있는 임시 요약\"},\n  \"sections\":{\n    \"client_watch\":[{\"candidate_id\":\"\",\"title\":\"\",\"summary\":\"\",\"implication_label\":\"시사점\",\"implication\":\"\"}],\n    \"research_on_insight\":[{\"candidate_id\":\"\",\"title\":\"\",\"summary\":\"\",\"implication_label\":\"시사점\",\"implication\":\"\"}],\n    \"business_work\":[{\"candidate_id\":\"\",\"title\":\"\",\"summary\":\"\",\"implication_label\":\"시사점\",\"implication\":\"\"}],\n    \"people_culture\":[{\"candidate_id\":\"\",\"title\":\"\",\"summary\":\"\",\"implication_label\":\"시사점\",\"implication\":\"\"}]\n  },\n  \"people_culture_view\":\"후보 전체를 본 임시 종합 코멘트\",\n  \"editor_note\":\"Human in the loop 후보 초안\"\n}`;\n\n// 섹션별 재생성 모드: 요청받은 섹션 하나만 편집하도록 훨씬 작은 프롬프트를 만든다.\n// 전체 재생성과 편집 원칙(문체·분량 기준)은 동일하게 유지하되, issue_title/executive_brief처럼\n// \"전체를 관통하는\" 필드는 요청 범위 밖이라 생성하지 않는다.\nconst scopedPrompt = requestedSection ? `너는 BPO사업본부 주간 뉴스레터의 후보 문구 편집자다.\n아래는 ${SECTION_LABELS[requestedSection]} 섹션 후보만 골라낸 것이다. 이 섹션만 다시 편집하면 된다.\n후보를 선택·삭제·통합하거나 순서를 임의로 바꾸지 마라.\n각 candidate_id마다 정확히 하나의 편집 결과를 만들고 candidate_id를 그대로 복사하라.\n\n[편집 원칙 - 1차 독자는 CL4 이상 보직자(센터장·그룹장·사업부장·임원)다]\n- 바쁜 보직자가 이 항목만 읽고도 핵심과 맥락을 파악해 회의나 의사결정에 참고할 수 있는 수준으로 다듬는다. 짧게 쓰되 알맹이(수치·시점·구체적 근거)는 절대 빼지 않는다.\n- title: 원문 제목을 그대로 복사하지 말고 핵심을 15~25자 내외로 다시 쓴다.\n- summary: 후보의 구체적 숫자·고유명사·행동을 살려 2~3문장으로 정리한다. 후보에 이미 있는 구체성(수치·시점·기업명 등)을 절대 생략하거나 뭉뚱그리지 않는다.\n- implication: 반드시 작성한다. \"~할 기회입니다\" 같은 상투적 한 줄로 끝내지 말고, 이 사안이 BPO사업본부 운영·사업에 어떤 의미인지와 보직자가 무엇을 검토·논의해야 하는지를 담아 1~2문장으로 정리한다.${requestedSection === 'people_culture' ? ' PEOPLE & CULTURE의 implication은 채용·유지·조직문화·세대 간 소통·복리후생 설계 관점에서 작성한다.' : ''} 후보에 이미 implication/organization_view가 있다면 절대 비우거나 삭제하지 말고, 문장을 다듬어 최대한 살린다.\n- 후보에 없는 사실은 절대 추가하지 않는다.\n- source_urls는 출력하지 않는다. 시스템이 candidate_id를 기준으로 원본 URL을 다시 붙인다.\n- 반드시 JSON 객체만 출력한다.\n\n[회사 업무 맥락 - 우선순위와 문체 참고용]\n${companyContext}\n\n[기간]\n${periodStart} ~ ${periodEnd}\n\n[후보]\n${JSON.stringify(groupedCandidates)}\n\n[출력 형식]\n{\n  \"sections\":{\n    \"${requestedSection}\":[{\"candidate_id\":\"\",\"title\":\"\",\"summary\":\"\",\"implication_label\":\"시사점\",\"implication\":\"\"}]\n  }${requestedSection === 'people_culture' ? ',\\n  \"people_culture_view\":\"이 섹션 후보 전체를 본 종합 코멘트\"' : ''}\n}` : '';\n\nconst prompt = requestedSection ? scopedPrompt : fullPrompt;\n\nreturn [{json:{\n  issue_id:`DRAFT-${periodEnd.replace(/-/g,'')}-${Math.random().toString(36).slice(2,7).toUpperCase()}`,\n  generated_at:now.toISOString(), period_start:periodStart, period_end:periodEnd,\n  grouped_candidates:groupedCandidates, candidate_count:candidateCount,\n  requested_section:requestedSection,\n  editor_prompt:prompt\n}}];"
       },
       "id": "0b0f6fd8-a21e-4765-82ba-c66c412ca8b8",
       "name": "A4. Code - 후보 정규화 + 후보별 편집 프롬프트",
@@ -183,7 +183,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// AI 결과를 파싱하되 후보 누락·URL 환각을 차단하고 웹페이지 구조로 변환\nconst base=$('A4. Code - 후보 정규화 + 후보별 편집 프롬프트').first().json;\nconst raw=$json.text || $json.output || $json.response || $json.content || $json.result || '';\nfunction txt(v){return v===null||v===undefined?'':String(v).trim();}\nfunction arr(v){return Array.isArray(v)?v:[];}\nfunction parse(v){\n  if(v && typeof v==='object') return v;\n  let s=String(v||'').replace(/^```json\\s*/i,'').replace(/^```\\s*/,'').replace(/```$/,'').trim();\n  const a=s.indexOf('{'), b=s.lastIndexOf('}'); if(a>=0&&b>=a) s=s.slice(a,b+1);\n  s=s.replace(/,\\s*([}\\]])/g,'$1');\n  try{return JSON.parse(s);}catch{return {};}\n}\nconst ai=parse(raw);\nconst groups=base.grouped_candidates || {};\n\nfunction normalizeGroup(key, hasImplication){\n  const originals=arr(groups[key]);\n  const aiItems=arr(ai.sections?.[key]);\n  const byId=new Map(aiItems.map(x=>[txt(x.candidate_id),x]));\n  return originals.map((o,idx)=>{\n    const x=byId.get(txt(o.candidate_id)) || {};\n    return {\n      title:txt(x.title || o.title || `후보 ${idx+1}`),\n      summary:txt(x.summary || o.summary),\n      implication_label:hasImplication ? txt(x.implication_label || '시사점') : '',\n      implication:hasImplication ? txt(x.implication || o.implication) : '',\n      source_urls:arr(o.source_urls).map(txt).filter(u=>/^https?:\\/\\//i.test(u)).slice(0,4)\n    };\n  }).filter(x=>x.title || x.summary);\n}\nconst sections={\n  client_watch:normalizeGroup('client_watch',true),\n  research_on_insight:normalizeGroup('research_on_insight',true),\n  business_work:normalizeGroup('business_work',true),\n  people_culture:normalizeGroup('people_culture',true),\n  people_culture_view:txt(ai.people_culture_view)\n};\nconst newsletter={\n  newsletter_title:'Research On Weekly',\n  issue_title:txt(ai.issue_title || `${base.period_start} ~ ${base.period_end} 주간 브리핑`),\n  period:`${base.period_start} ~ ${base.period_end}`,\n  executive_brief:{\n    headline:txt(ai.executive_brief?.headline || '이번 주 후보 자료 검토'),\n    summary:txt(ai.executive_brief?.summary || '섹션별 후보를 검토하고 최종 발송 항목을 남겨주세요.')\n  },\n  sections,\n  editor_note:txt(ai.editor_note || 'Human in the loop 후보 초안')\n};\nreturn [{json:{\n  success:true, mode:'HUMAN_REVIEW', issue_id:base.issue_id,\n  generated_at:base.generated_at, period_start:base.period_start, period_end:base.period_end,\n  candidate_count:base.candidate_count, newsletter\n}}];"
+        "jsCode": "// AI 결과를 파싱하되 후보 누락·URL 환각을 차단하고 웹페이지 구조로 변환\nconst base=$('A4. Code - 후보 정규화 + 후보별 편집 프롬프트').first().json;\nconst raw=$json.text || $json.output || $json.response || $json.content || $json.result || '';\nfunction txt(v){return v===null||v===undefined?'':String(v).trim();}\nfunction arr(v){return Array.isArray(v)?v:[];}\nfunction parse(v){\n  if(v && typeof v==='object') return v;\n  let s=String(v||'').replace(/^```json\\s*/i,'').replace(/^```\\s*/,'').replace(/```$/,'').trim();\n  const a=s.indexOf('{'), b=s.lastIndexOf('}'); if(a>=0&&b>=a) s=s.slice(a,b+1);\n  s=s.replace(/,\\s*([}\\]])/g,'$1');\n  try{return JSON.parse(s);}catch{return {};}\n}\nconst ai=parse(raw);\nconst groups=base.grouped_candidates || {};\n\nfunction normalizeGroup(key, hasImplication){\n  const originals=arr(groups[key]);\n  const aiItems=arr(ai.sections?.[key]);\n  const byId=new Map(aiItems.map(x=>[txt(x.candidate_id),x]));\n  return originals.map((o,idx)=>{\n    const x=byId.get(txt(o.candidate_id)) || {};\n    return {\n      title:txt(x.title || o.title || `후보 ${idx+1}`),\n      summary:txt(x.summary || o.summary),\n      implication_label:hasImplication ? txt(x.implication_label || '시사점') : '',\n      implication:hasImplication ? txt(x.implication || o.implication) : '',\n      source_urls:arr(o.source_urls).map(txt).filter(u=>/^https?:\\/\\//i.test(u)).slice(0,4)\n    };\n  }).filter(x=>x.title || x.summary);\n}\n// 섹션별 재생성 모드: base.requested_section이 있으면 그 섹션 하나만 정리해서\n// 최소한의 응답(success/section/items)만 반환한다 — 프론트가 이 섹션 배열 하나만\n// 갈아끼우면 되므로, 다른 섹션·issue_title·executive_brief는 건드리지 않는다.\nif (base.requested_section) {\n  const items = normalizeGroup(base.requested_section, true);\n  const result = { success:true, mode:'SECTION_REGEN', section: base.requested_section, items };\n  if (base.requested_section === 'people_culture') {\n    result.people_culture_view = txt(ai.people_culture_view);\n  }\n  return [{json: result}];\n}\n\nconst sections={\n  client_watch:normalizeGroup('client_watch',true),\n  research_on_insight:normalizeGroup('research_on_insight',true),\n  business_work:normalizeGroup('business_work',true),\n  people_culture:normalizeGroup('people_culture',true),\n  people_culture_view:txt(ai.people_culture_view)\n};\nconst newsletter={\n  newsletter_title:'Research On Weekly',\n  issue_title:txt(ai.issue_title || `${base.period_start} ~ ${base.period_end} 주간 브리핑`),\n  period:`${base.period_start} ~ ${base.period_end}`,\n  executive_brief:{\n    headline:txt(ai.executive_brief?.headline || '이번 주 후보 자료 검토'),\n    summary:txt(ai.executive_brief?.summary || '섹션별 후보를 검토하고 최종 발송 항목을 남겨주세요.')\n  },\n  sections,\n  editor_note:txt(ai.editor_note || 'Human in the loop 후보 초안')\n};\nreturn [{json:{\n  success:true, mode:'HUMAN_REVIEW', issue_id:base.issue_id,\n  generated_at:base.generated_at, period_start:base.period_start, period_end:base.period_end,\n  candidate_count:base.candidate_count, newsletter\n}}];"
       },
       "id": "db0328ad-ed58-4fa7-a04b-c256763e4b20",
       "name": "A7. Code - 후보 초안 JSON 정리",
@@ -810,6 +810,111 @@
         3600
       ],
       "notes": "newsletters(보낼 호) × 활성 구독자(profiles+게스트) 교차 조합 — 사람 수만큼 개별 발송 아이템을 만든다."
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "newsletter/summarize-brief",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "7807105b-1dc9-4abe-8c6b-c7e220bff8f5",
+      "name": "EB0. Webhook - Executive Brief 재요약 요청",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        44688,
+        2560
+      ],
+      "webhookId": "newsletter-summarize-brief",
+      "notes": "관리자가 4개 섹션 최종 확정 후, 발송 전에 Executive Brief만 그 확정 내용 기준으로 다시 쓰기 위한 웹훅."
+    },
+    {
+      "parameters": {
+        "jsCode": "// 관리자가 화면에서 최종 확정한 4개 섹션 내용만 근거로 Executive Brief(헤드라인+요약)를\n// 새로 쓰기 위한 프롬프트를 만든다. 후보 선정 파이프라인과는 무관 — 이미 확정된 결과물만 입력받는다.\nconst body = $('EB0. Webhook - Executive Brief 재요약 요청').first().json.body || {};\nfunction txt(v){ return v===null||v===undefined?'':String(v).trim(); }\nfunction arr(v){ return Array.isArray(v)?v:[]; }\n\nconst sections = body.sections || {};\nfunction sectionText(label, items){\n  const list = arr(items).filter(x => x && (x.title || x.summary));\n  if(!list.length) return '';\n  return `[${label}]\\n` + list.map((x,i)=>`${i+1}. ${txt(x.title)} - ${txt(x.summary)}`).join('\\n');\n}\nconst blocks = [\n  sectionText('CLIENT WATCH', sections.client_watch),\n  sectionText('RESEARCH ON INSIGHT', sections.research_on_insight),\n  sectionText('BUSINESS & WORK', sections.business_work),\n  sectionText('PEOPLE & CULTURE', sections.people_culture)\n].filter(Boolean).join('\\n\\n');\n\nif(!blocks) throw new Error('요약할 최종 확정 기사가 없습니다. 섹션에 최소 1건을 남겨주세요.');\n\nconst prompt = `너는 BPO사업본부 주간 뉴스레터의 Executive Brief 작성자다.\n아래는 관리자가 이번 주 뉴스레터에 최종 확정한 기사 전체 목록이다(이미 편집·확정된 최종본이며, 이 목록에 없는 기사는 이번 호에 실리지 않는다).\n이 목록에 실제로 있는 내용만 근거로, 이번 주 발송될 뉴스레터 전체를 관통하는 Executive Brief(헤드라인+요약)를 새로 작성하라.\n\n[작성 원칙 - 1차 독자는 CL4 이상 보직자(센터장·그룹장·사업부장·임원)다]\n- headline: 이번 호에서 보직자가 가장 먼저 알아야 할 것이 드러나도록 한 줄로 작성한다.\n- summary: 아래 목록에 실제로 있는 기사들을 종합해 2~3문장으로 작성한다. 목록에 없는 사실을 추측하거나 지어내지 마라.\n- 특정 기사 하나만 다루지 말고, 가능하면 여러 섹션을 아우르는 흐름을 짚는다. 다만 목록에 있는 섹션이 하나뿐이면 그 섹션 기준으로만 작성한다.\n- 반드시 JSON 객체만 출력한다.\n\n[이번 호 최종 확정 기사 목록]\n${blocks}\n\n[출력 형식]\n{\"headline\":\"...\", \"summary\":\"...\"}`;\n\nreturn [{json:{ prompt }}];"
+      },
+      "id": "e4f47e2f-be63-439d-b702-90eccccadba4",
+      "name": "EB1. Code - 재요약 프롬프트 조립",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        44928,
+        2560
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "관리자가 최종 확정한 기사 목록만 근거로 Executive Brief를 새로 써서 JSON 객체만 출력한다."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "a083c5f8-21e9-4428-a7a3-34179436bede",
+      "name": "EB2. Basic LLM Chain - Executive Brief 재요약",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        45168,
+        2560
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "id": "52570d21-c1bf-4ec4-ac9e-fdfc2c0680de",
+      "name": "Google Gemini - Executive Brief 재요약",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        45168,
+        2760
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "UmQBA3vsLpvPlcZz",
+          "name": "Google Gemini 90일 무료(7/14~)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json.text || $json.output || $json.response || $json.content || $json.result || '';\nfunction txt(v){ return v===null||v===undefined?'':String(v).trim(); }\nfunction parse(v){\n  if(v && typeof v==='object') return v;\n  let s=String(v||'').replace(/^```json\\s*/i,'').replace(/^```\\s*/,'').replace(/```$/,'').trim();\n  const a=s.indexOf('{'), b=s.lastIndexOf('}'); if(a>=0&&b>=a) s=s.slice(a,b+1);\n  s=s.replace(/,\\s*([}\\]])/g,'$1');\n  try{return JSON.parse(s);}catch{return {};}\n}\nconst ai = parse(raw);\nconst headline = txt(ai.headline);\nconst summary = txt(ai.summary);\nif(!headline && !summary){\n  return [{json:{ success:false, message:'AI 응답을 해석하지 못했습니다. 다시 시도해주세요.' }}];\n}\nreturn [{json:{ success:true, headline, summary }}];"
+      },
+      "id": "6627721f-ed0b-476d-83d7-b73003ac72ff",
+      "name": "EB3. Code - 응답 정리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        45408,
+        2560
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "bcee3fef-3982-4400-b1d2-69570309993e",
+      "name": "EB4. Respond to Webhook - 재요약 결과 반환",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        45648,
+        2560
+      ]
     }
   ],
   "pinData": {},
@@ -1158,6 +1263,61 @@
           },
           {
             "node": "C2C. HTTP Request - 활성 구독자 조회 (게스트)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EB0. Webhook - Executive Brief 재요약 요청": {
+      "main": [
+        [
+          {
+            "node": "EB1. Code - 재요약 프롬프트 조립",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EB1. Code - 재요약 프롬프트 조립": {
+      "main": [
+        [
+          {
+            "node": "EB2. Basic LLM Chain - Executive Brief 재요약",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EB2. Basic LLM Chain - Executive Brief 재요약": {
+      "main": [
+        [
+          {
+            "node": "EB3. Code - 응답 정리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini - Executive Brief 재요약": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "EB2. Basic LLM Chain - Executive Brief 재요약",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EB3. Code - 응답 정리": {
+      "main": [
+        [
+          {
+            "node": "EB4. Respond to Webhook - 재요약 결과 반환",
             "type": "main",
             "index": 0
           }

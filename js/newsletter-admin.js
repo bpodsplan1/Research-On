@@ -281,13 +281,77 @@ function nlSectionBlock(no, code, title, description, sectionKey, items, culture
   const emptyHtml = list.length ? '' : `<tr><td style="padding:8px 40px 20px;"><p style="margin:0;font-size:13px;color:#94A3B8;">아직 추가된 항목이 없습니다.</p></td></tr>`;
   const addBtnHtml = editable ? `<tr><td style="padding:${list.length?'0':'0'} 40px 26px;"><button type="button" onclick="parent.nlAddItem('${sectionKey}')" style="width:100%;border:1.5px dashed #CBD5E1;background:#F8FAFC;color:#475569;font-size:13px;font-weight:700;padding:13px;border-radius:12px;cursor:pointer;font-family:inherit;">+ 항목 추가</button></td></tr>` : '';
   const trailingHtml = hasTrailing ? nlCultureViewBlock(trailingView, editable) : '';
+  const regenBtnHtml = editable ? `<button type="button" onclick="parent.regenerateNewsletterSection('${sectionKey}')" style="border:1px solid #DBE2EA;background:#fff;color:#475569;font-size:11px;font-weight:700;padding:6px 12px;border-radius:999px;cursor:pointer;font-family:inherit;flex-shrink:0;white-space:nowrap;">🔄 이 섹션 다시 생성</button>` : '';
   return `
     <tr><td style="padding:26px 40px 12px;background-color:#F8FAFC;border-top:1px solid #E5E7EB;">
-      <div style="font-size:12px;line-height:18px;letter-spacing:1.2px;font-weight:bold;color:#274690;">${no} · ${esc(code)}</div>
-      <div style="margin-top:7px;font-size:22px;line-height:32px;font-weight:bold;color:#111827;">${esc(title)}</div>
-      <div style="margin-top:8px;font-size:14px;line-height:23px;color:#6B7280;">${esc(description)}</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+        <div style="min-width:0;">
+          <div style="font-size:12px;line-height:18px;letter-spacing:1.2px;font-weight:bold;color:#274690;">${no} · ${esc(code)}</div>
+          <div style="margin-top:7px;font-size:22px;line-height:32px;font-weight:bold;color:#111827;">${esc(title)}</div>
+          <div style="margin-top:8px;font-size:14px;line-height:23px;color:#6B7280;">${esc(description)}</div>
+        </div>
+        ${regenBtnHtml}
+      </div>
     </td></tr>
     ${itemsHtml}${emptyHtml}${addBtnHtml}${trailingHtml}`;
+}
+// n8n [뉴스레터 2단계] A-branch에 request.section을 실어 보내면, 그 섹션 하나만
+// AI로 다시 편집해서 돌려준다(다른 섹션·issue_title·executive_brief는 그대로 유지).
+const NL_SECTION_LABELS = {
+  client_watch: 'CLIENT WATCH',
+  research_on_insight: 'RESEARCH ON INSIGHT',
+  business_work: 'BUSINESS & WORK',
+  people_culture: 'PEOPLE & CULTURE'
+};
+async function regenerateNewsletterSection(sectionKey){
+  const label = NL_SECTION_LABELS[sectionKey] || sectionKey;
+  if(!confirm(`"${label}" 섹션을 AI로 다시 생성하시겠습니까?\n이 섹션에서 지금까지 편집한 내용은 사라집니다.`)) return;
+  showToast(`"${label}" 섹션을 다시 생성하는 중입니다...`);
+  try{
+    const resp = await fetch(N8N_NEWSLETTER_DRAFT_URL, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ section: sectionKey })
+    });
+    const data = await resp.json();
+    if(!resp.ok || data.success!==true) throw new Error(data.message || 'n8n 응답 오류');
+    newsletterDraft.sections[sectionKey] = (data.items||[]).map(x=>({
+      title:x.title||'', summary:x.summary||'',
+      implication_label:x.implication_label||'시사점', implication:x.implication||'',
+      source_urls:(x.source_urls||[]).slice(0,4)
+    }));
+    if(sectionKey==='people_culture' && data.people_culture_view!==undefined){
+      newsletterDraft.sections.people_culture_view = data.people_culture_view;
+    }
+    refreshNewsletterPreview(true);
+    showToast(`"${label}" 섹션을 다시 생성했습니다.`);
+  } catch(e){
+    alert(`"${label}" 섹션 재생성에 실패했습니다: ` + e.message + '\n(n8n 워크플로우가 활성화되어 있는지 확인해주세요.)');
+  }
+}
+// 관리자가 4개 섹션을 최종 확정한 뒤, "발송하기" 전에 그 확정 내용만 근거로
+// Executive Brief(헤드라인+요약)를 다시 쓴다 — 초안 시점에 있었지만 이후 삭제된 기사가
+// Executive Brief에만 남아 실제 발송본과 어긋나는 문제를 막기 위함.
+async function summarizeExecutiveBrief(){
+  const btn = $('#nlSummarizeBriefBtn');
+  if(btn){ btn.disabled = true; btn.textContent = '재요약 중...'; }
+  try{
+    const resp = await fetch(N8N_NEWSLETTER_SUMMARIZE_BRIEF_URL, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ sections: newsletterDraft.sections })
+    });
+    const data = await resp.json();
+    if(!resp.ok || data.success!==true) throw new Error(data.message || 'n8n 응답 오류');
+    newsletterDraft.executive_brief.headline = data.headline || newsletterDraft.executive_brief.headline;
+    newsletterDraft.executive_brief.summary = data.summary || newsletterDraft.executive_brief.summary;
+    if($('#nlHeadline')) $('#nlHeadline').value = newsletterDraft.executive_brief.headline;
+    if($('#nlSummary')) $('#nlSummary').value = newsletterDraft.executive_brief.summary;
+    refreshNewsletterPreview(true);
+    showToast('확정된 내용 기준으로 Executive Brief를 다시 썼습니다.');
+  } catch(e){
+    alert('Executive Brief 재요약에 실패했습니다: ' + e.message + '\n(n8n 워크플로우가 활성화되어 있는지 확인해주세요.)');
+  } finally {
+    if(btn){ btn.disabled = false; btn.textContent = '🔄 확정 내용으로 재요약'; }
+  }
 }
 // editable=true: 관리자 미리보기(iframe 안에서 parent.nlXxx 편집 콜백 사용) 전용 렌더링.
 // editable=false(기본값): 실제 발송·저장되는 최종 HTML — 편집용 버튼을 절대 포함하지 않는다.
