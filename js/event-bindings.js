@@ -113,6 +113,9 @@ function bindEvents(){
   $('#dashRecentCard')?.addEventListener('click', e=>{ if(e.target.closest('#dashRecentBtn') && resultHistory.length) viewResearchKeyword(resultHistory[0].kw); });
   $('#dashSuggestChips')?.addEventListener('click', e=>{ const c=e.target.closest('[data-suggest-idx]'); if(c) useSuggestedCombo(Number(c.dataset.suggestIdx)); });
 
+  // AI 인사이트 리포트 "다음 추천 검색어" 칩 클릭 → 새 리서치 만들기로 이어서 검색
+  $('#insightReportBody')?.addEventListener('click', e=>{ const c=e.target.closest('[data-next-search]'); if(c) useSearchKeywordForBuilder(c.dataset.nextSearch); });
+
   // 리서치 결과
   $('#saveAllResultsBtn')?.addEventListener('click', saveAllResults);
   $('#deleteSelectedResultsBtn')?.addEventListener('click', deleteSelectedResults);
@@ -166,8 +169,8 @@ function bindEvents(){
         <td style="padding:7px 9px;border-bottom:1px solid #e2e8f0;width:200px">${d.title||''}</td>
         <td style="padding:7px 9px;border-bottom:1px solid #e2e8f0;color:#475569">${(d.desc||'').slice(0,100)}${(d.desc||'').length>100?'...':''}</td>
         <td style="padding:7px 9px;border-bottom:1px solid #e2e8f0;width:90px">${d.source||''}</td>
-        <td style="padding:7px 9px;border-bottom:1px solid #e2e8f0;text-align:center;width:60px;color:${d.score>=0.80?'#16a34a':d.score>=0.60?'#ea580c':'#dc2626'};font-weight:800">
-          ${d.score>=0.80?'높음':d.score>=0.60?'중간':'낮음'}</td></tr>`).join('');
+        <td style="padding:7px 9px;border-bottom:1px solid #e2e8f0;text-align:center;width:60px;color:${d.score>=0.72?'#16a34a':d.score>=0.60?'#ea580c':'#dc2626'};font-weight:800">
+          ${d.score>=0.72?'높음':d.score>=0.60?'중간':'낮음'}</td></tr>`).join('');
       const pdfDetails = exportDocs.filter(d=>d.body && d.body.trim()).map((d,i)=>`
         <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #e2e8f0">
           <div style="font-size:13px;font-weight:bold;color:#1d4ed8;margin-bottom:3px">${i+1}. ${d.title}</div>
@@ -285,7 +288,7 @@ function bindEvents(){
           bodyCell(d.title, 26, i%2===1),
           bodyCell(d.desc||'', 34, i%2===1),
           bodyCell(d.source||'', 14, i%2===1),
-          bodyCell(d.score>=0.80?'높음':d.score>=0.60?'중간':'낮음', 12, i%2===1, true)
+          bodyCell(d.score>=0.72?'높음':d.score>=0.60?'중간':'낮음', 12, i%2===1, true)
         ]
       }));
       const table = new Table({ width:{ size:100, type:WidthType.PERCENTAGE }, rows:[headerRow, ...dataRows] });

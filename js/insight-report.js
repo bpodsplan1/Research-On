@@ -264,12 +264,7 @@ async function exportReportWord(){
       }
     });
 
-    if(currentReport.recommended_next_search && currentReport.recommended_next_search.length){
-      children.push(new Paragraph({
-        children:[new TextRun({text:'다음 추천 검색어: ', bold:true}), new TextRun(currentReport.recommended_next_search.join(', '))],
-        spacing:{before:200}
-      }));
-    }
+    // 화면/PDF 렌더러와 동일하게 일단 숨김 처리(2026-07-29) — 되돌리려면 이 블록을 복원
     if(currentReport.limitations){
       children.push(new Paragraph({
         children:[new TextRun({text:'한계: ', bold:true}), new TextRun(currentReport.limitations)],

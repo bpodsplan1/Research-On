@@ -170,31 +170,41 @@ function useSearchKeywordForBuilder(raw){
   const q = kw.toLowerCase();
   let addedCore = 0, addedFront = 0, addedBack = 0;
 
-  // 1) 핵심 키워드 Pool에서 유사 키워드 탐색 (완전일치 우선, 없으면 부분일치 최대 5개)
+  // 1) 전방/후방 확장 키워드 풀에서 유사 항목 탐색 — 핵심 키워드 매칭보다 먼저 해서,
+  // 아래에서 "원문을 통째로 핵심 키워드로 담을지" 판단할 때 이 결과를 참고한다.
+  // 확장 키워드는 대체로 짧은 수식어(예: "리스크")라서, 긴 입력어(예: AI가 만든 추천 검색어
+  // 문구) 안에 그 수식어가 포함된 경우가 실제로 훨씬 많다. 핵심 키워드 매칭과 마찬가지로
+  // 양방향(v가 q를 포함 OR q가 v를 포함)으로 확인해야 이런 케이스를 놓치지 않는다.
+  frontKeys.forEach(([key])=>{
+    DATA.ext[key].forEach(v=>{
+      const vl = v.toLowerCase();
+      if((vl.includes(q) || q.includes(vl)) && !selected.front.includes(v)){ selected.front.push(v); addToCombo('front', v); addedFront++; }
+    });
+  });
+  backKeys.forEach(([key])=>{
+    DATA.ext[key].forEach(v=>{
+      const vl = v.toLowerCase();
+      if((vl.includes(q) || q.includes(vl)) && !selected.back.includes(v)){ selected.back.push(v); addToCombo('back', v); addedBack++; }
+    });
+  });
+
+  // 2) 핵심 키워드 Pool에서 유사 키워드 탐색 (완전일치 우선, 없으면 부분일치 최대 5개)
   const exact = DATA.core.filter(r => r.keyword.toLowerCase() === q);
   const partial = DATA.core.filter(r => r.keyword.toLowerCase().includes(q) || q.includes(r.keyword.toLowerCase()));
   const coreMatches = (exact.length ? exact : partial).slice(0, 5);
   coreMatches.forEach(r=>{
     if(!selected.core.includes(r.keyword)){ selected.core.push(r.keyword); addToCombo('core', r.keyword); addedCore++; }
   });
-  // Pool에 일치하는 항목이 없으면, 입력어 자체를 핵심 키워드로 담아준다.
-  if(!coreMatches.length && !selected.core.includes(kw)){ selected.core.push(kw); addToCombo('core', kw); addedCore++; }
-
-  // 2) 전방/후방 확장 키워드 풀에서도 유사 항목 탐색
-  frontKeys.forEach(([key])=>{
-    DATA.ext[key].forEach(v=>{
-      if(v.toLowerCase().includes(q) && !selected.front.includes(v)){ selected.front.push(v); addToCombo('front', v); addedFront++; }
-    });
-  });
-  backKeys.forEach(([key])=>{
-    DATA.ext[key].forEach(v=>{
-      if(v.toLowerCase().includes(q) && !selected.back.includes(v)){ selected.back.push(v); addToCombo('back', v); addedBack++; }
-    });
-  });
+  // 핵심·전방·후방 어디에도 매칭되는 게 하나도 없을 때만 입력어 원문 그대로를 핵심 키워드로
+  // 담아준다. 전방/후방만 뽑혔는데 원문 전체를 통째로 또 핵심 키워드로 넣으면 이미 분해된
+  // 조각과 원문 전체가 중복으로 같이 들어가 지저분해진다(실사용 중 발견된 문제).
+  if(!coreMatches.length && !addedFront && !addedBack && !selected.core.includes(kw)){
+    selected.core.push(kw); addToCombo('core', kw); addedCore++;
+  }
 
   showPage('new-research');
   switchMode('detail');
-  setStep(addedCore ? 1 : 0);
+  setStep((addedCore || addedFront || addedBack) ? 1 : 0);
   updateSelection(); renderCore(); renderExt(); updatePayload();
   const parts = [];
   if(addedCore) parts.push(`핵심 키워드 ${addedCore}개`);

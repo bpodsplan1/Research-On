@@ -130,8 +130,10 @@ function renderResultsPage(){
 // 화면에 아예 안 보내므로, 실제로 화면에 뜨는 자료는 전부 0.55 이상이다.
 // 임계값을 0~1 전체 척도가 아니라 이 실제 노출 구간(0.55~1.0) 기준으로 낮춰서,
 // 이미 걸러진 자료가 "낮음"으로 과도하게 표시되는 문제를 완화한다.
+// (2026-07-29: "높음"이 실사용 중 한 번도 안 나온다는 피드백으로 0.80→0.72 추가 완화 —
+//  실제 점수 산식상 아주 뛰어난 자료도 0.80을 넘기기 쉽지 않은 구조라 기준 자체가 과했음)
 function relevanceBadge(score){
-  if(score>=0.80) return '<span class="badge green">높음</span>';
+  if(score>=0.72) return '<span class="badge green">높음</span>';
   if(score>=0.60) return '<span class="badge orange">중간</span>';
   return '<span class="badge red">낮음</span>';
 }
@@ -417,8 +419,10 @@ function reportTabsHtml(report){
     }
     return '';
   }).join('');
-  const nextSearch = (report.recommended_next_search&&report.recommended_next_search.length)
-    ? `<p style="margin:0 0 8px;font-size:14px;color:var(--muted)"><b>다음 추천 검색어:</b> ${report.recommended_next_search.map(esc).join(', ')}</p>` : '';
+  // "다음 추천 검색어" 기능은 추가 검토가 필요해 일단 화면에서 숨김 처리(2026-07-29).
+  // AI는 여전히 recommended_next_search를 생성하고 저장은 되지만 표시만 안 함 —
+  // 다시 보여주려면 아래 한 줄을 이전 버전(칩 렌더링)으로 되돌리면 됨.
+  const nextSearch = '';
   const limitations = report.limitations ? `<p style="margin:0;font-size:14px;color:var(--muted)"><b>한계:</b> ${esc(report.limitations)}</p>` : '';
   return body + nextSearch + limitations;
 }
@@ -473,8 +477,8 @@ function reportTabsPrintHtml(report){
     }
     return '';
   }).join('');
-  const nextSearch = (report.recommended_next_search&&report.recommended_next_search.length)
-    ? `<div class="print-block"><p style="margin:0 0 7px;font-size:11.5px;color:#697386"><b>다음 추천 검색어:</b> ${report.recommended_next_search.map(esc).join(', ')}</p></div>` : '';
+  // 화면 렌더러와 동일하게 일단 숨김 처리(2026-07-29)
+  const nextSearch = '';
   const limitations = report.limitations ? `<div class="print-block"><p style="margin:0;font-size:11.5px;color:#697386"><b>한계:</b> ${esc(report.limitations)}</p></div>` : '';
   return body + nextSearch + limitations;
 }
