@@ -33,7 +33,7 @@ const N8N_NEWSLETTER_SUMMARIZE_BRIEF_URL = 'https://n8n.mokai.kr/webhook/newslet
 // 신규 연동(관리자 전용 기능) — production 웹훅 주소
 const N8N_ADMIN_RESET_PW_URL = 'https://n8n.mokai.kr/webhook/admin/reset-password';
 const N8N_NEWSLETTER_FORCE_SEND_URL = 'https://n8n.mokai.kr/webhook/newsletter/force-send';
-// 뉴스레터 1단계(후보 수집) 워크플로우를 스케줄(매주 목요일 08시)과 무관하게 즉시 실행 — 테스트 목적
+// 뉴스레터 1단계(후보 수집) 워크플로우를 스케줄(매주 월요일 08시)과 무관하게 즉시 실행 — 테스트 목적
 const N8N_NEWSLETTER_FORCE_COLLECT_URL = 'https://n8n.mokai.kr/webhook/newsletter/force-collect';
 // 로그인 화면의 셀프서비스 비밀번호 초기화(아이디·성명·이메일 일치 확인) — 관리자 토큰 불필요
 const N8N_SELF_RESET_PW_URL = 'https://n8n.mokai.kr/webhook/user/self-reset-password';

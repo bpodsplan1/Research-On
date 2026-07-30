@@ -19,7 +19,7 @@ function renderNewsletterAdminPage(){
   loadNewsletterAdminStats();
   maybeAutoFetchNewsletterDraft();
 }
-// 뉴스레터 1단계(후보 수집)의 정기 스케줄 실행 시각(매주 목요일 08시, Asia/Seoul) 이후에
+// 뉴스레터 1단계(후보 수집)의 정기 스케줄 실행 시각(매주 월요일 08시, Asia/Seoul) 이후에
 // 이 화면에 접속했을 때만 "AI 초안 가져오기"를 자동으로 한 번 실행한다.
 // - 08시 이전 접속: 아직 정기 실행 전이라 자동으로 안 부름(어제자 후보로 잘못 채워지는 것 방지)
 // - "⚡ 지금 실행"(강제 실행) 버튼으로 임의 시각에 채운 경우는 이 자동 실행과 무관하게 취급—
@@ -363,7 +363,7 @@ function buildNewsletterHtml(nl, editable){
     nlSectionBlock('03','BUSINESS & WORK','BPO·AI·조직 운영의 주요 변화','본부 사업과 운영에 영향을 줄 수 있는 외부 변화를 정리했습니다.', 'business_work', sections.business_work||[], false, undefined, editable),
     nlSectionBlock('04','PEOPLE & CULTURE','요즘 구성원은 무엇에 반응하는가','젊은 세대의 행동과 가치관을 조직 운영 관점에서 해석했습니다.', 'people_culture', sections.people_culture||[], true, sections.people_culture_view||'', editable)
   ].join('');
-  const subject = `[Research On Weekly] ${nl.period_end||''} 주간 뉴스레터`;
+  const subject = `[Research On Weekly] ${nl.issue_title||''}`;
   const html = `<!DOCTYPE html>
 <html lang="ko">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${esc(subject)}</title></head>

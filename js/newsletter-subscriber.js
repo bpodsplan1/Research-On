@@ -15,12 +15,12 @@ async function isNewsletterSubscribed(){
   const s = await getNewsletterSubStatus();
   return s.subscribed;
 }
-// 정기 발송 스케줄: 매주 목요일 08시 후보 수집 → 관리자 검토 → 09시 발송(2026-07-29 확정)
+// 정기 발송 스케줄: 매주 월요일 08시 후보 수집 → 관리자 검토 → 09시 발송(2026-07-30 확정)
 function computeNextNewsletterSchedule(){
   const now = new Date();
-  const daysUntilThursday = (4 - now.getDay() + 7) % 7 || 7;
-  const next = new Date(now); next.setDate(now.getDate() + daysUntilThursday);
-  return next.toLocaleDateString('ko-KR') + ' <span style="white-space:nowrap">(목요일 발송 예정)</span>';
+  const daysUntilMonday = (1 - now.getDay() + 7) % 7 || 7;
+  const next = new Date(now); next.setDate(now.getDate() + daysUntilMonday);
+  return next.toLocaleDateString('ko-KR') + ' <span style="white-space:nowrap">(월요일 발송 예정)</span>';
 }
 async function renderNewsletterPage(){
   $('#newsletterDetailView').style.display = 'none';

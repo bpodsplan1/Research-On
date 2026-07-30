@@ -19,7 +19,7 @@
             {
               "field": "weeks",
               "triggerAtDay": [
-                4
+                1
               ],
               "triggerAtHour": 8
             }
@@ -27,14 +27,14 @@
         }
       },
       "id": "cc87d931-c719-40a3-8fb0-93ad65c186f1",
-      "name": "0-B. Schedule Trigger - 매주 목요일 08시",
+      "name": "0-B. Schedule Trigger - 매주 월요일 08시",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
         288240,
         94992
       ],
-      "notes": "매주 목요일 오전 8시 실행 — 정기 운영 일정."
+      "notes": "매주 월요일 오전 8시 실행 — 정기 운영 일정."
     },
     {
       "parameters": {
@@ -1237,7 +1237,7 @@
         ]
       ]
     },
-    "0-B. Schedule Trigger - 매주 목요일 08시": {
+    "0-B. Schedule Trigger - 매주 월요일 08시": {
       "main": [
         [
           {
