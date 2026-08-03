@@ -19,7 +19,7 @@ function renderNewsletterAdminPage(){
   loadNewsletterAdminStats();
   maybeAutoFetchNewsletterDraft();
 }
-// 뉴스레터 1단계(후보 수집)의 정기 스케줄 실행 시각(매주 월요일 08시, Asia/Seoul) 이후에
+// 뉴스레터 1단계(후보 수집)의 정기 스케줄 실행 시각(매주 화요일 08시, Asia/Seoul) 이후에
 // 이 화면에 접속했을 때만 "AI 초안 가져오기"를 자동으로 한 번 실행한다.
 // - 08시 이전 접속: 아직 정기 실행 전이라 자동으로 안 부름(어제자 후보로 잘못 채워지는 것 방지)
 // - "⚡ 지금 실행"(강제 실행) 버튼으로 임의 시각에 채운 경우는 이 자동 실행과 무관하게 취급—
