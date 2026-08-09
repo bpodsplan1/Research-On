@@ -155,6 +155,8 @@ async function enterApp(user){
     }
     // 오버레이 숨기기
     document.getElementById('auth-overlay').classList.add('hidden');
+    // 키워드 Pool은 새 리서치 만들기 진입 전에 끝나면 되므로 병렬로 백그라운드 로드
+    loadKeywordPool();
     // 사용자 데이터 로드 (내부에서 상태 초기화 → 새 계정 데이터 로드 → 전체 페이지 재렌더링)
     await loadUserData();
   } catch(e){
@@ -219,7 +221,8 @@ function showAdminNav(){
     <button class="nav-item" data-page="admin-approve" type="button"><span class="nav-icon">👥</span><span class="nav-label">계정 관리</span></button>
     <button class="nav-item" data-page="newsletter-manage" type="button"><span class="nav-icon">📰</span><span class="nav-label">뉴스레터 관리</span></button>
     <button class="nav-item" data-page="newsletter-subscribers" type="button"><span class="nav-icon">📬</span><span class="nav-label">뉴스레터 구독 관리</span></button>
-    <button class="nav-item" data-page="admin-support" type="button"><span class="nav-icon">🎧</span><span class="nav-label">지원 및 문의 관리</span></button>`;
+    <button class="nav-item" data-page="admin-support" type="button"><span class="nav-icon">🎧</span><span class="nav-label">지원 및 문의 관리</span></button>
+    <button class="nav-item" data-page="admin-keywords" type="button"><span class="nav-icon">🔑</span><span class="nav-label">키워드 관리</span></button>`;
   nav.appendChild(sec);
   sec.querySelectorAll('.nav-item[data-page]').forEach(btn=>{
     btn.addEventListener('click',()=>showPage(btn.dataset.page));

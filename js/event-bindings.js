@@ -76,6 +76,7 @@ function bindEvents(){
   $('#deleteSelectedSavedBtn')?.addEventListener('click', deleteSelectedSaved);
   $$('.tab[data-acct-filter]').forEach(b=>b.addEventListener('click', ()=>{ $$('.tab[data-acct-filter]').forEach(x=>x.classList.toggle('active',x===b)); acctFilterMode=b.dataset.acctFilter; filterAccountsTable(); }));
   $$('.tab[data-support-admin-filter]').forEach(b=>b.addEventListener('click', ()=>{ $$('.tab[data-support-admin-filter]').forEach(x=>x.classList.toggle('active',x===b)); loadSupportRequestsAdmin(b.dataset.supportAdminFilter); }));
+  $$('.tab[data-keyword-admin-filter]').forEach(b=>b.addEventListener('click', ()=>{ $$('.tab[data-keyword-admin-filter]').forEach(x=>x.classList.toggle('active',x===b)); loadKeywordRequestsAdmin(b.dataset.keywordAdminFilter); }));
 
   // 계정 설정 / 사용자 팝업
   $('#sidebarSettingsBtn')?.addEventListener('click', ()=>showPage('account'));
@@ -98,6 +99,14 @@ function bindEvents(){
   $('#supportHistoryModalOverlay')?.addEventListener('click', e=>{ if(e.target.id==='supportHistoryModalOverlay') closeSupportHistoryModal(); });
   $('#infoModalClose')?.addEventListener('click', closeInfoModal);
   $('#infoModalOverlay')?.addEventListener('click', e=>{ if(e.target.id==='infoModalOverlay') closeInfoModal(); });
+
+  // 새 리서치 만들기 — 키워드 신청 모달
+  $('#keywordRequestOpenBtn')?.addEventListener('click', openKeywordRequestModal);
+  $('#keywordRequestModalClose')?.addEventListener('click', closeKeywordRequestModal);
+  $('#keywordRequestModalOverlay')?.addEventListener('click', e=>{ if(e.target.id==='keywordRequestModalOverlay') closeKeywordRequestModal(); });
+  $$('.tab[data-krq-tab]').forEach(b=>b.addEventListener('click', ()=>switchKeywordRequestTab(b.dataset.krqTab)));
+  $$('.tab[data-krq-category]').forEach(b=>b.addEventListener('click', ()=>selectKeywordRequestCategory(b.dataset.krqCategory)));
+  $('#krqSubmitBtn')?.addEventListener('click', submitKeywordRequest);
 
   // 관리자 — 계정 관리
   $('#acctMgmtSearch')?.addEventListener('input', filterAccountsTable);

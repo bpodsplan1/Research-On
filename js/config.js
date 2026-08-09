@@ -115,7 +115,7 @@ function showToast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add
 
 // ── 페이지 전환 ──
 function showPage(id){
-  if((id==='newsletter-manage'||id==='admin-approve'||id==='newsletter-subscribers'||id==='admin-support') && currentUserRole!=='admin'){ showToast('관리자만 접근할 수 있는 페이지입니다.'); id='dashboard'; }
+  if((id==='newsletter-manage'||id==='admin-approve'||id==='newsletter-subscribers'||id==='admin-support'||id==='admin-keywords') && currentUserRole!=='admin'){ showToast('관리자만 접근할 수 있는 페이지입니다.'); id='dashboard'; }
   const target = document.getElementById(id); if(!target) return;
   $$('.page').forEach(p=>p.classList.toggle('active', p.id===id));
   $$('.nav-item[data-page]').forEach(b=>b.classList.toggle('active', b.dataset.page===id));
@@ -134,6 +134,7 @@ function showPage(id){
   if(id==='admin-approve'){ loadAdminRequests(); loadAllAccounts(); }
   if(id==='newsletter-subscribers') loadNewsletterSubscribers();
   if(id==='admin-support') loadSupportRequestsAdmin(supportAdminFilter);
+  if(id==='admin-keywords') loadKeywordRequestsAdmin(keywordAdminFilter);
   window.scrollTo({top:0, behavior:'smooth'});
 }
 function switchMode(mode){

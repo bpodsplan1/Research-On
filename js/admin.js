@@ -243,6 +243,107 @@ async function toggleSupportStatus(i){
 }
 
 // ══════════════════════════════════════════
+// 관리자: 키워드 관리 (사용자 신청 → 승인/반려)
+// 승인 시 keywords 테이블에 바로 INSERT되어 검색 Pool에 즉시 반영된다.
+// ══════════════════════════════════════════
+let keywordAdminFilter = 'pending'; // 'pending' | 'approved' | 'rejected'
+let keywordAdminCache = [];
+async function loadKeywordRequestsAdmin(filter){
+  keywordAdminFilter = filter || keywordAdminFilter;
+  const box = document.getElementById('keywordAdminList'); if(!box) return;
+  box.innerHTML = '<div class="card" style="text-align:center;color:var(--muted);padding:30px">불러오는 중...</div>';
+  const { data, error } = await _sb.from('keyword_requests').select('*').eq('status', keywordAdminFilter).order('created_at', {ascending:false});
+  if(error){
+    box.innerHTML = `<div class="card" style="text-align:center;color:var(--red);padding:30px">오류: ${error.message}</div>`;
+    return;
+  }
+  keywordAdminCache = data || [];
+  renderKeywordRequestsAdmin();
+}
+function renderKeywordRequestsAdmin(){
+  const box = document.getElementById('keywordAdminList'); if(!box) return;
+  box.innerHTML = keywordAdminCache.length ? keywordAdminCache.map((r,i)=>{
+    const isPending = r.status === 'pending';
+    const catLabel = KRQ_CATEGORY_LABEL[r.category] || r.category;
+    const extKeys = r.category === 'ext_back' ? EXT_BACK_KEYS : EXT_FRONT_KEYS;
+    return `<div class="kw-group-card" style="margin-bottom:12px">
+      <button type="button" class="kw-group-header" onclick="toggleKeywordAdminItem(${i})">
+        <span id="keywordAdminArrow-${i}" class="kw-group-arrow">▸</span>
+        <span class="badge" style="background:var(--soft);color:var(--primary2)">${esc(catLabel)}</span>
+        <b class="kw-group-title">${esc(r.keyword)}</b>
+        <span class="kw-group-date">${esc(r.requester_name||'')} · ${esc((r.created_at||'').slice(0,10))}</span>
+      </button>
+      <div class="kw-group-body" data-keyword-item="${i}" style="display:none;padding:16px 18px">
+        <p style="color:var(--muted);font-size:12px;margin:0 0 10px">${esc(r.requester_name||'')} (${esc(r.requester_email||'')})</p>
+        ${r.note ? `<p style="margin:0 0 12px;font-size:13px;white-space:pre-line">신청 사유: ${esc(r.note)}</p>` : ''}
+        ${r.category === 'core' ? `
+          <div class="form">
+            <div class="field"><label>1-Depth</label><input id="keywordAdminD1-${i}" value="${esc(r.d1||'')}" ${isPending?'':'disabled'} /></div>
+            <div class="field"><label>2-Depth</label><input id="keywordAdminD2-${i}" value="${esc(r.d2||'')}" ${isPending?'':'disabled'} /></div>
+            <div class="field"><label>3-Depth</label><input id="keywordAdminD3-${i}" value="${esc(r.d3||'')}" ${isPending?'':'disabled'} /></div>
+          </div>` : `
+          <div class="field"><label>세부 구분</label>
+            <select id="keywordAdminExtType-${i}" ${isPending?'':'disabled'}>
+              <option value="">선택 안 함</option>
+              ${extKeys.map(k=>`<option value="${k}" ${r.ext_type===k?'selected':''}>${esc(KRQ_EXT_TYPE_LABEL[k])}</option>`).join('')}
+            </select>
+          </div>`}
+        ${isPending ? `
+          <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+            <button class="btn dark" type="button" onclick="approveKeywordRequestAdmin(${i})">승인 · 검색 Pool에 등록</button>
+            <button class="btn line" type="button" style="color:var(--red);border-color:var(--red)" onclick="rejectKeywordRequestAdmin(${i})">반려</button>
+          </div>` : `
+          <p style="color:var(--muted);font-size:12px;margin-top:10px">${r.status==='approved'?'승인':'반려'} 처리됨 · ${esc((r.reviewed_at||'').slice(0,16).replace('T',' '))}</p>
+          ${r.status==='rejected' && r.admin_note ? `<p style="margin:6px 0 0;font-size:13px;color:var(--red)">반려 사유: ${esc(r.admin_note)}</p>` : ''}`}
+      </div>
+    </div>`;
+  }).join('') : '<div class="card" style="text-align:center;color:var(--muted);padding:30px">해당하는 신청이 없습니다.</div>';
+}
+function toggleKeywordAdminItem(i){
+  const body = document.querySelector(`[data-keyword-item="${i}"]`); if(!body) return;
+  const arrow = document.getElementById(`keywordAdminArrow-${i}`);
+  const opening = body.style.display === 'none';
+  body.style.display = opening ? 'block' : 'none';
+  if(arrow) arrow.textContent = opening ? '▾' : '▸';
+}
+async function approveKeywordRequestAdmin(i){
+  const r = keywordAdminCache[i]; if(!r) return;
+  const payload = { category: r.category, keyword: r.keyword };
+  if(r.category === 'core'){
+    const d1 = (document.getElementById(`keywordAdminD1-${i}`)?.value || '').trim();
+    const d2 = (document.getElementById(`keywordAdminD2-${i}`)?.value || '').trim();
+    const d3 = (document.getElementById(`keywordAdminD3-${i}`)?.value || '').trim();
+    if(!d1 || !d2 || !d3){ showToast('핵심 키워드는 1~3-Depth를 모두 입력해야 승인할 수 있습니다.'); return; }
+    payload.d1 = d1; payload.d2 = d2; payload.d3 = d3;
+  } else {
+    const extType = document.getElementById(`keywordAdminExtType-${i}`)?.value || '';
+    if(!extType){ showToast('확장 키워드는 세부 구분을 선택해야 승인할 수 있습니다.'); return; }
+    payload.ext_type = extType;
+  }
+  const { error: insertErr } = await _sb.from('keywords').insert(payload);
+  if(insertErr){ showToast('Pool 등록에 실패했습니다: ' + insertErr.message); return; }
+  const reviewedAt = new Date().toISOString();
+  const { error } = await _sb.from('keyword_requests').update({
+    status: 'approved', reviewed_by: currentUserId, reviewed_at: reviewedAt,
+    d1: payload.d1 ?? null, d2: payload.d2 ?? null, d3: payload.d3 ?? null, ext_type: payload.ext_type ?? null
+  }).eq('id', r.id);
+  if(error){ showToast('상태 갱신에 실패했습니다: ' + error.message); return; }
+  showToast('승인되어 검색 Pool에 등록되었습니다.');
+  loadKeywordRequestsAdmin(keywordAdminFilter);
+}
+async function rejectKeywordRequestAdmin(i){
+  const r = keywordAdminCache[i]; if(!r) return;
+  const reason = prompt('반려 사유를 입력해주세요 (신청자에게 표시됩니다):', '');
+  if(reason === null) return;
+  const { error } = await _sb.from('keyword_requests').update({
+    status: 'rejected', admin_note: reason.trim() || null, reviewed_by: currentUserId, reviewed_at: new Date().toISOString()
+  }).eq('id', r.id);
+  if(error){ showToast('반려 처리에 실패했습니다: ' + error.message); return; }
+  showToast('반려 처리되었습니다.');
+  loadKeywordRequestsAdmin(keywordAdminFilter);
+}
+
+// ══════════════════════════════════════════
 // 관리자: 뉴스레터 구독 관리
 // ══════════════════════════════════════════
 let allSubscribersCache = [];
