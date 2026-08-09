@@ -241,7 +241,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// 웹에서 관리자가 승인한 뉴스레터를 검증하고 예약 데이터로 정규화\nconst data=$json.body || $json;\nconst input=data.newsletter || {};\nfunction txt(v){return v===null||v===undefined?'':String(v).trim();}\nfunction arr(v){return Array.isArray(v)?v:[];}\nfunction safeUrls(v){return arr(v).map(txt).filter(u=>/^https?:\\/\\//i.test(u)).slice(0,4);}\nfunction cleanItem(x,hasImplication){\n  return {\n    title:txt(x?.title), summary:txt(x?.summary),\n    implication_label:hasImplication?txt(x?.implication_label||'시사점'):'',\n    implication:hasImplication?txt(x?.implication):'',\n    source_urls:safeUrls(x?.source_urls)\n  };\n}\nconst warnings=[];\n// 웹 화면(HITL 검토)에서 관리자가 섹션별로 남겨둔 항목을 '전부' 예약한다.\n// 한 섹션에 비정상적으로 많은 항목이 남아있을 경우를 대비해 섹션당 최대 6개(웹 화면의 최대 노출 개수와 동일)로만 안전장치를 둔다.\nconst MAX_PER_SECTION=6;\nfunction selectItems(key,hasImplication){\n  const valid=arr(input.sections?.[key]).map(x=>cleanItem(x,hasImplication)).filter(x=>x.title||x.summary);\n  if(valid.length>MAX_PER_SECTION) warnings.push(`${key}: ${valid.length}개 중 상위 ${MAX_PER_SECTION}개만 발송에 포함했습니다.`);\n  return valid.slice(0,MAX_PER_SECTION);\n}\nconst sections={\n  client_watch:selectItems('client_watch',true),\n  research_on_insight:selectItems('research_on_insight',true),\n  business_work:selectItems('business_work',true),\n  people_culture:selectItems('people_culture',true),\n  people_culture_view:txt(input.sections?.people_culture_view)\n};\nconst selectedCount=['client_watch','research_on_insight','business_work','people_culture'].reduce((s,k)=>s+sections[k].length,0);\nif(!selectedCount) throw new Error('최종 발송 항목이 없습니다. 섹션별로 최소 1개 후보를 남겨주세요.');\n\nconst now=new Date();\n// 다음(오늘 포함) 화요일 09:00 KST를 UTC ISO로 계산 — 화요일 08시 수집 → 09시 발송 주기에 맞춤\nconst kstNow=new Date(now.getTime()+9*3600000);\nconst day=kstNow.getUTCDay();\nconst daysUntilTuesday=(2-day+7)%7;\nconst targetUtcMs=Date.UTC(kstNow.getUTCFullYear(),kstNow.getUTCMonth(),kstNow.getUTCDate()+daysUntilTuesday,9,0,0)-9*3600000;\nconst scheduledFor=new Date(targetUtcMs).toISOString();\nconst period=txt(input.period);\nconst periodEnd=txt(data.period_end || input.period_end || (period.match(/(20\\d{2}-\\d{2}-\\d{2})\\s*$/)||[])[1] || now.toISOString().slice(0,10));\nconst periodStart=txt((period.match(/^(20\\d{2}-\\d{2}-\\d{2})/)||[])[1]);\nconst newsletter={\n  newsletter_title:'Research On Weekly',\n  issue_title:txt(input.issue_title || `${periodEnd} 주간 브리핑`),\n  period:period || `${periodStart} ~ ${periodEnd}`,\n  executive_brief:{headline:txt(input.executive_brief?.headline),summary:txt(input.executive_brief?.summary)},\n  sections,\n  editor_note:txt(input.editor_note)\n};\nconst recipient=txt(data.recipient || 'bpo.dsplan1@gmail.com');\nif(!recipient) throw new Error('수신 이메일이 없습니다.');\nreturn [{json:{\n  issue_id:`NLQ-${periodEnd.replace(/-/g,'')}-${Math.random().toString(36).slice(2,7).toUpperCase()}`,\n  generated_at:now.toISOString(), queued_at:now.toISOString(), scheduled_for:scheduledFor,\n  period_start:periodStart, period_end:periodEnd, recipient,\n  selected_count:selectedCount, warnings, newsletter,\n  subject:txt(data.subject || `[Research On Weekly] ${newsletter.issue_title}`)\n}}];"
+        "jsCode": "// 웹에서 관리자가 승인한 뉴스레터를 검증하고 예약 데이터로 정규화\nconst data=$json.body || $json;\nconst input=data.newsletter || {};\nfunction txt(v){return v===null||v===undefined?'':String(v).trim();}\nfunction arr(v){return Array.isArray(v)?v:[];}\nfunction safeUrls(v){return arr(v).map(txt).filter(u=>/^https?:\\/\\//i.test(u)).slice(0,4);}\nfunction cleanItem(x,hasImplication){\n  return {\n    title:txt(x?.title), summary:txt(x?.summary),\n    implication_label:hasImplication?txt(x?.implication_label||'시사점'):'',\n    implication:hasImplication?txt(x?.implication):'',\n    source_urls:safeUrls(x?.source_urls)\n  };\n}\nconst warnings=[];\n// 웹 화면(HITL 검토)에서 관리자가 섹션별로 남겨둔 항목을 '전부' 예약한다.\n// 한 섹션에 비정상적으로 많은 항목이 남아있을 경우를 대비해 섹션당 최대 6개(웹 화면의 최대 노출 개수와 동일)로만 안전장치를 둔다.\nconst MAX_PER_SECTION=6;\nfunction selectItems(key,hasImplication){\n  const valid=arr(input.sections?.[key]).map(x=>cleanItem(x,hasImplication)).filter(x=>x.title||x.summary);\n  if(valid.length>MAX_PER_SECTION) warnings.push(`${key}: ${valid.length}개 중 상위 ${MAX_PER_SECTION}개만 발송에 포함했습니다.`);\n  return valid.slice(0,MAX_PER_SECTION);\n}\nconst sections={\n  client_watch:selectItems('client_watch',true),\n  research_on_insight:selectItems('research_on_insight',true),\n  business_work:selectItems('business_work',true),\n  people_culture:selectItems('people_culture',true),\n  people_culture_view:txt(input.sections?.people_culture_view)\n};\nconst selectedCount=['client_watch','research_on_insight','business_work','people_culture'].reduce((s,k)=>s+sections[k].length,0);\nif(!selectedCount) throw new Error('최종 발송 항목이 없습니다. 섹션별로 최소 1개 후보를 남겨주세요.');\n\nconst now=new Date();\n// 다음(오늘 포함) 월요일 09:00 KST를 UTC ISO로 계산 — 월요일 08시 수집 → 09시 발송 주기에 맞춤\nconst kstNow=new Date(now.getTime()+9*3600000);\nconst day=kstNow.getUTCDay();\nconst daysUntilMonday=(1-day+7)%7;\nconst targetUtcMs=Date.UTC(kstNow.getUTCFullYear(),kstNow.getUTCMonth(),kstNow.getUTCDate()+daysUntilMonday,9,0,0)-9*3600000;\nconst scheduledFor=new Date(targetUtcMs).toISOString();\nconst period=txt(input.period);\nconst periodEnd=txt(data.period_end || input.period_end || (period.match(/(20\\d{2}-\\d{2}-\\d{2})\\s*$/)||[])[1] || now.toISOString().slice(0,10));\nconst periodStart=txt((period.match(/^(20\\d{2}-\\d{2}-\\d{2})/)||[])[1]);\nconst newsletter={\n  newsletter_title:'Research On Weekly',\n  issue_title:txt(input.issue_title || `${periodEnd} 주간 브리핑`),\n  period:period || `${periodStart} ~ ${periodEnd}`,\n  executive_brief:{headline:txt(input.executive_brief?.headline),summary:txt(input.executive_brief?.summary)},\n  sections,\n  editor_note:txt(input.editor_note)\n};\nconst recipient=txt(data.recipient || 'bpo.dsplan1@gmail.com');\nif(!recipient) throw new Error('수신 이메일이 없습니다.');\nreturn [{json:{\n  issue_id:`NLQ-${periodEnd.replace(/-/g,'')}-${Math.random().toString(36).slice(2,7).toUpperCase()}`,\n  generated_at:now.toISOString(), queued_at:now.toISOString(), scheduled_for:scheduledFor,\n  period_start:periodStart, period_end:periodEnd, recipient,\n  selected_count:selectedCount, warnings, newsletter,\n  subject:txt(data.subject || `[Research On Weekly] ${newsletter.issue_title}`)\n}}];"
       },
       "id": "1ec88238-42f6-45f5-8b43-6e10db520e4e",
       "name": "B1. Code - 승인본 검증 + 섹션별 항목 확정",
@@ -354,7 +354,7 @@
             {
               "field": "weeks",
               "triggerAtDay": [
-                2
+                1
               ],
               "triggerAtHour": 9
             }
@@ -362,14 +362,14 @@
         }
       },
       "id": "4665d444-095a-4470-95c7-264cea3a36be",
-      "name": "C0. Schedule Trigger - 매주 화요일 09시 발송",
+      "name": "C0. Schedule Trigger - 매주 월요일 09시 발송",
       "type": "n8n-nodes-base.scheduleTrigger",
       "typeVersion": 1.2,
       "position": [
         55216,
         10896
       ],
-      "notes": "매주 화요일 09시 실행(1단계 08시 수집 → 관리자 검토·승인 → 09시 발송, 1시간 검토 창) — 정기 운영 일정. 웹에서 발송하기를 눌러 QUEUED로 저장된 승인본만 발송합니다. 워크플로우 timezone은 Asia/Seoul입니다."
+      "notes": "매주 월요일 09시 실행(1단계 08시 수집 → 관리자 검토·승인 → 09시 발송, 1시간 검토 창) — 정기 운영 일정. 웹에서 발송하기를 눌러 QUEUED로 저장된 승인본만 발송합니다. 워크플로우 timezone은 Asia/Seoul입니다."
     },
     {
       "parameters": {},
@@ -1246,7 +1246,7 @@
         ]
       ]
     },
-    "C0. Schedule Trigger - 매주 화요일 09시 발송": {
+    "C0. Schedule Trigger - 매주 월요일 09시 발송": {
       "main": [
         [
           {
