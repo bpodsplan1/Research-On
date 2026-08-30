@@ -254,7 +254,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// =============================================\n// 상세 HTML 템플릿 렌더링\n// =============================================\n\nconst data = $json;\nconst nl = data.newsletter || {};\nconst sections = nl.sections || {};\n\nfunction e(v) {\n  return String(v ?? '')\n    .replace(/&/g,'&amp;')\n    .replace(/</g,'&lt;')\n    .replace(/>/g,'&gt;')\n    .replace(/\"/g,'&quot;')\n    .replace(/'/g,'&#039;');\n}\nfunction p(v) {\n  return e(v)\n    .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')\n    .replace(/\\n/g,'<br>');\n}\n// 인스타그램/틱톡/X/Threads 등은 자기 페이지가 다른 사이트의 iframe 안에 뜨는 걸 서버 차원에서 막는다.\n// 이런 도메인만 새 탭으로 열고, 그 외 일반 기사 링크는 관리자 미리보기(iframe) 안에서 그대로 열리게 둔다.\nconst NEW_TAB_DOMAINS = ['instagram.com','tiktok.com','x.com','twitter.com','threads.net','facebook.com','youtube.com'];\nfunction needsNewTab(url) {\n  try { const host = new URL(url).hostname.replace(/^www\\./, ''); return NEW_TAB_DOMAINS.some(d => host === d || host.endsWith('.' + d)); }\n  catch (e) { return false; }\n}\nfunction sourceLinks(urls = []) {\n  const safe = Array.isArray(urls) ? urls.filter(Boolean).slice(0,4) : [];\n  if (!safe.length) return '';\n  const links = safe.map((url, idx) => {\n    const attr = needsNewTab(url) ? ' target=\"_blank\" rel=\"noopener noreferrer\"' : '';\n    return `<a href=\"${e(url)}\"${attr} style=\"color:#64748B;text-decoration:underline;\">원문 ${idx+1}</a>`;\n  }).join('&nbsp;&nbsp;');\n  return `<div style=\"margin-top:13px;font-size:12px;line-height:19px;color:#64748B;\">${links}</div>`;\n}\nfunction divider() {\n  return `<tr><td style=\"padding:0 40px;\"><table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td style=\"border-top:1px solid #E5E7EB;font-size:1px;line-height:1px;\">&nbsp;</td></tr></table></td></tr>`;\n}\nfunction itemBlock(item, culture = false, last = false) {\n  const bg = culture ? '#F2F7F4' : '#EEF3FF';\n  const labelColor = culture ? '#2F6B4F' : '#274690';\n  const textColor = culture ? '#3F5B4C' : '#35415E';\n  // 모든 섹션(PEOPLE & CULTURE 포함)에서 시사점이 있으면 박스를 그린다.\n  // (예전에는 PEOPLE & CULTURE는 무조건 숨기고 섹션 전체 종합 코멘트만 보여줬으나,\n  //  CL4 이상 보직자용으로 항목별 조직 운영 시사점을 반드시 채우도록 프롬프트를 바꿨다.)\n  const implicationHtml = item.implication ? `\n    <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"margin-top:16px;border-collapse:collapse;\">\n      <tr>\n        <td style=\"padding:15px 17px;background-color:${bg};\">\n          <div style=\"font-size:12px;line-height:18px;font-weight:bold;color:${labelColor};\">${e(item.implication_label || '시사점')}</div>\n          <div style=\"margin-top:5px;font-size:14px;line-height:24px;color:${textColor};\">${p(item.implication)}</div>\n        </td>\n      </tr>\n    </table>` : '';\n  const block = `\n<tr>\n  <td style=\"padding:26px 40px ${last ? '32px' : '26px'};\">\n    <div style=\"font-size:20px;line-height:30px;font-weight:bold;color:#111827;\">\n      ${e(item.title)}\n    </div>\n    <div style=\"margin-top:12px;font-size:15px;line-height:26px;color:#3F4652;\">\n      ${p(item.summary)}\n    </div>\n    ${implicationHtml}\n    ${sourceLinks(item.source_urls)}\n  </td>\n</tr>`;\n  return block + (last ? '' : divider());\n}\nfunction cultureViewBlock(view) {\n  if (!view) return '';\n  return `\n<tr>\n  <td style=\"padding:0 40px 32px;\">\n    <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;\">\n      <tr>\n        <td style=\"padding:15px 17px;background-color:#F2F7F4;\">\n          <div style=\"font-size:12px;line-height:18px;font-weight:bold;color:#2F6B4F;\">종합 코멘트</div>\n          <div style=\"margin-top:5px;font-size:14px;line-height:24px;color:#3F5B4C;\">${p(view)}</div>\n        </td>\n      </tr>\n    </table>\n  </td>\n</tr>`;\n}\nfunction sectionBlock(no, code, title, description, items, culture = false, trailingView = '') {\n  if (!Array.isArray(items) || !items.length) return '';\n  const hasTrailing = culture && !!trailingView;\n  const lastIdx = items.length - 1;\n  const itemsHtml = items\n    .map((x, i) => itemBlock(x, culture, hasTrailing ? false : i === lastIdx))\n    .join('');\n  const trailingHtml = hasTrailing ? cultureViewBlock(trailingView) : '';\n  return `\n<tr>\n  <td style=\"padding:26px 40px 12px;background-color:#F8FAFC;border-top:1px solid #E5E7EB;\">\n    <div style=\"font-size:12px;line-height:18px;letter-spacing:1.2px;font-weight:bold;color:#274690;\">${no} · ${e(code)}</div>\n    <div style=\"margin-top:7px;font-size:22px;line-height:32px;font-weight:bold;color:#111827;\">${e(title)}</div>\n    <div style=\"margin-top:8px;font-size:14px;line-height:23px;color:#6B7280;\">${e(description)}</div>\n  </td>\n</tr>\n${itemsHtml}${trailingHtml}`;\n}\n\nconst sectionHtml = [\n  sectionBlock('01','CLIENT WATCH','주요 클라이언트와 고객 산업 동향',\n    '핵심 고객사의 사업·조직·AI·운영 변화를 중심으로 정리했습니다.',\n    sections.client_watch || [], false),\n  sectionBlock('02','RESEARCH ON INSIGHT','지난주 내부 리서치에서 발견한 핵심 흐름',\n    '사용자들이 직접 수행한 리서치에서 반복적으로 나타난 관심사를 정리했습니다.',\n    sections.research_on_insight || [], false),\n  sectionBlock('03','BUSINESS & WORK','BPO·AI·조직 운영의 주요 변화',\n    '본부 사업과 운영에 영향을 줄 수 있는 외부 변화를 정리했습니다.',\n    sections.business_work || [], false),\n  sectionBlock('04','PEOPLE & CULTURE','요즘 구성원은 무엇에 반응하는가',\n    '젊은 세대의 행동과 가치관을 조직 운영 관점에서 해석했습니다.',\n    sections.people_culture || [], true, sections.people_culture_view || '')\n].join('');\n\nconst subject = `[Research On Weekly] ${nl.issue_title || ''}`;\n\nconst html = `<!DOCTYPE html>\n<html lang=\"ko\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>${e(subject)}</title>\n</head>\n<body style=\"margin:0;padding:0;background-color:#F3F4F6;font-family:Arial,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;color:#111827;word-break:keep-all;overflow-wrap:break-word;\">\n  <div style=\"display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;line-height:1px;font-size:1px;\">\n    클라이언트 동향, 내부 리서치 인사이트, BPO·AI 변화, 구성원 문화 트렌드를 정리했습니다.\n  </div>\n  <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"width:100%;margin:0;padding:0;background-color:#F3F4F6;border-collapse:collapse;\">\n    <tr>\n      <td align=\"center\" style=\"padding:24px 12px;\">\n        <table role=\"presentation\" width=\"680\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"width:100%;max-width:680px;background-color:#FFFFFF;border-collapse:collapse;\">\n          <tr>\n            <td style=\"padding:34px 40px 30px;background-color:#111827;\">\n              <div style=\"font-size:12px;line-height:18px;letter-spacing:1.4px;font-weight:bold;color:#AAB4C4;\">RESEARCH ON WEEKLY</div>\n              <div style=\"margin-top:12px;font-size:30px;line-height:41px;font-weight:bold;color:#FFFFFF;\">${e(nl.issue_title)}</div>\n              <div style=\"margin-top:14px;font-size:13px;line-height:20px;color:#C9D1DD;\">${e(nl.period)}</div>\n            </td>\n          </tr>\n\n          <tr>\n            <td style=\"padding:34px 40px 30px;\">\n              <div style=\"font-size:12px;line-height:18px;letter-spacing:1.2px;font-weight:bold;color:#274690;\">EXECUTIVE BRIEF</div>\n              <div style=\"margin-top:10px;font-size:23px;line-height:34px;font-weight:bold;color:#111827;\">${e(nl.executive_brief?.headline || '')}</div>\n              <div style=\"margin-top:14px;font-size:15px;line-height:26px;color:#3F4652;\">${p(nl.executive_brief?.summary || '')}</div>\n            </td>\n          </tr>\n\n          ${sectionHtml}\n\n          <tr>\n            <td style=\"padding:28px 40px;background-color:#111827;\">\n              <div style=\"font-size:13px;line-height:20px;font-weight:bold;color:#FFFFFF;\">Research On</div>\n              <div style=\"margin-top:8px;font-size:12px;line-height:20px;color:#AAB4C4;\">\n                본 뉴스레터는 내부 리서치 결과와 뉴스레터 전용 모니터링 자료를 바탕으로 작성되었습니다.\n              </div>\n              <div style=\"margin-top:12px;font-size:11px;line-height:18px;color:#7F8A9B;\">\n                AI가 생성한 시사점은 제공된 자료를 기반으로 한 해석이며, 주요 의사결정 전 원문 확인이 필요합니다.\n              </div>\n            </td>\n          </tr>\n        </table>\n      </td>\n    </tr>\n  </table>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    issue_id: data.issue_id,\n    generated_at: data.generated_at,\n    period_start: data.period_start,\n    period_end: data.period_end,\n    status: 'QUEUED',\n    subject: data.subject || subject,\n    issue_title: nl.issue_title,\n    research_count: data.selected_count,\n    newsletter_json: {\n      newsletter: nl,\n      delivery: {\n        recipient: data.recipient,\n        queued_at: data.queued_at,\n        scheduled_for: data.scheduled_for,\n        warnings: data.warnings || []\n      }\n    },\n    newsletter_html: html,\n    editor_note: nl.editor_note || '',\n    recipient: data.recipient,\n    scheduled_for: data.scheduled_for,\n    selected_count: data.selected_count,\n    warnings: data.warnings || []\n  }\n}];"
+        "jsCode": "// =============================================\n// 상세 HTML 템플릿 렌더링\n// =============================================\n\nconst data = $json;\nconst nl = data.newsletter || {};\nconst sections = nl.sections || {};\n\nfunction e(v) {\n  return String(v ?? '')\n    .replace(/&/g,'&amp;')\n    .replace(/</g,'&lt;')\n    .replace(/>/g,'&gt;')\n    .replace(/\"/g,'&quot;')\n    .replace(/'/g,'&#039;');\n}\nfunction p(v) {\n  return e(v)\n    .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')\n    .replace(/\\n/g,'<br>');\n}\n// 인스타그램/틱톡/X/Threads 등은 자기 페이지가 다른 사이트의 iframe 안에 뜨는 걸 서버 차원에서 막는다.\n// 이런 도메인만 새 탭으로 열고, 그 외 일반 기사 링크는 관리자 미리보기(iframe) 안에서 그대로 열리게 둔다.\nconst NEW_TAB_DOMAINS = ['instagram.com','tiktok.com','x.com','twitter.com','threads.net','facebook.com','youtube.com'];\nfunction needsNewTab(url) {\n  try { const host = new URL(url).hostname.replace(/^www\\./, ''); return NEW_TAB_DOMAINS.some(d => host === d || host.endsWith('.' + d)); }\n  catch (e) { return false; }\n}\nfunction sourceLinks(urls = []) {\n  const safe = Array.isArray(urls) ? urls.filter(Boolean).slice(0,4) : [];\n  if (!safe.length) return '';\n  const links = safe.map((url, idx) => {\n    const attr = needsNewTab(url) ? ' target=\"_blank\" rel=\"noopener noreferrer\"' : '';\n    return `<a href=\"${e(url)}\"${attr} style=\"color:#64748B;text-decoration:underline;\">원문 ${idx+1}</a>`;\n  }).join('&nbsp;&nbsp;');\n  return `<div style=\"margin-top:13px;font-size:12px;line-height:19px;color:#64748B;\">${links}</div>`;\n}\nfunction divider() {\n  return `<tr><td style=\"padding:0 40px;\"><table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr><td style=\"border-top:1px solid #E5E7EB;font-size:1px;line-height:1px;\">&nbsp;</td></tr></table></td></tr>`;\n}\nfunction itemBlock(item, culture = false, last = false) {\n  const bg = culture ? '#F2F7F4' : '#EEF3FF';\n  const labelColor = culture ? '#2F6B4F' : '#274690';\n  const textColor = culture ? '#3F5B4C' : '#35415E';\n  // 모든 섹션(PEOPLE & CULTURE 포함)에서 시사점이 있으면 박스를 그린다.\n  // (예전에는 PEOPLE & CULTURE는 무조건 숨기고 섹션 전체 종합 코멘트만 보여줬으나,\n  //  CL4 이상 보직자용으로 항목별 조직 운영 시사점을 반드시 채우도록 프롬프트를 바꿨다.)\n  const implicationHtml = item.implication ? `\n    <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"margin-top:16px;border-collapse:collapse;\">\n      <tr>\n        <td style=\"padding:15px 17px;background-color:${bg};\">\n          <div style=\"font-size:12px;line-height:18px;font-weight:bold;color:${labelColor};\">${e(item.implication_label || '시사점')}</div>\n          <div style=\"margin-top:5px;font-size:14px;line-height:24px;color:${textColor};\">${p(item.implication)}</div>\n        </td>\n      </tr>\n    </table>` : '';\n  const block = `\n<tr>\n  <td style=\"padding:26px 40px ${last ? '32px' : '26px'};\">\n    <div style=\"font-size:20px;line-height:30px;font-weight:bold;color:#111827;\">\n      ${e(item.title)}\n    </div>\n    <div style=\"margin-top:12px;font-size:15px;line-height:26px;color:#3F4652;\">\n      ${p(item.summary)}\n    </div>\n    ${implicationHtml}\n    ${sourceLinks(item.source_urls)}\n  </td>\n</tr>`;\n  return block + (last ? '' : divider());\n}\nfunction cultureViewBlock(view) {\n  if (!view) return '';\n  return `\n<tr>\n  <td style=\"padding:0 40px 32px;\">\n    <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"border-collapse:collapse;\">\n      <tr>\n        <td style=\"padding:15px 17px;background-color:#F2F7F4;\">\n          <div style=\"font-size:12px;line-height:18px;font-weight:bold;color:#2F6B4F;\">종합 코멘트</div>\n          <div style=\"margin-top:5px;font-size:14px;line-height:24px;color:#3F5B4C;\">${p(view)}</div>\n        </td>\n      </tr>\n    </table>\n  </td>\n</tr>`;\n}\nfunction sectionBlock(no, code, title, description, items, culture = false, trailingView = '') {\n  if (!Array.isArray(items) || !items.length) return '';\n  const hasTrailing = culture && !!trailingView;\n  const lastIdx = items.length - 1;\n  const itemsHtml = items\n    .map((x, i) => itemBlock(x, culture, hasTrailing ? false : i === lastIdx))\n    .join('');\n  const trailingHtml = hasTrailing ? cultureViewBlock(trailingView) : '';\n  return `\n<tr>\n  <td style=\"padding:26px 40px 12px;background-color:#F8FAFC;border-top:1px solid #E5E7EB;\">\n    <div style=\"font-size:12px;line-height:18px;letter-spacing:1.2px;font-weight:bold;color:#274690;\">${no} · ${e(code)}</div>\n    <div style=\"margin-top:7px;font-size:22px;line-height:32px;font-weight:bold;color:#111827;\">${e(title)}</div>\n    <div style=\"margin-top:8px;font-size:14px;line-height:23px;color:#6B7280;\">${e(description)}</div>\n  </td>\n</tr>\n${itemsHtml}${trailingHtml}`;\n}\n\nconst sectionHtml = [\n  sectionBlock('01','CLIENT WATCH','주요 클라이언트와 고객 산업 동향',\n    '핵심 고객사의 사업·조직·AI·운영 변화를 중심으로 정리했습니다.',\n    sections.client_watch || [], false),\n  sectionBlock('02','RESEARCH ON INSIGHT','지난주 내부 리서치에서 발견한 핵심 흐름',\n    '사용자들이 직접 수행한 리서치에서 반복적으로 나타난 관심사를 정리했습니다.',\n    sections.research_on_insight || [], false),\n  sectionBlock('03','BUSINESS & WORK','BPO·AI·조직 운영의 주요 변화',\n    '본부 사업과 운영에 영향을 줄 수 있는 외부 변화를 정리했습니다.',\n    sections.business_work || [], false),\n  sectionBlock('04','PEOPLE & CULTURE','요즘 구성원은 무엇에 반응하는가',\n    '젊은 세대의 행동과 가치관을 조직 운영 관점에서 해석했습니다.',\n    sections.people_culture || [], true, sections.people_culture_view || '')\n].join('');\n\nconst subject = `[Research On Weekly] ${nl.issue_title || ''}`;\n\nconst html = `<!DOCTYPE html>\n<html lang=\"ko\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>${e(subject)}</title>\n</head>\n<body style=\"margin:0;padding:0;background-color:#F3F4F6;font-family:Arial,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;color:#111827;word-break:keep-all;overflow-wrap:break-word;\">\n  <div style=\"display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;line-height:1px;font-size:1px;\">\n    클라이언트 동향, 내부 리서치 인사이트, BPO·AI 변화, 구성원 문화 트렌드를 정리했습니다.\n  </div>\n  <table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"width:100%;margin:0;padding:0;background-color:#F3F4F6;border-collapse:collapse;\">\n    <tr>\n      <td align=\"center\" style=\"padding:24px 12px;\">\n        <table role=\"presentation\" width=\"680\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"width:100%;max-width:680px;background-color:#FFFFFF;border-collapse:collapse;\">\n          <tr>\n            <td style=\"padding:34px 40px 30px;background-color:#111827;\">\n              <div style=\"font-size:12px;line-height:18px;letter-spacing:1.4px;font-weight:bold;color:#AAB4C4;\">RESEARCH ON WEEKLY</div>\n              <div style=\"margin-top:12px;font-size:30px;line-height:41px;font-weight:bold;color:#FFFFFF;\">${e(nl.issue_title)}</div>\n              <div style=\"margin-top:14px;font-size:13px;line-height:20px;color:#C9D1DD;\">${e(nl.period)}</div>\n            </td>\n          </tr>\n\n          <tr>\n            <td style=\"padding:34px 40px 30px;\">\n              <div style=\"font-size:12px;line-height:18px;letter-spacing:1.2px;font-weight:bold;color:#274690;\">EXECUTIVE BRIEF</div>\n              <div style=\"margin-top:10px;font-size:23px;line-height:34px;font-weight:bold;color:#111827;\">${e(nl.executive_brief?.headline || '')}</div>\n              <div style=\"margin-top:14px;font-size:15px;line-height:26px;color:#3F4652;\">${p(nl.executive_brief?.summary || '')}</div>\n            </td>\n          </tr>\n\n          ${sectionHtml}\n\n          <tr>\n            <td style=\"padding:28px 40px;background-color:#111827;\">\n              <div style=\"font-size:13px;line-height:20px;font-weight:bold;color:#FFFFFF;\">Research On</div>\n              <div style=\"margin-top:8px;font-size:12px;line-height:20px;color:#AAB4C4;\">\n                본 뉴스레터는 내부 리서치 결과와 뉴스레터 전용 모니터링 자료를 바탕으로 작성되었습니다.\n              </div>\n              <div style=\"margin-top:12px;font-size:11px;line-height:18px;color:#7F8A9B;\">\n                AI가 생성한 시사점은 제공된 자료를 기반으로 한 해석이며, 주요 의사결정 전 원문 확인이 필요합니다.\n              </div>\n              <div style=\"margin-top:14px;font-size:11px;line-height:18px;color:#7F8A9B;\">\n                더 이상 뉴스레터를 받고 싶지 않으신가요? <a href=\"__UNSUB_URL__\" style=\"color:#AAB4C4;text-decoration:underline;\">구독 해지</a>\n              </div>\n            </td>\n          </tr>\n        </table>\n      </td>\n    </tr>\n  </table>\n</body>\n</html>`;\n\nreturn [{\n  json: {\n    issue_id: data.issue_id,\n    generated_at: data.generated_at,\n    period_start: data.period_start,\n    period_end: data.period_end,\n    status: 'QUEUED',\n    subject: data.subject || subject,\n    issue_title: nl.issue_title,\n    research_count: data.selected_count,\n    newsletter_json: {\n      newsletter: nl,\n      delivery: {\n        recipient: data.recipient,\n        queued_at: data.queued_at,\n        scheduled_for: data.scheduled_for,\n        warnings: data.warnings || []\n      }\n    },\n    newsletter_html: html,\n    editor_note: nl.editor_note || '',\n    recipient: data.recipient,\n    scheduled_for: data.scheduled_for,\n    selected_count: data.selected_count,\n    warnings: data.warnings || []\n  }\n}];"
       },
       "id": "bd3e3649-dd59-45ae-82c0-4315e98408c2",
       "name": "B2. Code - 승인본 HTML 렌더링 + QUEUED 행 생성",
@@ -593,7 +593,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// SENT/QUEUED를 통틀어 generated_at이 가장 최근인 호를 골라 해당 구독자 1인에게 즉시(재)발송할\n// 뉴스레터로 사용한다. (예전엔 \"SENT가 하나라도 있으면 무조건 SENT 중 최신\"이었는데, 그러면 이미\n// 발송된 예전 호가 있는 상태에서 새로 승인한 QUEUED 최신호를 강제발송해도 계속 예전 SENT 호가\n// 선택되는 문제가 있었음 — 실사용 중 발견)\nconst rows = $input.all().map(x => x.json || {});\nconst ctx = $('D1. Code - 입력 검증 + 관리자 토큰 확인').first().json;\nfunction txt(v){ return v===null||v===undefined?'':String(v).trim(); }\n\nconst eligible = rows.filter(r => ['SENT','QUEUED'].includes(txt(r.status).toUpperCase()));\n\nfunction latest(list){\n  if (!list.length) return null;\n  return list.slice().sort((a, b) => new Date(b.generated_at || 0) - new Date(a.generated_at || 0))[0];\n}\n\nconst pick = latest(eligible);\nif (!pick || !txt(pick.newsletter_html)) {\n  throw new Error('발송할 뉴스레터가 없습니다. 먼저 뉴스레터를 발송했거나 예약(QUEUED)해주세요.');\n}\n\nreturn [{\n  json: {\n    issue_id: txt(pick.issue_id),\n    subject: txt(pick.subject) || '[Research On] 뉴스레터',\n    newsletter_html: txt(pick.newsletter_html),\n    recipient: ctx.email,\n    recipient_name: ctx.name\n  }\n}];\n"
+        "jsCode": "// SENT/QUEUED를 통틀어 generated_at이 가장 최근인 호를 골라 해당 구독자 1인에게 즉시(재)발송할\n// 뉴스레터로 사용한다. (예전엔 \"SENT가 하나라도 있으면 무조건 SENT 중 최신\"이었는데, 그러면 이미\n// 발송된 예전 호가 있는 상태에서 새로 승인한 QUEUED 최신호를 강제발송해도 계속 예전 SENT 호가\n// 선택되는 문제가 있었음 — 실사용 중 발견)\nconst rows = $input.all().map(x => x.json || {});\nconst ctx = $('D1. Code - 입력 검증 + 관리자 토큰 확인').first().json;\nfunction txt(v){ return v===null||v===undefined?'':String(v).trim(); }\n\nconst eligible = rows.filter(r => ['SENT','QUEUED'].includes(txt(r.status).toUpperCase()));\n\nfunction latest(list){\n  if (!list.length) return null;\n  return list.slice().sort((a, b) => new Date(b.generated_at || 0) - new Date(a.generated_at || 0))[0];\n}\n\nconst pick = latest(eligible);\nif (!pick || !txt(pick.newsletter_html)) {\n  throw new Error('발송할 뉴스레터가 없습니다. 먼저 뉴스레터를 발송했거나 예약(QUEUED)해주세요.');\n}\n\nreturn [{\n  json: {\n    issue_id: txt(pick.issue_id),\n    subject: txt(pick.subject) || '[Research On] 뉴스레터',\n    newsletter_html: txt(pick.newsletter_html).split('__UNSUB_URL__').join('https://bpodsplan1.github.io/Research-On/'),\n    recipient: ctx.email,\n    recipient_name: ctx.name\n  }\n}];\n"
       },
       "id": "34350668-ae85-4ab7-821e-55f16a62b230",
       "name": "D3. Code - 최신 발송본 선택",
@@ -794,7 +794,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// bpo.dsplan1@gmail.com 개인 Google 그룹에 의존하던 방식을 걷어내고,\n// Supabase의 실제 활성 구독자 목록을 발송 대상으로 직접 사용한다.\n// (그룹 멤버 자동 동기화 API가 개인 계정 그룹에는 없어서, 그룹을 거치지 않고\n//  n8n이 매번 최신 구독자 목록을 조회해 각자에게 개별 발송하는 방식으로 전환)\nconst newsletters = $('C2. Code - QUEUED 승인본 발송 대상 분리').all().map(x => x.json);\nconst profileRows = $('C2B. HTTP Request - 활성 구독자 조회 (profiles)').all().map(x => x.json);\nconst guestRows = $('C2C. HTTP Request - 활성 구독자 조회 (게스트)').all().map(x => x.json);\n\nfunction txt(v){ return v===null||v===undefined?'':String(v).trim(); }\n\nconst recipients = [];\nfor(const p of profileRows){\n  const email = txt(p.email);\n  if(email && !p.newsletter_paused) recipients.push({ id:p.id, kind:'profile', email, name:txt(p.name) });\n}\nfor(const g of guestRows){\n  const email = txt(g.email);\n  if(email) recipients.push({ id:g.id, kind:'guest', email, name:txt(g.name) });\n}\n\nif(!recipients.length){\n  throw new Error('발송 대상 활성 구독자가 없습니다(profiles/newsletter_guest_subscribers 확인 필요).');\n}\n\nconst out = [];\nfor(const nl of newsletters){\n  for(const r of recipients){\n    out.push({ json: {\n      issue_id: nl.issue_id,\n      subject: nl.subject,\n      newsletter_html: nl.newsletter_html,\n      recipient_id: r.id,\n      recipient_kind: r.kind,\n      recipient_email: r.email,\n      recipient_name: r.name\n    }});\n  }\n}\nreturn out;"
+        "jsCode": "// bpo.dsplan1@gmail.com 개인 Google 그룹에 의존하던 방식을 걷어내고,\n// Supabase의 실제 활성 구독자 목록을 발송 대상으로 직접 사용한다.\n// (그룹 멤버 자동 동기화 API가 개인 계정 그룹에는 없어서, 그룹을 거치지 않고\n//  n8n이 매번 최신 구독자 목록을 조회해 각자에게 개별 발송하는 방식으로 전환)\nconst newsletters = $('C2. Code - QUEUED 승인본 발송 대상 분리').all().map(x => x.json);\nconst profileRows = $('C2B. HTTP Request - 활성 구독자 조회 (profiles)').all().map(x => x.json);\nconst guestRows = $('C2C. HTTP Request - 활성 구독자 조회 (게스트)').all().map(x => x.json);\n\nfunction txt(v){ return v===null||v===undefined?'':String(v).trim(); }\n\nconst recipients = [];\nfor(const p of profileRows){\n  const email = txt(p.email);\n  if(email && !p.newsletter_paused) recipients.push({ id:p.id, kind:'profile', email, name:txt(p.name) });\n}\nfor(const g of guestRows){\n  const email = txt(g.email);\n  if(email) recipients.push({ id:g.id, kind:'guest', email, name:txt(g.name) });\n}\n\nif(!recipients.length){\n  throw new Error('발송 대상 활성 구독자가 없습니다(profiles/newsletter_guest_subscribers 확인 필요).');\n}\n\nconst out = [];\nfor(const nl of newsletters){\n  for(const r of recipients){\n    const unsubUrl = `https://n8n.mokai.kr/webhook/newsletter/unsubscribe?rid=${encodeURIComponent(r.id)}&kind=${encodeURIComponent(r.kind)}`;\n    out.push({ json: {\n      issue_id: nl.issue_id,\n      subject: nl.subject,\n      newsletter_html: nl.newsletter_html.split('__UNSUB_URL__').join(unsubUrl),\n      recipient_id: r.id,\n      recipient_kind: r.kind,\n      recipient_email: r.email,\n      recipient_name: r.name\n    }});\n  }\n}\nreturn out;"
       },
       "id": "0ec0e13e-798f-46ac-bd6b-10e6dd392c88",
       "name": "C2D. Code - 발송 대상 × 뉴스레터 조합",
@@ -924,6 +924,171 @@
         11024
       ],
       "notes": "C2/C2B/C2C 세 갈래가 전부 끝난 뒤에만 C2D가 실행되도록 강제하는 동기화 지점.\nC2D는 이 노드의 실제 출력 내용은 안 쓰고(전부 $('C2...')/$('C2B...')/$('C2C...')로\n직접 조회), 세 갈래 완료를 기다리는 용도로만 씀 — 와이어 3개를 C2D 입력 하나에\n그냥 몰아서 연결했더니 n8n이 전부 끝나기를 기다리지 않고 먼저 도착한 것만으로\n실행해버려 'C2B가 아직 실행 안 됨' 에러가 났던 문제를 해결."
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "newsletter/unsubscribe",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "4e17acf0-b28b-402f-bc25-052a79af8c74",
+      "name": "E0. Webhook - 뉴스레터 구독 해지 링크",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        55216,
+        11584
+      ],
+      "webhookId": "newsletter-unsubscribe-link"
+    },
+    {
+      "parameters": {
+        "jsCode": "const q = $json.query || {};\nfunction txt(v){ return v===null||v===undefined?'':String(v).trim(); }\nconst rid = txt(q.rid);\nconst kind = txt(q.kind);\nconst validKind = kind === 'profile' || kind === 'guest';\nconst ok = !!(rid && validKind);\nconst table = kind === 'guest' ? 'newsletter_guest_subscribers' : 'profiles';\nconst patchBody = kind === 'guest' ? { status: 'cancelled' } : { newsletter_subscribed: false };\nreturn [{ json: { ok, rid, kind, table, patchBody } }];"
+      },
+      "id": "4823a574-be70-4be6-9adf-e1366d1d5dfa",
+      "name": "E1. Code - rid/kind 파라미터 검증",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        55488,
+        11584
+      ],
+      "notes": "이메일 본문의 구독 해지 링크(?rid=...&kind=profile|guest)를 검증. 로그인 없이 클릭 한 번으로 처리되도록 GET 웹훅으로 받음."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "unsub-valid",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6475df03-ce61-49dd-874e-5aa7a0707116",
+      "name": "E2. IF - 유효한 해지 요청인가",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        55744,
+        11584
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://aiftpranlfudkbobxyll.supabase.co/rest/v1/{{ $json.table }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "=eq.{{ $json.rid }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.patchBody) }}",
+        "options": {}
+      },
+      "id": "6cdb26d0-1f91-488b-8bfd-ba8b5f436f4d",
+      "name": "E3. HTTP Request - 구독 상태 변경",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        56000,
+        11488
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = `<!DOCTYPE html><html lang=\"ko\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>구독 해지 완료</title></head>\n<body style=\"margin:0;padding:0;background-color:#F3F4F6;font-family:Arial,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;\">\n<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;padding:60px 20px;\">\n<tr><td align=\"center\">\n<table role=\"presentation\" width=\"440\" cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;max-width:440px;background:#FFFFFF;border-radius:16px;padding:40px 32px;text-align:center;\">\n<tr><td>\n<div style=\"font-size:15px;font-weight:800;color:#0048D7;letter-spacing:.06em;\">RESEARCH ON</div>\n<div style=\"margin-top:16px;font-size:22px;font-weight:900;color:#111827;\">구독이 해지되었습니다</div>\n<div style=\"margin-top:12px;font-size:14px;line-height:1.7;color:#5B6677;\">앞으로 Research On Weekly 뉴스레터가 발송되지 않습니다.<br>다시 구독하고 싶으시면 언제든 리서치허브에서 재신청하실 수 있습니다.</div>\n</td></tr>\n</table>\n</td></tr>\n</table>\n</body></html>`;\nreturn [{ json: { html } }];"
+      },
+      "id": "03d7d60e-4f80-4eed-b120-d604e480e6ce",
+      "name": "E4. Code - 해지 완료 안내 페이지",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        56256,
+        11488
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const html = `<!DOCTYPE html><html lang=\"ko\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>처리 실패</title></head>\n<body style=\"margin:0;padding:0;background-color:#F3F4F6;font-family:Arial,'Apple SD Gothic Neo','Noto Sans KR',sans-serif;\">\n<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;padding:60px 20px;\">\n<tr><td align=\"center\">\n<table role=\"presentation\" width=\"440\" cellpadding=\"0\" cellspacing=\"0\" style=\"width:100%;max-width:440px;background:#FFFFFF;border-radius:16px;padding:40px 32px;text-align:center;\">\n<tr><td>\n<div style=\"font-size:15px;font-weight:800;color:#DC2626;letter-spacing:.06em;\">RESEARCH ON</div>\n<div style=\"margin-top:16px;font-size:22px;font-weight:900;color:#111827;\">링크가 올바르지 않습니다</div>\n<div style=\"margin-top:12px;font-size:14px;line-height:1.7;color:#5B6677;\">구독 해지 링크가 만료되었거나 잘못된 요청입니다.<br>리서치허브에 로그인해 직접 구독을 해지해주세요.</div>\n</td></tr>\n</table>\n</td></tr>\n</table>\n</body></html>`;\nreturn [{ json: { html } }];"
+      },
+      "id": "3027e09f-6c66-4c5e-ad2d-12c0983d756a",
+      "name": "E5. Code - 잘못된 링크 안내 페이지",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        56000,
+        11680
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.html }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      },
+      "id": "06b05890-dce9-430c-b508-a30f02f6b29e",
+      "name": "E6. Respond to Webhook - 해지 결과 페이지",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        56512,
+        11584
+      ]
     }
   ],
   "pinData": {},
@@ -1330,6 +1495,79 @@
             "node": "C2-MERGE. Merge - 발송 대상 동기화",
             "type": "main",
             "index": 2
+          }
+        ]
+      ]
+    },
+    "E0. Webhook - 뉴스레터 구독 해지 링크": {
+      "main": [
+        [
+          {
+            "node": "E1. Code - rid/kind 파라미터 검증",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E1. Code - rid/kind 파라미터 검증": {
+      "main": [
+        [
+          {
+            "node": "E2. IF - 유효한 해지 요청인가",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E2. IF - 유효한 해지 요청인가": {
+      "main": [
+        [
+          {
+            "node": "E3. HTTP Request - 구독 상태 변경",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "E5. Code - 잘못된 링크 안내 페이지",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E3. HTTP Request - 구독 상태 변경": {
+      "main": [
+        [
+          {
+            "node": "E4. Code - 해지 완료 안내 페이지",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E4. Code - 해지 완료 안내 페이지": {
+      "main": [
+        [
+          {
+            "node": "E6. Respond to Webhook - 해지 결과 페이지",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "E5. Code - 잘못된 링크 안내 페이지": {
+      "main": [
+        [
+          {
+            "node": "E6. Respond to Webhook - 해지 결과 페이지",
+            "type": "main",
+            "index": 0
           }
         ]
       ]
