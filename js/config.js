@@ -165,55 +165,25 @@ function useSuggestedCombo(idx){
   showToast(`"${combo.label}" 조합이 선택되었습니다. 이어서 조합을 완성해보세요.`);
 }
 // 대시보드 검색창에 키워드를 입력하면 바로 웹훅 검색을 실행하지 않고,
-// 키워드 Pool·전방·후방 확장 데이터에서 유사한 항목을 찾아 자동으로 조합한 뒤
+// 입력한 문구를 공백 기준으로 단어별로 쪼개 각각 핵심 키워드 버블로 담은 뒤
 // "새 리서치 만들기"로 이동시켜, 사용자가 조합을 확인·보완할 수 있게 한다.
+// (예전엔 키워드 Pool·전방·후방 확장 데이터에서 유사 항목을 찾아 자동으로 끼워넣었는데,
+// 의도와 다른 키워드가 섞여 들어가는 경우가 있어 "입력값을 그대로, 단어 단위로만" 나누는
+// 단순한 방식으로 되돌림)
 function useSearchKeywordForBuilder(raw){
   const kw = (raw||'').trim();
   if(!kw) return;
-  const q = kw.toLowerCase();
-  let addedCore = 0, addedFront = 0, addedBack = 0;
-
-  // 1) 전방/후방 확장 키워드 풀에서 유사 항목 탐색 — 핵심 키워드 매칭보다 먼저 해서,
-  // 아래에서 "원문을 통째로 핵심 키워드로 담을지" 판단할 때 이 결과를 참고한다.
-  // 확장 키워드는 대체로 짧은 수식어(예: "리스크")라서, 긴 입력어(예: AI가 만든 추천 검색어
-  // 문구) 안에 그 수식어가 포함된 경우가 실제로 훨씬 많다. 핵심 키워드 매칭과 마찬가지로
-  // 양방향(v가 q를 포함 OR q가 v를 포함)으로 확인해야 이런 케이스를 놓치지 않는다.
-  frontKeys.forEach(([key])=>{
-    DATA.ext[key].forEach(v=>{
-      const vl = v.toLowerCase();
-      if((vl.includes(q) || q.includes(vl)) && !selected.front.includes(v)){ selected.front.push(v); addToCombo('front', v); addedFront++; }
-    });
+  const tokens = kw.split(/\s+/).filter(Boolean);
+  let added = 0;
+  tokens.forEach(t=>{
+    if(!selected.core.includes(t)){ selected.core.push(t); addToCombo('core', t); added++; }
   });
-  backKeys.forEach(([key])=>{
-    DATA.ext[key].forEach(v=>{
-      const vl = v.toLowerCase();
-      if((vl.includes(q) || q.includes(vl)) && !selected.back.includes(v)){ selected.back.push(v); addToCombo('back', v); addedBack++; }
-    });
-  });
-
-  // 2) 핵심 키워드 Pool에서 유사 키워드 탐색 (완전일치 우선, 없으면 부분일치 최대 5개)
-  const exact = DATA.core.filter(r => r.keyword.toLowerCase() === q);
-  const partial = DATA.core.filter(r => r.keyword.toLowerCase().includes(q) || q.includes(r.keyword.toLowerCase()));
-  const coreMatches = (exact.length ? exact : partial).slice(0, 5);
-  coreMatches.forEach(r=>{
-    if(!selected.core.includes(r.keyword)){ selected.core.push(r.keyword); addToCombo('core', r.keyword); addedCore++; }
-  });
-  // 핵심·전방·후방 어디에도 매칭되는 게 하나도 없을 때만 입력어 원문 그대로를 핵심 키워드로
-  // 담아준다. 전방/후방만 뽑혔는데 원문 전체를 통째로 또 핵심 키워드로 넣으면 이미 분해된
-  // 조각과 원문 전체가 중복으로 같이 들어가 지저분해진다(실사용 중 발견된 문제).
-  if(!coreMatches.length && !addedFront && !addedBack && !selected.core.includes(kw)){
-    selected.core.push(kw); addToCombo('core', kw); addedCore++;
-  }
 
   showPage('new-research');
   switchMode('detail');
-  setStep((addedCore || addedFront || addedBack) ? 1 : 0);
+  setStep(added ? 1 : 0);
   updateSelection(); renderCore(); renderExt(); updatePayload();
-  const parts = [];
-  if(addedCore) parts.push(`핵심 키워드 ${addedCore}개`);
-  if(addedFront) parts.push(`전방 확장 ${addedFront}개`);
-  if(addedBack) parts.push(`후방 확장 ${addedBack}개`);
-  showToast(parts.length ? `"${kw}"와(과) 관련된 ${parts.join(', ')}를 자동으로 담았어요. 조합을 확인해보세요.` : `"${kw}"을(를) 핵심 키워드로 담았어요.`);
+  showToast(added ? `"${kw}"을(를) 단어 ${added}개로 나눠 핵심 키워드로 담았어요.` : `이미 조합에 담긴 키워드예요.`);
 }
 function toggleValue(group, value){
   const arr = selected[group]; const i = arr.indexOf(value);
