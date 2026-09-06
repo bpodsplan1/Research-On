@@ -29,7 +29,11 @@ const N8N_INSIGHT_URL = 'https://n8n.mokai.kr/webhook/webhook/research/summarize
 const N8N_NEWSLETTER_DRAFT_URL = 'https://n8n.mokai.kr/webhook/newsletter/draft';
 const N8N_NEWSLETTER_QUEUE_URL = 'https://n8n.mokai.kr/webhook/newsletter/queue';
 // 관리자가 4개 섹션을 최종 확정한 뒤, 발송 전에 그 확정 내용만 근거로 Executive Brief를 다시 쓰는 웹훅
+// (body에 target:'people_culture_view'를 실으면 PEOPLE & CULTURE 종합 코멘트만 재생성)
 const N8N_NEWSLETTER_SUMMARIZE_BRIEF_URL = 'https://n8n.mokai.kr/webhook/newsletter/summarize-brief';
+// 관리자가 항목 편집 모달에 새 원문 URL을 넣고 "이 URL로 재생성"을 누르면, 그 URL 본문만
+// 근거로 title/summary/implication을 새로 만들어주는 웹훅
+const N8N_NEWSLETTER_REGENERATE_ITEM_URL = 'https://n8n.mokai.kr/webhook/newsletter/regenerate-item';
 // 신규 연동(관리자 전용 기능) — production 웹훅 주소
 const N8N_ADMIN_RESET_PW_URL = 'https://n8n.mokai.kr/webhook/admin/reset-password';
 const N8N_NEWSLETTER_FORCE_SEND_URL = 'https://n8n.mokai.kr/webhook/newsletter/force-send';

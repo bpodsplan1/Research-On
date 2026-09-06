@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Research On — 이트너스 리서치 자동화 허브</title>
-<link rel="stylesheet" href="styles.css?v=20260906b" />
+<link rel="stylesheet" href="styles.css?v=20260906c" />
 </head>
 <body>
 
@@ -985,7 +985,12 @@
           <div class="field"><label>시사점 라벨</label><input id="nlItemModalImplicationLabelInput" /></div>
           <div class="field"><label>시사점 내용</label><input id="nlItemModalImplicationInput" /></div>
         </div>
-        <div class="field" id="nlItemModalUrlsField"><label>원문 URL (줄마다 하나씩, 최대 4개)</label><textarea id="nlItemModalUrlsInput" style="min-height:70px"></textarea></div>
+        <div class="field" id="nlItemModalUrlsField">
+          <label>원문 URL (줄마다 하나씩, 최대 4개)</label>
+          <textarea id="nlItemModalUrlsInput" style="min-height:70px"></textarea>
+          <button class="btn soft" id="nlItemModalRegenBtn" type="button" style="margin-top:8px">🔄 이 URL로 재생성</button>
+          <div id="nlItemModalRegenStatus" style="display:none;margin-top:6px;font-size:12px;color:var(--muted)"></div>
+        </div>
       </div>
     </div>
     <div class="ro-modal-foot" style="display:flex;gap:10px">
@@ -1071,19 +1076,19 @@
     </div>
   </div>
 </div>
-<script src="js/keywords-data.js?v=20260906b"></script>
-<script src="js/config.js?v=20260906b"></script>
-<script src="js/keywords-state.js?v=20260906b"></script>
-<script src="js/keyword-requests.js?v=20260906b"></script>
-<script src="js/research-results.js?v=20260906b"></script>
-<script src="js/insight-report.js?v=20260906b"></script>
-<script src="js/newsletter-subscriber.js?v=20260906b"></script>
-<script src="js/newsletter-admin.js?v=20260906b"></script>
-<script src="js/search-history.js?v=20260906b"></script>
-<script src="js/account-settings.js?v=20260906b"></script>
-<script src="js/event-bindings.js?v=20260906b"></script>
-<script src="js/auth.js?v=20260906b"></script>
-<script src="js/admin.js?v=20260906b"></script>
+<script src="js/keywords-data.js?v=20260906c"></script>
+<script src="js/config.js?v=20260906c"></script>
+<script src="js/keywords-state.js?v=20260906c"></script>
+<script src="js/keyword-requests.js?v=20260906c"></script>
+<script src="js/research-results.js?v=20260906c"></script>
+<script src="js/insight-report.js?v=20260906c"></script>
+<script src="js/newsletter-subscriber.js?v=20260906c"></script>
+<script src="js/newsletter-admin.js?v=20260906c"></script>
+<script src="js/search-history.js?v=20260906c"></script>
+<script src="js/account-settings.js?v=20260906c"></script>
+<script src="js/event-bindings.js?v=20260906c"></script>
+<script src="js/auth.js?v=20260906c"></script>
+<script src="js/admin.js?v=20260906c"></script>
 
 </body>
 </html>

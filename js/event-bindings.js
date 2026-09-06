@@ -393,6 +393,7 @@ function bindEvents(){
   $('#nlItemModalClose')?.addEventListener('click', closeNlItemModal);
   $('#nlItemModalCancel')?.addEventListener('click', closeNlItemModal);
   $('#nlItemModalSave')?.addEventListener('click', saveNlItemModal);
+  $('#nlItemModalRegenBtn')?.addEventListener('click', regenerateItemFromUrl);
   $('#nlItemModalOverlay')?.addEventListener('click', e=>{ if(e.target.id==='nlItemModalOverlay') closeNlItemModal(); });
   $('#nlPreviewRefreshBtn')?.addEventListener('click', goBackToNewsletterPreview);
   $('#nlSendBtn')?.addEventListener('click', sendNewsletter);

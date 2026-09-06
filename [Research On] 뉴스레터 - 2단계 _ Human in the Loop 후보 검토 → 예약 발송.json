@@ -828,7 +828,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// 관리자가 화면에서 최종 확정한 4개 섹션 내용만 근거로 Executive Brief(헤드라인+요약)를\n// 새로 쓰기 위한 프롬프트를 만든다. 후보 선정 파이프라인과는 무관 — 이미 확정된 결과물만 입력받는다.\nconst body = $('EB0. Webhook - Executive Brief 재요약 요청').first().json.body || {};\nfunction txt(v){ return v===null||v===undefined?'':String(v).trim(); }\nfunction arr(v){ return Array.isArray(v)?v:[]; }\n\nconst sections = body.sections || {};\nfunction sectionText(label, items){\n  const list = arr(items).filter(x => x && (x.title || x.summary));\n  if(!list.length) return '';\n  return `[${label}]\\n` + list.map((x,i)=>`${i+1}. ${txt(x.title)} - ${txt(x.summary)}`).join('\\n');\n}\nconst blocks = [\n  sectionText('CLIENT WATCH', sections.client_watch),\n  sectionText('RESEARCH ON INSIGHT', sections.research_on_insight),\n  sectionText('BUSINESS & WORK', sections.business_work),\n  sectionText('PEOPLE & CULTURE', sections.people_culture)\n].filter(Boolean).join('\\n\\n');\n\nif(!blocks) throw new Error('요약할 최종 확정 기사가 없습니다. 섹션에 최소 1건을 남겨주세요.');\n\nconst prompt = `너는 BPO사업본부 주간 뉴스레터의 Executive Brief 작성자다.\n아래는 관리자가 이번 주 뉴스레터에 최종 확정한 기사 전체 목록이다(이미 편집·확정된 최종본이며, 이 목록에 없는 기사는 이번 호에 실리지 않는다).\n이 목록에 실제로 있는 내용만 근거로, 이번 주 발송될 뉴스레터 전체를 관통하는 Executive Brief(헤드라인+요약)를 새로 작성하라.\n\n[작성 원칙 - 1차 독자는 CL4 이상 보직자(센터장·그룹장·사업부장·임원)다]\n- headline: 이번 호에서 보직자가 가장 먼저 알아야 할 것이 드러나도록 한 줄로 작성한다.\n- summary: 아래 목록에 실제로 있는 기사들을 종합해 2~3문장으로 작성한다. 목록에 없는 사실을 추측하거나 지어내지 마라.\n- 특정 기사 하나만 다루지 말고, 가능하면 여러 섹션을 아우르는 흐름을 짚는다. 다만 목록에 있는 섹션이 하나뿐이면 그 섹션 기준으로만 작성한다.\n- 반드시 JSON 객체만 출력한다.\n\n[이번 호 최종 확정 기사 목록]\n${blocks}\n\n[출력 형식]\n{\"headline\":\"...\", \"summary\":\"...\"}`;\n\nreturn [{json:{ prompt }}];"
+        "jsCode": "// 관리자가 화면에서 최종 확정한 4개 섹션 내용만 근거로 Executive Brief(헤드라인+요약)를\n// 새로 쓰기 위한 프롬프트를 만든다. 후보 선정 파이프라인과는 무관 — 이미 확정된 결과물만 입력받는다.\n// body.target === 'people_culture_view'면 PEOPLE & CULTURE 종합 코멘트만 재생성하는 프롬프트를 만든다.\nconst body = $('EB0. Webhook - Executive Brief 재요약 요청').first().json.body || {};\nfunction txt(v){ return v===null||v===undefined?'':String(v).trim(); }\nfunction arr(v){ return Array.isArray(v)?v:[]; }\n\nconst target = txt(body.target) === 'people_culture_view' ? 'people_culture_view' : 'executive_brief';\nconst sections = body.sections || {};\n\nif (target === 'people_culture_view') {\n  const items = arr(sections.people_culture).filter(x => x && (x.title || x.summary));\n  if(!items.length) throw new Error('종합 코멘트를 만들 PEOPLE & CULTURE 항목이 없습니다. 섹션에 최소 1건을 남겨주세요.');\n  const list = items.map((x,i)=>`${i+1}. ${txt(x.title)} - ${txt(x.summary)}${x.implication?` (시사점: ${txt(x.implication)})`:''}`).join('\\n');\n\n  const prompt = `너는 BPO사업본부 주간 뉴스레터의 PEOPLE & CULTURE 섹션 편집자다.\n아래는 관리자가 이번 주 PEOPLE & CULTURE 섹션에 최종 확정한 항목 전체 목록이다(이미 편집·확정된 최종본).\n이 목록에 실제로 있는 내용만 근거로, 이 섹션 전체를 아우르는 종합 코멘트를 새로 작성하라.\n\n[작성 원칙 - 1차 독자는 CL4 이상 보직자(센터장·그룹장·사업부장·임원)다]\n- 개별 항목을 그대로 나열하지 말고, 항목들을 관통하는 흐름이나 공통된 시사점을 짚는다.\n- 채용·유지·조직문화·세대 간 소통·복리후생 설계 관점에서, 보직자가 무엇을 검토·논의해야 하는지 담아 2~3문장으로 작성한다.\n- 목록에 없는 사실을 추측하거나 지어내지 마라.\n- 반드시 JSON 객체만 출력한다.\n\n[이번 호 PEOPLE & CULTURE 최종 확정 항목 목록]\n${list}\n\n[출력 형식]\n{\"comment\":\"...\"}`;\n\n  return [{json:{ prompt, target }}];\n}\n\nconst sectionText = (label, items) => {\n  const list = arr(items).filter(x => x && (x.title || x.summary));\n  if(!list.length) return '';\n  return `[${label}]\\n` + list.map((x,i)=>`${i+1}. ${txt(x.title)} - ${txt(x.summary)}`).join('\\n');\n};\nconst blocks = [\n  sectionText('CLIENT WATCH', sections.client_watch),\n  sectionText('RESEARCH ON INSIGHT', sections.research_on_insight),\n  sectionText('BUSINESS & WORK', sections.business_work),\n  sectionText('PEOPLE & CULTURE', sections.people_culture)\n].filter(Boolean).join('\\n\\n');\n\nif(!blocks) throw new Error('요약할 최종 확정 기사가 없습니다. 섹션에 최소 1건을 남겨주세요.');\n\nconst prompt = `너는 BPO사업본부 주간 뉴스레터의 Executive Brief 작성자다.\n아래는 관리자가 이번 주 뉴스레터에 최종 확정한 기사 전체 목록이다(이미 편집·확정된 최종본이며, 이 목록에 없는 기사는 이번 호에 실리지 않는다).\n이 목록에 실제로 있는 내용만 근거로, 이번 주 발송될 뉴스레터 전체를 관통하는 Executive Brief(헤드라인+요약)를 새로 작성하라.\n\n[작성 원칙 - 1차 독자는 CL4 이상 보직자(센터장·그룹장·사업부장·임원)다]\n- headline: 이번 호에서 보직자가 가장 먼저 알아야 할 것이 드러나도록 한 줄로 작성한다.\n- summary: 아래 목록에 실제로 있는 기사들을 종합해 2~3문장으로 작성한다. 목록에 없는 사실을 추측하거나 지어내지 마라.\n- 특정 기사 하나만 다루지 말고, 가능하면 여러 섹션을 아우르는 흐름을 짚는다. 다만 목록에 있는 섹션이 하나뿐이면 그 섹션 기준으로만 작성한다.\n- 반드시 JSON 객체만 출력한다.\n\n[이번 호 최종 확정 기사 목록]\n${blocks}\n\n[출력 형식]\n{\"headline\":\"...\", \"summary\":\"...\"}`;\n\nreturn [{json:{ prompt, target }}];"
       },
       "id": "704dee12-d3b7-4a16-954c-c459d6e51888",
       "name": "EB1. Code - 재요약 프롬프트 조립",
@@ -885,7 +885,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const raw = $json.text || $json.output || $json.response || $json.content || $json.result || '';\nfunction txt(v){ return v===null||v===undefined?'':String(v).trim(); }\nfunction parse(v){\n  if(v && typeof v==='object') return v;\n  let s=String(v||'').replace(/^```json\\s*/i,'').replace(/^```\\s*/,'').replace(/```$/,'').trim();\n  const a=s.indexOf('{'), b=s.lastIndexOf('}'); if(a>=0&&b>=a) s=s.slice(a,b+1);\n  s=s.replace(/,\\s*([}\\]])/g,'$1');\n  try{return JSON.parse(s);}catch{return {};}\n}\nconst ai = parse(raw);\nconst headline = txt(ai.headline);\nconst summary = txt(ai.summary);\nif(!headline && !summary){\n  return [{json:{ success:false, message:'AI 응답을 해석하지 못했습니다. 다시 시도해주세요.' }}];\n}\nreturn [{json:{ success:true, headline, summary }}];"
+        "jsCode": "const target = $('EB1. Code - 재요약 프롬프트 조립').first().json.target || 'executive_brief';\nconst raw = $json.text || $json.output || $json.response || $json.content || $json.result || '';\nfunction txt(v){ return v===null||v===undefined?'':String(v).trim(); }\nfunction parse(v){\n  if(v && typeof v==='object') return v;\n  let s=String(v||'').replace(/^```json\\s*/i,'').replace(/^```\\s*/,'').replace(/```$/,'').trim();\n  const a=s.indexOf('{'), b=s.lastIndexOf('}'); if(a>=0&&b>=a) s=s.slice(a,b+1);\n  s=s.replace(/,\\s*([}\\]])/g,'$1');\n  try{return JSON.parse(s);}catch{return {};}\n}\nconst ai = parse(raw);\n\nif (target === 'people_culture_view') {\n  const comment = txt(ai.comment);\n  if(!comment) return [{json:{ success:false, message:'AI 응답을 해석하지 못했습니다. 다시 시도해주세요.' }}];\n  return [{json:{ success:true, people_culture_view: comment }}];\n}\n\nconst headline = txt(ai.headline);\nconst summary = txt(ai.summary);\nif(!headline && !summary){\n  return [{json:{ success:false, message:'AI 응답을 해석하지 못했습니다. 다시 시도해주세요.' }}];\n}\nreturn [{json:{ success:true, headline, summary }}];"
       },
       "id": "e3829415-5b55-42f8-bed0-32c13f993278",
       "name": "EB3. Code - 응답 정리",
@@ -1088,6 +1088,241 @@
       "position": [
         56512,
         11584
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "newsletter/regenerate-item",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "c2c8f595-f7d9-4eff-818e-07bd61f9ad02",
+      "name": "EI0. Webhook - 항목 URL 재생성 요청",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        55216,
+        10500
+      ],
+      "webhookId": "newsletter-regenerate-item",
+      "notes": "관리자가 뉴스레터 항목 편집 모달에서 원문 URL을 새로 넣고 '이 URL로 재생성'을 누르면, 그 URL 본문만 근거로 title/summary/implication을 새로 만들어 돌려주는 웹훅."
+    },
+    {
+      "parameters": {
+        "jsCode": "// 관리자가 항목 편집 모달에 입력한 URL(들)을 검증하고 Tavily Extract 입력을 구성한다.\nconst body = $('EI0. Webhook - 항목 URL 재생성 요청').first().json.body || {};\nconst VALID_SECTIONS = ['client_watch','research_on_insight','business_work','people_culture'];\nconst section = VALID_SECTIONS.includes(String(body.section||'').trim()) ? String(body.section).trim() : '';\n\nconst rawUrls = Array.isArray(body.urls) ? body.urls : String(body.urls||'').split(/[\\n,]+/);\nconst urls = rawUrls.map(s => String(s||'').trim()).filter(s => /^https?:\\/\\//i.test(s)).slice(0,4);\n\nconst ok = !!(section && urls.length);\nreturn {\n  ok, section, urls,\n  error: ok ? '' : (!section ? '섹션 정보가 없습니다.' : '유효한 URL이 없습니다. http(s)로 시작하는 링크를 입력해주세요.')\n};"
+      },
+      "id": "f96cb343-f9d1-409f-9b48-c6d81371dbe0",
+      "name": "EI1. Code - URL 검증 + Tavily 입력 구성",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        55456,
+        10500
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "if-url-ok",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "82fdacb3-8be7-4b25-ba21-649af9371f99",
+      "name": "EI2. IF - 유효한 URL 있음",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        55696,
+        10500
+      ]
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://mcp.tavily.com/mcp/?tavilyApiKey=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",
+        "tool": {
+          "__rl": true,
+          "value": "tavily_extract",
+          "mode": "id"
+        },
+        "inputMode": "json",
+        "jsonInput": "={{ JSON.stringify({ urls: $json.urls, extract_depth: 'advanced', format: 'markdown', include_images: false, include_favicon: false }) }}",
+        "options": {}
+      },
+      "id": "d604a3a6-5dec-4cbd-8105-f1d38e99e464",
+      "name": "EI3. MCP Client - Tavily Extract (항목 재생성용 본문 추출)",
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1,
+      "position": [
+        55936,
+        10420
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Tavily Extract 결과를 정리하고, 관리자가 지정한 원문만 근거로 뉴스레터 항목을\n// 새로 쓰는 편집 프롬프트를 조립한다(A4의 '편집 원칙'과 동일한 문체·분량 기준 재사용).\nconst prev = $('EI1. Code - URL 검증 + Tavily 입력 구성').first().json;\n\nconst raw =\n  $json.structuredContent ||\n  $json.content?.[0]?.text ||\n  $json.text ||\n  $json.output ||\n  JSON.stringify($json);\n\nlet parsed;\ntry { parsed = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch(e) { parsed = null; }\n\nconst results = parsed?.results || parsed?.content?.results || [];\nconst MAX_CHARS = 4000;\nconst articles = results\n  .filter(r => r?.url && r?.raw_content)\n  .map(r => ({ url: r.url, title: r.title || '', content: String(r.raw_content).slice(0, MAX_CHARS) }));\n\nif (!articles.length) {\n  return { extractOk: false };\n}\n\nconst SECTION_LABELS = {\n  client_watch: 'CLIENT WATCH',\n  research_on_insight: 'RESEARCH ON INSIGHT',\n  business_work: 'BUSINESS & WORK',\n  people_culture: 'PEOPLE & CULTURE'\n};\nconst section = prev.section;\nconst implicationGuide = section === 'people_culture'\n  ? ' PEOPLE & CULTURE의 implication은 채용·유지·조직문화·세대 간 소통·복리후생 설계 관점에서 작성한다.'\n  : '';\n\nconst articlesText = articles.map((a,i) => `[기사 ${i+1}] ${a.title}\\nURL: ${a.url}\\n본문: ${a.content}`).join('\\n\\n');\n\nconst prompt = `너는 BPO사업본부 주간 뉴스레터의 ${SECTION_LABELS[section]} 섹션 편집자다.\n관리자가 이 섹션에 새로 넣을 기사로 아래 원문을 직접 지정했다. 이 원문 내용만 근거로 뉴스레터 항목 하나를 작성하라.\n\n[작성 원칙 - 1차 독자는 CL4 이상 보직자(센터장·그룹장·사업부장·임원)다]\n- title: 원문 제목을 그대로 복사하지 말고 핵심을 15~25자 내외로 다시 쓴다.\n- summary: 원문의 구체적 숫자·고유명사·행동을 살려 2~3문장으로 정리한다. 원문에 있는 구체성(수치·시점·기업명 등)을 절대 생략하거나 뭉뚱그리지 않는다.\n- implication: \"~할 기회입니다\" 같은 상투적 한 줄로 끝내지 말고, 이 사안이 BPO사업본부 운영·사업에 어떤 의미인지와 보직자가 무엇을 검토·논의해야 하는지를 담아 1~2문장으로 작성한다.${implicationGuide}\n- 원문에 없는 사실은 절대 추가하지 않는다.\n- 여러 원문이 함께 주어졌다면 하나의 사안으로 통합해서 작성한다.\n- 반드시 JSON 객체만 출력한다.\n\n[원문]\n${articlesText}\n\n[출력 형식]\n{\"title\":\"\", \"summary\":\"\", \"implication_label\":\"시사점\", \"implication\":\"\"}`;\n\nreturn { extractOk: true, prompt, section };"
+      },
+      "id": "1e0b2f40-9744-4e01-9843-2389df3d0670",
+      "name": "EI4. Code - 본문 정제 + 편집 프롬프트 조립",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        56176,
+        10500
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "if-extract-ok",
+              "leftValue": "={{ $json.extractOk }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2b02841f-9092-4754-9e03-76dde9480337",
+      "name": "EI5. IF - 본문 추출 성공 확인",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        56416,
+        10500
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "관리자가 지정한 원문 기사만 근거로 뉴스레터 항목을 작성해서 JSON 객체만 출력한다."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "id": "a621b1bb-2067-4a94-8af3-ffc902bfdaec",
+      "name": "EI6. Basic LLM Chain - 항목 재생성",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1,
+      "position": [
+        56656,
+        10500
+      ]
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "id": "c78ec0c5-885c-4c41-b51b-4cd9ef0ad66c",
+      "name": "Google Gemini - 항목 재생성",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        56656,
+        10708
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "UmQBA3vsLpvPlcZz",
+          "name": "Google Gemini 90일 무료(7/14~)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json.text || $json.output || $json.response || $json.content || $json.result || '';\nfunction txt(v){ return v===null||v===undefined?'':String(v).trim(); }\nfunction parse(v){\n  if(v && typeof v==='object') return v;\n  let s=String(v||'').replace(/^```json\\s*/i,'').replace(/^```\\s*/,'').replace(/```$/,'').trim();\n  const a=s.indexOf('{'), b=s.lastIndexOf('}'); if(a>=0&&b>=a) s=s.slice(a,b+1);\n  s=s.replace(/,\\s*([}\\]])/g,'$1');\n  try{return JSON.parse(s);}catch{return {};}\n}\nconst ai = parse(raw);\nconst title = txt(ai.title);\nconst summary = txt(ai.summary);\nif(!title && !summary){\n  return [{json:{ success:false, message:'AI 응답을 해석하지 못했습니다. 다시 시도해주세요.' }}];\n}\nreturn [{json:{\n  success:true,\n  title, summary,\n  implication_label: txt(ai.implication_label) || '시사점',\n  implication: txt(ai.implication)\n}}];"
+      },
+      "id": "b1324037-76d6-45e8-b471-bdcc8b920bd7",
+      "name": "EI7. Code - 응답 JSON 정리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        56896,
+        10500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "dde800e4-8f22-44e9-af65-3ee3c005b311",
+      "name": "EI8. Respond to Webhook - 재생성 결과 반환",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        57136,
+        10500
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success:false, message: $json.error || '유효한 URL이 없습니다.' }) }}",
+        "options": {}
+      },
+      "id": "f6350565-0171-42ca-be6c-36e52f852e67",
+      "name": "EI9. Respond to Webhook - URL 오류 반환",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        55696,
+        10708
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success:false, message: '입력한 URL에서 본문을 가져오지 못했습니다. URL을 다시 확인해주세요.' }) }}",
+        "options": {}
+      },
+      "id": "d31d6485-06ba-4f3f-a819-eb8e413aa5c7",
+      "name": "EI10. Respond to Webhook - 추출 실패 반환",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        56416,
+        10708
       ]
     }
   ],
@@ -1566,6 +1801,119 @@
         [
           {
             "node": "E6. Respond to Webhook - 해지 결과 페이지",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EI0. Webhook - 항목 URL 재생성 요청": {
+      "main": [
+        [
+          {
+            "node": "EI1. Code - URL 검증 + Tavily 입력 구성",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EI1. Code - URL 검증 + Tavily 입력 구성": {
+      "main": [
+        [
+          {
+            "node": "EI2. IF - 유효한 URL 있음",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EI2. IF - 유효한 URL 있음": {
+      "main": [
+        [
+          {
+            "node": "EI3. MCP Client - Tavily Extract (항목 재생성용 본문 추출)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "EI9. Respond to Webhook - URL 오류 반환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EI3. MCP Client - Tavily Extract (항목 재생성용 본문 추출)": {
+      "main": [
+        [
+          {
+            "node": "EI4. Code - 본문 정제 + 편집 프롬프트 조립",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EI4. Code - 본문 정제 + 편집 프롬프트 조립": {
+      "main": [
+        [
+          {
+            "node": "EI5. IF - 본문 추출 성공 확인",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EI5. IF - 본문 추출 성공 확인": {
+      "main": [
+        [
+          {
+            "node": "EI6. Basic LLM Chain - 항목 재생성",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "EI10. Respond to Webhook - 추출 실패 반환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EI6. Basic LLM Chain - 항목 재생성": {
+      "main": [
+        [
+          {
+            "node": "EI7. Code - 응답 JSON 정리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini - 항목 재생성": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "EI6. Basic LLM Chain - 항목 재생성",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "EI7. Code - 응답 JSON 정리": {
+      "main": [
+        [
+          {
+            "node": "EI8. Respond to Webhook - 재생성 결과 반환",
             "type": "main",
             "index": 0
           }

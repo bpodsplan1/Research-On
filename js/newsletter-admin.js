@@ -89,6 +89,7 @@ function openNlItemModal(ctx){
   } else {
     $('#nlItemModalSummaryInput').value = newsletterDraft.sections.people_culture_view || '';
   }
+  const regenStatus = $('#nlItemModalRegenStatus'); if(regenStatus){ regenStatus.style.display = 'none'; regenStatus.textContent = ''; }
   $('#nlItemModalOverlay').classList.add('open');
   $('#nlItemModalTitleField').style.display === 'none' ? $('#nlItemModalSummaryInput').focus() : $('#nlItemModalTitleInput').focus();
 }
@@ -117,6 +118,35 @@ function saveNlItemModal(){
   }
   closeNlItemModal();
   refreshNewsletterPreview(true);
+}
+// 항목 편집 모달에서 원문 URL(들)을 새로 넣고 이 버튼을 누르면, 그 URL 본문만 근거로
+// title/summary/implication을 새로 만들어 모달 입력칸에 채워준다 — 바로 저장되지는 않으니
+// 확인 후 직접 "저장"을 눌러야 최종 반영된다(기사를 통째로 교체하거나 새로 추가할 때 사용).
+async function regenerateItemFromUrl(){
+  if(!nlItemModalContext || nlItemModalContext.kind !== 'item') return;
+  const urls = $('#nlItemModalUrlsInput').value.split('\n').map(s=>s.trim()).filter(Boolean).slice(0,4);
+  if(!urls.length){ showToast('먼저 원문 URL을 입력해주세요.'); return; }
+  const btn = $('#nlItemModalRegenBtn');
+  const statusEl = $('#nlItemModalRegenStatus');
+  if(btn){ btn.disabled = true; btn.textContent = '재생성 중...'; }
+  if(statusEl){ statusEl.style.display = 'block'; statusEl.textContent = '입력한 URL의 본문을 가져와 다시 쓰는 중입니다...'; }
+  try{
+    const resp = await fetch(N8N_NEWSLETTER_REGENERATE_ITEM_URL, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ section: nlItemModalContext.section, urls })
+    });
+    const data = await resp.json();
+    if(!resp.ok || data.success!==true) throw new Error(data.message || 'n8n 응답 오류');
+    $('#nlItemModalTitleInput').value = data.title || '';
+    $('#nlItemModalSummaryInput').value = data.summary || '';
+    $('#nlItemModalImplicationLabelInput').value = data.implication_label || '시사점';
+    $('#nlItemModalImplicationInput').value = data.implication || '';
+    if(statusEl){ statusEl.style.display = 'block'; statusEl.textContent = '✅ 새로 생성됐습니다. 확인 후 저장을 눌러주세요.'; }
+  } catch(e){
+    if(statusEl){ statusEl.style.display = 'block'; statusEl.textContent = '❌ 재생성 실패: ' + e.message; }
+  } finally {
+    if(btn){ btn.disabled = false; btn.textContent = '🔄 이 URL로 재생성'; }
+  }
 }
 function nlEditItem(section, idx){ openNlItemModal({kind:'item', section, idx}); }
 function nlAddItem(section){ openNlItemModal({kind:'item', section, idx: newsletterDraft.sections[section].length}); }
@@ -260,13 +290,14 @@ function nlItemBlock(item, section, idx, isFirst, isLast, culture, last, editabl
 function nlCultureViewBlock(view, editable){
   const hasView = !!view;
   const editBtnHtml = editable ? `<button type="button" onclick="parent.nlEditCultureView()" style="border:1px solid #C7DFD0;background:#fff;color:#2F6B4F;font-size:11px;font-weight:700;padding:5px 11px;border-radius:999px;cursor:pointer;font-family:inherit;flex-shrink:0;">편집</button>` : '';
+  const regenBtnHtml = editable ? `<button type="button" onclick="parent.regeneratePeopleCultureView()" style="border:1px solid #DBE2EA;background:#fff;color:#475569;font-size:11px;font-weight:700;padding:5px 11px;border-radius:999px;cursor:pointer;font-family:inherit;flex-shrink:0;">🔄 재생성</button>` : '';
   return `
     <tr><td style="padding:0 40px 32px;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
         <tr><td style="padding:15px 17px;background-color:#F2F7F4;">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
             <div style="font-size:12px;line-height:18px;font-weight:bold;color:#2F6B4F;">종합 코멘트</div>
-            ${editBtnHtml}
+            <div style="display:flex;gap:6px;flex-shrink:0;">${regenBtnHtml}${editBtnHtml}</div>
           </div>
           <div style="margin-top:5px;font-size:14px;line-height:24px;color:${hasView?'#3F5B4C':'#94A3B8'};">${hasView ? nlP(view) : '아직 종합 코멘트가 없습니다. 편집 버튼을 눌러 추가하세요.'}</div>
         </td></tr>
@@ -351,6 +382,24 @@ async function summarizeExecutiveBrief(){
     alert('Executive Brief 재요약에 실패했습니다: ' + e.message + '\n(n8n 워크플로우가 활성화되어 있는지 확인해주세요.)');
   } finally {
     if(btn){ btn.disabled = false; btn.textContent = '🔄 확정 내용으로 재요약'; }
+  }
+}
+// PEOPLE & CULTURE 섹션의 "종합 코멘트"만, 지금 확정된 그 섹션 항목들 기준으로 다시 쓴다.
+// (Executive Brief 재요약과 같은 웹훅을 쓰되 target 파라미터로 구분 — n8n EB1/EB3 참고)
+async function regeneratePeopleCultureView(){
+  showToast('종합 코멘트를 다시 쓰는 중입니다...');
+  try{
+    const resp = await fetch(N8N_NEWSLETTER_SUMMARIZE_BRIEF_URL, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ sections: newsletterDraft.sections, target: 'people_culture_view' })
+    });
+    const data = await resp.json();
+    if(!resp.ok || data.success!==true) throw new Error(data.message || 'n8n 응답 오류');
+    newsletterDraft.sections.people_culture_view = data.people_culture_view || newsletterDraft.sections.people_culture_view;
+    refreshNewsletterPreview(true);
+    showToast('종합 코멘트를 다시 썼습니다.');
+  } catch(e){
+    alert('종합 코멘트 재생성에 실패했습니다: ' + e.message + '\n(n8n 워크플로우가 활성화되어 있는지 확인해주세요.)');
   }
 }
 // editable=true: 관리자 미리보기(iframe 안에서 parent.nlXxx 편집 콜백 사용) 전용 렌더링.
