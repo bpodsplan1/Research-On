@@ -481,18 +481,39 @@ function captureCurrentSearchOptions(){
     custom_exclude_keywords: [...customExcludeKeywords]
   };
 }
+// "새 리서치 만들기"에 처음 들어갔을 때와 동일한 기본 고급옵션(시작일=올해 1/1,
+// 종료일=오늘, 국가=한국, 제외 도메인/키워드 프리셋 그룹 전부 on)을 매번 새로 계산해서 돌려준다.
+// 저장된 옵션이 없는(레거시) 재검색 기록을 복원할 때, 화면이 텅 비지 않고 이 기본값으로
+// 채워지게 하기 위한 기준값이다.
+function getDefaultSearchOptions(){
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  return {
+    start_date: `${today.getFullYear()}-01-01`,
+    end_date: `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`,
+    country: 'KR',
+    include_domains: [],
+    exclude_domains: [...DOMAIN_GROUPS.encyclopedia.domains, ...DOMAIN_GROUPS.blog.domains, ...DOMAIN_GROUPS.sns.domains, ...DOMAIN_GROUPS.community.domains, ...DOMAIN_GROUPS.shopping.domains, ...DOMAIN_GROUPS.job.domains],
+    custom_exclude_domains: [],
+    exclude_keywords: Object.values(KEYWORD_GROUPS).flatMap(g=>g.keywords),
+    custom_exclude_keywords: []
+  };
+}
 // captureCurrentSearchOptions()로 저장해둔 스냅샷을 실제 전역 상태/화면에 되돌린다.
 // (재검색 확인 모달에서 "이대로 재검색" 또는 "수정 후 검색"을 고를 때 공통으로 사용)
+// 저장된 옵션 자체가 없는 레거시 기록(opts가 빈 객체)이면, 전부 빈 값으로 리셋하는 대신
+// "새 리서치 만들기"에 처음 들어갔을 때의 기본값을 그대로 채운다.
 function applySearchOptions(opts){
-  opts = opts || {};
-  if($('#startDate')) $('#startDate').value = opts.start_date || '';
-  if($('#endDate')) $('#endDate').value = opts.end_date || '';
-  selectedCountry = opts.country || 'KR';
-  includeDomains = [...(opts.include_domains||[])];
-  excludeDomains = [...(opts.exclude_domains||[])];
-  customExcludeDomains = [...(opts.custom_exclude_domains||[])];
-  excludeKeywords = [...(opts.exclude_keywords||[])];
-  customExcludeKeywords = [...(opts.custom_exclude_keywords||[])];
+  const hasSavedOptions = !!(opts && Object.keys(opts).length);
+  const use = hasSavedOptions ? opts : getDefaultSearchOptions();
+  if($('#startDate')) $('#startDate').value = use.start_date || '';
+  if($('#endDate')) $('#endDate').value = use.end_date || '';
+  selectedCountry = use.country || 'KR';
+  includeDomains = [...(use.include_domains||[])];
+  excludeDomains = [...(use.exclude_domains||[])];
+  customExcludeDomains = [...(use.custom_exclude_domains||[])];
+  excludeKeywords = [...(use.exclude_keywords||[])];
+  customExcludeKeywords = [...(use.custom_exclude_keywords||[])];
   renderCountryChips();
   renderExcludeDomainGroups();
   renderExcludeKwGroups();
