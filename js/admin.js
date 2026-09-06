@@ -350,11 +350,11 @@ let allSubscribersCache = [];
 async function loadNewsletterSubscribers(){
   const tbody = document.getElementById('nlSubMgmtTbody'); if(!tbody) return;
   const cardsWrap = document.getElementById('nlSubMgmtCards');
-  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">불러오는 중...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">불러오는 중...</td></tr>';
   if(cardsWrap) cardsWrap.innerHTML = '<div class="card" style="text-align:center;color:var(--muted);padding:30px">불러오는 중...</div>';
   const { data, error } = await _sb.from('profiles').select('*').eq('newsletter_subscribed', true).order('newsletter_subscribed_at', {ascending:false});
   if(error){
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--red);padding:30px">오류: ${error.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--red);padding:30px">오류: ${error.message}</td></tr>`;
     if(cardsWrap) cardsWrap.innerHTML = `<div class="card" style="text-align:center;color:var(--red);padding:30px">오류: ${error.message}</div>`;
     return;
   }
@@ -372,7 +372,8 @@ async function loadNewsletterSubscribers(){
       id:g.id, name:g.name, email:g.email,
       newsletter_subscribed_at:g.created_at,
       newsletter_paused: g.status === 'paused',
-      newsletter_last_send_status: null,
+      newsletter_last_send_status: g.newsletter_last_send_status || null,
+      newsletter_last_sent_at: g.newsletter_last_sent_at || null,
       kind:'guest'
     }));
   } catch(e){ /* newsletter_guest_subscribers 테이블이 아직 없어도 계정 기반 구독자는 정상 표시 */ }
@@ -387,11 +388,12 @@ function renderSubscribersTable(list){
   if(!tbody) return;
   if(!list.length){
     if(cardsWrap) cardsWrap.innerHTML = '<div class="card" style="text-align:center;color:var(--muted);padding:30px">구독 중인 계정이 없습니다.</div>';
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">구독 중인 계정이 없습니다.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">구독 중인 계정이 없습니다.</td></tr>';
     return;
   }
   const rows = list.map((p,i)=>{
     const date = p.newsletter_subscribed_at ? new Date(p.newsletter_subscribed_at).toLocaleDateString('ko-KR') : '-';
+    const lastSentDate = p.newsletter_last_sent_at ? new Date(p.newsletter_last_sent_at).toLocaleDateString('ko-KR') : '-';
     let statusBadge;
     if(p.newsletter_paused) statusBadge = '<span class="badge orange">일시정지</span>';
     else if(p.newsletter_last_send_status==='success') statusBadge = '<span class="badge green">발송 성공</span>';
@@ -401,17 +403,17 @@ function renderSubscribersTable(list){
     const safeName = (p.name||'').replace(/'/g,"\\'");
     const pauseLabel = p.newsletter_paused ? '정지 해제' : '일시 정지';
     const kind = p.kind || 'profile';
-    return { i, p, date, statusBadge, safeName, pauseLabel, kind };
+    return { i, p, date, lastSentDate, statusBadge, safeName, pauseLabel, kind };
   });
 
   if(cardsWrap){
-    cardsWrap.innerHTML = rows.map(({i,p,date,statusBadge,safeName,pauseLabel,kind})=>`
+    cardsWrap.innerHTML = rows.map(({i,p,date,lastSentDate,statusBadge,safeName,pauseLabel,kind})=>`
       <div class="result-card">
         <div class="result-card-head">
           <div class="result-card-title"><span>${p.name||'-'}</span>${statusBadge}</div>
         </div>
         <div style="color:var(--muted);font-size:13px;margin:8px 0 2px">${p.email||'-'}</div>
-        <div style="color:var(--muted);font-size:12px;margin-bottom:10px">구독일 ${date}</div>
+        <div style="color:var(--muted);font-size:12px;margin-bottom:10px">구독일 ${date} · 최근 발송일 ${lastSentDate}</div>
         <div class="result-card-actions">
           <button class="btn line" type="button" onclick="handleForceSend('${p.email}','${safeName}')">뉴스레터 발송</button>
           <button class="btn line" type="button" onclick="handleTogglePause('${p.id}',${!p.newsletter_paused},'${safeName}','${kind}')">${pauseLabel}</button>
@@ -421,11 +423,12 @@ function renderSubscribersTable(list){
     `).join('');
   }
 
-  tbody.innerHTML = rows.map(({i,p,date,statusBadge,safeName,pauseLabel,kind})=>`<tr>
+  tbody.innerHTML = rows.map(({i,p,date,lastSentDate,statusBadge,safeName,pauseLabel,kind})=>`<tr>
       <td>${i+1}</td>
       <td><b>${p.name||'-'}</b></td>
       <td style="font-size:13px">${p.email||'-'}</td>
       <td style="font-size:13px;color:var(--muted)">${date}</td>
+      <td style="font-size:13px;color:var(--muted)">${lastSentDate}</td>
       <td>${statusBadge}</td>
       <td>
         <div style="display:flex;gap:6px;flex-wrap:wrap">

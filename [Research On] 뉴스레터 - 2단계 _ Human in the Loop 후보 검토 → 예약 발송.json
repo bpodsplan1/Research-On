@@ -629,7 +629,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const g = $json;\nconst q = $('D3. Code - 최신 발송본 선택').first().json;\nreturn [{\n  json: {\n    success: true,\n    message: `${q.recipient_name || q.recipient}님(${q.recipient})에게 최신 뉴스레터를 발송했습니다.`,\n    issue_id: q.issue_id,\n    subject: q.subject,\n    recipient: q.recipient,\n    gmail_message_id: g.id || g.messageId || ''\n  }\n}];\n"
+        "jsCode": "// D5의 직접 입력은 이제 D4(Gmail)가 아니라 D4E(발송상태 갱신 병합 대기) 노드이므로,\n// Gmail 응답은 이름으로 다시 참조한다.\nconst g = $('D4. Gmail - 개별 구독자 강제 발송').first().json;\nconst q = $('D3. Code - 최신 발송본 선택').first().json;\nreturn [{\n  json: {\n    success: true,\n    message: `${q.recipient_name || q.recipient}님(${q.recipient})에게 최신 뉴스레터를 발송했습니다.`,\n    issue_id: q.issue_id,\n    subject: q.subject,\n    recipient: q.recipient,\n    gmail_message_id: g.id || g.messageId || ''\n  }\n}];\n"
       },
       "id": "c32920e4-95fb-4dc7-b4f5-3eb96e317b04",
       "name": "D5. Code - 발송 결과 정리",
@@ -672,7 +672,7 @@
     {
       "parameters": {
         "method": "PATCH",
-        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/profiles",
+        "url": "={{ $('C4. Code - 발송 결과와 대기열 행 병합').item.json.recipient_kind === 'guest' ? 'https://aiftpranlfudkbobxyll.supabase.co/rest/v1/newsletter_guest_subscribers' : 'https://aiftpranlfudkbobxyll.supabase.co/rest/v1/profiles' }}",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendQuery": true,
@@ -699,7 +699,7 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ newsletter_last_send_status: $('C4. Code - 발송 결과와 대기열 행 병합').item.json.send_success ? 'success' : 'failed' }) }}",
+        "jsonBody": "={{ JSON.stringify({ newsletter_last_send_status: $('C4. Code - 발송 결과와 대기열 행 병합').item.json.send_success ? 'success' : 'failed', ...( $('C4. Code - 발송 결과와 대기열 행 병합').item.json.send_success ? { newsletter_last_sent_at: new Date().toISOString() } : {} ) }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -716,7 +716,7 @@
           "name": "Supabase"
         }
       },
-      "notes": "recipient_id 기준 개별 갱신 — guest(게스트) 구독자는 profiles에 해당 id가 없어 자동으로 no-op(0건 매칭) 처리됨. C5(Supabase PATCH, return=minimal)는 응답이 항상 비어있어 $json으로 못 읽으므로, 반드시 C4의 결과를 이름으로 직접 참조해야 함(2026-07-30 실사용 중 빈 uuid 에러로 발견·수정)."
+      "notes": "예전엔 profiles만 갱신해서, recipient_kind가 'guest'인 경우(외부 구독자)는 id가 안 맞아 조용히 0건 갱신되고 지나갔음(newsletter_guest_subscribers 테이블을 안 봤음) — url을 recipient_kind로 분기하도록 수정. newsletter_last_sent_at(최근 발송일)은 성공했을 때만 기록한다."
     },
     {
       "parameters": {
@@ -1324,6 +1324,117 @@
         56416,
         10708
       ]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/profiles",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "email",
+              "value": "=eq.{{ $('D1. Code - 입력 검증 + 관리자 토큰 확인').first().json.email }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ newsletter_last_send_status: 'success', newsletter_last_sent_at: new Date().toISOString() }) }}",
+        "options": {}
+      },
+      "id": "9beb8cc0-39a7-476c-9934-e7dac448c05a",
+      "name": "D4C. HTTP Request - 발송상태 갱신 (profiles)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        56320,
+        11200
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
+        }
+      },
+      "notes": "email로 profiles를 찾아 발송 성공 상태·최근 발송일을 기록. 대상이 게스트 구독자면 email이 일치하는 행이 없어 0건 갱신되고 조용히 지나간다(정상)."
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/newsletter_guest_subscribers",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "email",
+              "value": "=eq.{{ $('D1. Code - 입력 검증 + 관리자 토큰 확인').first().json.email }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ newsletter_last_send_status: 'success', newsletter_last_sent_at: new Date().toISOString() }) }}",
+        "options": {}
+      },
+      "id": "790e803c-4554-48bc-868e-16567c6464d0",
+      "name": "D4D. HTTP Request - 발송상태 갱신 (게스트)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        56320,
+        11456
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 2
+      },
+      "id": "c98a20d3-977a-4cd1-9ff2-07a0a0a0a3d5",
+      "name": "D4E. Merge - 발송상태 갱신 완료 대기",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        56420,
+        11328
+      ],
+      "notes": "D4C(profiles)/D4D(게스트) 둘 다 끝난 뒤에만 D5가 실행되도록 강제하는 동기화 지점. C2-MERGE와 동일한 이유 — 와이어를 그냥 몰아서 연결하면 n8n이 둘 다 끝나기를 기다리지 않는다."
     }
   ],
   "pinData": {},
@@ -1595,7 +1706,12 @@
       "main": [
         [
           {
-            "node": "D5. Code - 발송 결과 정리",
+            "node": "D4C. HTTP Request - 발송상태 갱신 (profiles)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "D4D. HTTP Request - 발송상태 갱신 (게스트)",
             "type": "main",
             "index": 0
           }
@@ -1914,6 +2030,39 @@
         [
           {
             "node": "EI8. Respond to Webhook - 재생성 결과 반환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D4C. HTTP Request - 발송상태 갱신 (profiles)": {
+      "main": [
+        [
+          {
+            "node": "D4E. Merge - 발송상태 갱신 완료 대기",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "D4D. HTTP Request - 발송상태 갱신 (게스트)": {
+      "main": [
+        [
+          {
+            "node": "D4E. Merge - 발송상태 갱신 완료 대기",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "D4E. Merge - 발송상태 갱신 완료 대기": {
+      "main": [
+        [
+          {
+            "node": "D5. Code - 발송 결과 정리",
             "type": "main",
             "index": 0
           }
