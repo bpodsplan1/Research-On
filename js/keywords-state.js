@@ -53,7 +53,7 @@ async function loadUserData(){
   searchHistory = (hist||[]).map(r=>({ id:r.id, kw:r.keyword, date:r.date_str, time:r.time_str, count:r.search_count }));
 
   const { data: rh } = await _sb.from('research_history').select('*').eq('profile_id', uid).order('searched_at', {ascending:false}).limit(30);
-  resultHistory = (rh||[]).map(r=>({ id:r.id, kw:r.keyword, front:r.front||[], core:r.core||[], back:r.back||[], date:r.date_str, time:r.time_str, docs:r.docs||[] }));
+  resultHistory = (rh||[]).map(r=>({ id:r.id, kw:r.keyword, front:r.front||[], core:r.core||[], back:r.back||[], date:r.date_str, time:r.time_str, options:r.options||{}, docs:r.docs||[] }));
 
   // AI 인사이트 리포트 기록 (계정 단위로 누적 — Supabase 테이블 insight_reports)
   try {
@@ -194,7 +194,7 @@ function viewResearchKeyword(kw){
   if(idx>=0){ viewResultsDetail(idx); } else { showPage('results'); viewResultSession(kw); }
 }
 function viewResearchKeywordAt(idx){ const h = resultHistory[idx]; if(!h) return; viewResultsDetail(idx); }
-function researchKeywordResearchAt(idx){ const h = resultHistory[idx]; if(!h) return; doGlobalSearch(h.kw, {front:[...h.front], core:[...h.core], back:[...h.back]}); }
+function researchKeywordResearchAt(idx){ openRetrySearchModal(idx); }
 async function deleteResearchKeywordAt(idx){
   const uid = await getUid(); if(!uid) return;
   const entry = resultHistory[idx]; if(!entry) return;

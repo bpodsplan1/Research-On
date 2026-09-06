@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Research On — 이트너스 리서치 자동화 허브</title>
-<link rel="stylesheet" href="styles.css?v=20260830a" />
+<link rel="stylesheet" href="styles.css?v=20260906a" />
 </head>
 <body>
 
@@ -409,6 +409,22 @@
     <div id="docModalMeta" style="margin:10px 0"></div>
     <p id="docModalBody" style="white-space:pre-line;color:#334155"></p>
     <div id="docModalSourceLink" style="margin-top:14px"></div>
+  </div>
+</div>
+<div class="empty-state" id="retrySearchModalOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:230;border:0;border-radius:0;padding:40px 20px;align-items:flex-start;justify-content:center;overflow:auto">
+  <div class="card" style="max-width:480px;width:100%;margin-top:40px;text-align:left;color:var(--ink)">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
+      <h3 id="retrySearchTitle" style="margin:0">재검색</h3>
+      <button class="btn line" type="button" style="flex-shrink:0" onclick="closeRetrySearchModal()">닫기</button>
+    </div>
+    <div id="retrySearchNote"></div>
+    <p style="margin:10px 0 6px;color:var(--muted);font-size:13px">이 키워드를 검색했을 당시의 고급옵션입니다.</p>
+    <div id="retrySearchSummary"></div>
+    <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+      <button class="btn primary" type="button" onclick="confirmRetrySearch()">이 설정대로 재검색</button>
+      <button class="btn soft" type="button" onclick="editThenRetrySearch()">수정 후 검색</button>
+      <button class="btn line" type="button" onclick="closeRetrySearchModal()">취소</button>
+    </div>
   </div>
 </div>
 <section class="page" id="history">
@@ -1055,19 +1071,19 @@
     </div>
   </div>
 </div>
-<script src="js/keywords-data.js?v=20260830a"></script>
-<script src="js/config.js?v=20260830a"></script>
-<script src="js/keywords-state.js?v=20260830a"></script>
-<script src="js/keyword-requests.js?v=20260830a"></script>
-<script src="js/research-results.js?v=20260830a"></script>
-<script src="js/insight-report.js?v=20260830a"></script>
-<script src="js/newsletter-subscriber.js?v=20260830a"></script>
-<script src="js/newsletter-admin.js?v=20260830a"></script>
-<script src="js/search-history.js?v=20260830a"></script>
-<script src="js/account-settings.js?v=20260830a"></script>
-<script src="js/event-bindings.js?v=20260830a"></script>
-<script src="js/auth.js?v=20260830a"></script>
-<script src="js/admin.js?v=20260830a"></script>
+<script src="js/keywords-data.js?v=20260906a"></script>
+<script src="js/config.js?v=20260906a"></script>
+<script src="js/keywords-state.js?v=20260906a"></script>
+<script src="js/keyword-requests.js?v=20260906a"></script>
+<script src="js/research-results.js?v=20260906a"></script>
+<script src="js/insight-report.js?v=20260906a"></script>
+<script src="js/newsletter-subscriber.js?v=20260906a"></script>
+<script src="js/newsletter-admin.js?v=20260906a"></script>
+<script src="js/search-history.js?v=20260906a"></script>
+<script src="js/account-settings.js?v=20260906a"></script>
+<script src="js/event-bindings.js?v=20260906a"></script>
+<script src="js/auth.js?v=20260906a"></script>
+<script src="js/admin.js?v=20260906a"></script>
 
 </body>
 </html>

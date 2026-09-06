@@ -41,23 +41,17 @@ async function saveResultSession(kw, parts){
   const p = parts || { front:[], core:[kw], back:[] };
   const dateStr = now.toLocaleDateString('ko-KR');
   const timeStr = now.toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
-  const entry = { kw, front:[...p.front], core:[...p.core], back:[...p.back], date:dateStr, time:timeStr, ts:now.getTime(), docs:resultDocs.map(d=>({...d})) };
+  const options = captureCurrentSearchOptions();
+  const entry = { kw, front:[...p.front], core:[...p.core], back:[...p.back], date:dateStr, time:timeStr, ts:now.getTime(), options, docs:resultDocs.map(d=>({...d})) };
 
-  const idx = resultHistory.findIndex(h=>h.kw===kw);
-  if(idx>=0) resultHistory.splice(idx,1);
+  // 같은 키워드를 다시 검색해도 기존 기록을 덮어쓰지 않고 새 행으로 추가한다
+  // (예전엔 키워드가 같으면 이전 검색 결과가 사라져버렸음)
   resultHistory.unshift(entry);
   if(resultHistory.length > RESULT_HIST_MAX) resultHistory.length = RESULT_HIST_MAX;
 
-  // 반드시 "현재 계정 + 키워드"로 DB 조회 후 처리 (계정 간 오염 방지)
-  const row = { profile_id:uid, keyword:kw, front:p.front, core:p.core, back:p.back, date_str:dateStr, time_str:timeStr, docs:resultDocs.map(d=>({...d})) };
-  const { data: existRow } = await _sb.from('research_history').select('id').eq('profile_id', uid).eq('keyword', kw).maybeSingle();
-  if(existRow){
-    await _sb.from('research_history').update(row).eq('id', existRow.id).eq('profile_id', uid);
-    resultHistory[0].id = existRow.id;
-  } else {
-    const { data } = await _sb.from('research_history').insert(row).select().single();
-    if(data) resultHistory[0].id = data.id;
-  }
+  const row = { profile_id:uid, keyword:kw, front:p.front, core:p.core, back:p.back, date_str:dateStr, time_str:timeStr, options, docs:resultDocs.map(d=>({...d})) };
+  const { data } = await _sb.from('research_history').insert(row).select().single();
+  if(data) resultHistory[0].id = data.id;
 }
 
 async function generateResultsFor(kw, parts){
@@ -482,12 +476,63 @@ function reportTabsPrintHtml(report){
   const limitations = report.limitations ? `<div class="print-block"><p style="margin:0;font-size:11.5px;color:#697386"><b>한계:</b> ${esc(report.limitations)}</p></div>` : '';
   return body + nextSearch + limitations;
 }
-async function retryKwSearch(hidx){
+function retryKwSearch(hidx){ openRetrySearchModal(hidx); }
+
+// ══════════════════════════════════════════
+// 재검색 확인 모달 — "지금 새 리서치 만들기에 세팅된 옵션"이 아니라
+// 그 검색을 실행했던 시점에 저장해둔 고급옵션(options)을 먼저 보여주고 확인/수정하게 한다.
+// ══════════════════════════════════════════
+let retrySearchHidx = null;
+function describeRetryOptions(opts){
+  opts = opts || {};
+  const period = (opts.start_date || opts.end_date) ? `${opts.start_date || '제한 없음'} ~ ${opts.end_date || '제한 없음'}` : '제한 없음';
+  const countryLabel = opts.country ? (COUNTRY_OPTIONS.find(c=>c.code===opts.country)?.label || opts.country) : '전체 (제한 없음)';
+  const includeCount = (opts.include_domains||[]).length;
+  const excludeDomCount = (opts.exclude_domains||[]).length + (opts.custom_exclude_domains||[]).length;
+  const excludeKwCount = (opts.exclude_keywords||[]).length + (opts.custom_exclude_keywords||[]).length;
+  return { period, countryLabel, includeCount, excludeDomCount, excludeKwCount };
+}
+function openRetrySearchModal(hidx){
   const h = resultHistory[hidx]; if(!h) return;
-  showToast('다시 검색 중입니다...');
+  retrySearchHidx = hidx;
+  const hasOptions = h.options && Object.keys(h.options).length > 0;
+  const d = describeRetryOptions(h.options);
+  $('#retrySearchTitle').textContent = `"${h.kw}" 재검색`;
+  $('#retrySearchNote').innerHTML = hasOptions ? ''
+    : '<p style="margin:0 0 10px;color:var(--muted);font-size:13px">이 검색은 옵션 저장 기능 도입 이전에 실행되어, 아래는 기본값으로 표시됩니다.</p>';
+  $('#retrySearchSummary').innerHTML = `
+    <div class="list-item" style="cursor:default">
+      <div style="flex:1">
+        <div class="kw-item-row"><span class="kw-item-label">검색 기간</span><span class="kw-item-val">${esc(d.period)}</span></div>
+        <div class="kw-item-row"><span class="kw-item-label">국가</span><span class="kw-item-val">${esc(d.countryLabel)}</span></div>
+        <div class="kw-item-row"><span class="kw-item-label">포함 도메인</span><span class="kw-item-val">${d.includeCount ? d.includeCount+'개' : '없음'}</span></div>
+        <div class="kw-item-row"><span class="kw-item-label">제외 도메인</span><span class="kw-item-val">${d.excludeDomCount}개</span></div>
+        <div class="kw-item-row"><span class="kw-item-label">제외 키워드</span><span class="kw-item-val">${d.excludeKwCount}개</span></div>
+      </div>
+    </div>`;
+  $('#retrySearchModalOverlay').style.display = 'flex';
+}
+function closeRetrySearchModal(){
+  $('#retrySearchModalOverlay').style.display = 'none';
+  retrySearchHidx = null;
+}
+async function confirmRetrySearch(){
+  const h = resultHistory[retrySearchHidx]; if(!h){ closeRetrySearchModal(); return; }
   const parts = { front:[...(h.front||[])], core:[...(h.core||[])], back:[...(h.back||[])] };
-  await generateResultsFor(h.kw, parts);
-  renderResults();
+  applySearchOptions(h.options||{});
+  closeRetrySearchModal();
+  await doGlobalSearch(h.kw, parts);
+}
+function editThenRetrySearch(){
+  const h = resultHistory[retrySearchHidx]; if(!h){ closeRetrySearchModal(); return; }
+  applySearchOptions(h.options||{});
+  restoreComboIntoBuilder(h);
+  closeRetrySearchModal();
+  showPage('new-research');
+  switchMode('detail');
+  setStep(1);
+  updateSelection(); renderCore(); renderExt(); updatePayload();
+  showToast('저장된 옵션을 불러왔습니다. 확인 후 검색을 실행해주세요.');
 }
 function getSelectedDocs(){
   const checked = $$('.result-chk:checked');

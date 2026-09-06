@@ -467,6 +467,48 @@ function buildSearchPayload(queryOverride, parts){
   payload.requested_at = new Date().toISOString();
   return payload;
 }
+// 검색 실행 시점의 고급옵션 스냅샷 — research_history.options에 그대로 저장해서
+// "재검색" 시 지금 화면 설정이 아니라 그 검색 당시 설정을 다시 보여줄 수 있게 한다.
+function captureCurrentSearchOptions(){
+  return {
+    start_date: $('#startDate')?.value || '',
+    end_date: $('#endDate')?.value || '',
+    country: selectedCountry,
+    include_domains: [...includeDomains],
+    exclude_domains: [...excludeDomains],
+    custom_exclude_domains: [...customExcludeDomains],
+    exclude_keywords: [...excludeKeywords],
+    custom_exclude_keywords: [...customExcludeKeywords]
+  };
+}
+// captureCurrentSearchOptions()로 저장해둔 스냅샷을 실제 전역 상태/화면에 되돌린다.
+// (재검색 확인 모달에서 "이대로 재검색" 또는 "수정 후 검색"을 고를 때 공통으로 사용)
+function applySearchOptions(opts){
+  opts = opts || {};
+  if($('#startDate')) $('#startDate').value = opts.start_date || '';
+  if($('#endDate')) $('#endDate').value = opts.end_date || '';
+  selectedCountry = opts.country || 'KR';
+  includeDomains = [...(opts.include_domains||[])];
+  excludeDomains = [...(opts.exclude_domains||[])];
+  customExcludeDomains = [...(opts.custom_exclude_domains||[])];
+  excludeKeywords = [...(opts.exclude_keywords||[])];
+  customExcludeKeywords = [...(opts.custom_exclude_keywords||[])];
+  renderCountryChips();
+  renderExcludeDomainGroups();
+  renderExcludeKwGroups();
+  renderDomTags('includeDomArea', includeDomains);
+  renderDomTags('customExcludeDomArea', customExcludeDomains);
+  renderDomTags('customExcludeKwArea', customExcludeKeywords);
+  updatePayload();
+}
+// 저장된 리서치 결과(front/core/back)를 "새 리서치 만들기"의 키워드 조합 상태로 복원한다.
+function restoreComboIntoBuilder(h){
+  selected.front = []; selected.core = []; selected.back = [];
+  comboOrder = [];
+  (h.front||[]).forEach(v=>{ selected.front.push(v); addToCombo('front', v); });
+  (h.core||[]).forEach(v=>{ selected.core.push(v); addToCombo('core', v); });
+  (h.back||[]).forEach(v=>{ selected.back.push(v); addToCombo('back', v); });
+}
 function updatePayload(){
   const el=$('#payloadPreview'); if(el) el.textContent = JSON.stringify(buildSearchPayload(),null,2);
 }
