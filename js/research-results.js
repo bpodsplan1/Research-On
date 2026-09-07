@@ -54,11 +54,39 @@ async function saveResultSession(kw, parts){
   if(data) resultHistory[0].id = data.id;
 }
 
+// 실제 서버 진행 이벤트를 못 받아오는 단일 요청/응답 구조라, 소개자료(v0.4 슬라이드 22)에 실측해둔
+// "평균 뉴스 크롤링 시간 17.7초"를 기준으로 4단계 텍스트를 타이머로 넘겨가며 보여준다(연출용 타이밍).
+// 그 실측 이후 86/89번 항목에서 애매한 후보·날짜 미상 후보에 대해 Tavily Extract 호출이 추가돼
+// 실제 소요 시간이 더 늘었으므로(86번 항목 실측 기준 +5~8초), 그 몫을 응답 정리 직전 단계인
+// "④ 결과 정리"에 더 얹어서 총합을 늘렸다(17.7초 → 약 24초, ④의 비중을 특히 높임).
+const SEARCH_LOADING_STEPS = [
+  { label: kw => `"${kw}"에 대한 검색어를 AI가 만들고 있어요`, ms: 3500 },
+  { label: () => 'Naver·Google에서 관련 자료를 모으고 있어요', ms: 4500 },
+  { label: () => 'AI가 자료의 관련성을 평가하고 있어요', ms: 7000 },
+  { label: () => 'AI가 최종 결과를 정리하고 있어요', ms: 9000 }
+];
+// 실제 응답이 이 단계들을 다 지나서 더 걸리면(네트워크 지연 등), 마지막 단계 문구에 멈춰서
+// 보여준다 — 응답이 먼저 오면 generateResultsFor가 stopFn()으로 타이머를 즉시 정리한다.
+function startSearchLoadingSteps(kw){
+  const render = (i) => {
+    const label = SEARCH_LOADING_STEPS[i].label(kw);
+    const html = `<div class="card" style="text-align:center;color:var(--muted);padding:30px"><span class="streaming-dot"></span>${esc(label)}</div>`;
+    $('#resultsBody').innerHTML = html;
+    $('#resultsBodyTable').innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px"><span class="streaming-dot"></span>${esc(label)}</td></tr>`;
+  };
+  render(0);
+  const timers = [];
+  let elapsed = 0;
+  for(let i=1;i<SEARCH_LOADING_STEPS.length;i++){
+    elapsed += SEARCH_LOADING_STEPS[i-1].ms;
+    timers.push(setTimeout(()=>render(i), elapsed));
+  }
+  return () => timers.forEach(clearTimeout);
+}
 async function generateResultsFor(kw, parts){
   currentResultKw = kw;
   $('#resultsSubtitle').textContent = `"${kw}" 검색 중...`;
-  $('#resultsBody').innerHTML = `<div class="card" style="text-align:center;color:var(--muted);padding:30px"><span class="streaming-dot"></span>"${esc(kw)}" 관련 자료를 가져오는 중입니다...</div>`;
-  $('#resultsBodyTable').innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px"><span class="streaming-dot"></span>"${esc(kw)}" 관련 자료를 가져오는 중입니다...</td></tr>`;
+  const stopLoadingSteps = startSearchLoadingSteps(kw);
 
   try {
     const resp = await fetch(N8N_NEWS_SEARCH_URL, {
@@ -69,6 +97,7 @@ async function generateResultsFor(kw, parts){
     if(isOverloadResponse(resp.status, raw)){
       resultDocs = generateOverloadResults(kw);
       showToast(OVERLOAD_MESSAGE);
+      stopLoadingSteps();
       saveResultSession(kw, parts);
       return;
     }
@@ -109,6 +138,7 @@ async function generateResultsFor(kw, parts){
   } catch(e){
     resultDocs = generateFallbackResults(kw);
   }
+  stopLoadingSteps();
   saveResultSession(kw, parts);
 }
 let displayedDocs = [];
