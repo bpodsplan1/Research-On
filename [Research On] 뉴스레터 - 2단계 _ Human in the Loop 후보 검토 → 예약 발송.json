@@ -454,7 +454,8 @@
     },
     {
       "parameters": {
-        "jsCode": "const q=$('C2D. Code - 발송 대상 × 뉴스레터 조합').item.json;\nconst failed = !!$json.error;\nreturn [{json:{\n  ...q,\n  status:'SENT',\n  gmail_message_id:$json.id||$json.messageId||'',\n  threadId:$json.threadId||'',\n  send_success: !failed,\n  send_error: failed ? String(($json.error && ($json.error.message||$json.error)) || '알 수 없는 오류') : ''\n}}];"
+        "jsCode": "const q=$('C2D. Code - 발송 대상 × 뉴스레터 조합').item.json;\nconst failed = !!$json.error;\nreturn [{json:{\n  ...q,\n  status:'SENT',\n  gmail_message_id:$json.id||$json.messageId||'',\n  threadId:$json.threadId||'',\n  send_success: !failed,\n  send_error: failed ? String(($json.error && ($json.error.message||$json.error)) || '알 수 없는 오류') : ''\n}}];",
+        "mode": "runOnceForEachItem"
       },
       "id": "811d6052-55ab-4e9a-9af0-8fe954d76748",
       "name": "C4. Code - 발송 결과와 대기열 행 병합",
@@ -516,7 +517,8 @@
     },
     {
       "parameters": {
-        "jsCode": "return [{json:{success:true,message:'관리자 승인 뉴스레터 발송 완료',issue_id:$json.issue_id||'',status:'SENT'}}];"
+        "jsCode": "// C5B가 Supabase PATCH 응답(return=minimal, 사실상 빈 값)을 그대로 내보내서 $json.issue_id가\n// 항상 비어있었음 — C4까지 이름으로 직접 참조해서 실제 issue_id를 가져온다.\nconst q = $('C4. Code - 발송 결과와 대기열 행 병합').item.json;\nreturn [{json:{success:true,message:'관리자 승인 뉴스레터 발송 완료',issue_id:q.issue_id||'',status:'SENT'}}];",
+        "mode": "runOnceForEachItem"
       },
       "id": "d7cdb4b0-8650-4237-942e-80fbd3c05e2b",
       "name": "C6. Code - 예약 발송 완료",
