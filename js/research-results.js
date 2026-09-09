@@ -298,6 +298,30 @@ function removeUserLink(i){
   renderUserLinkList();
 }
 let insightHistory = [];
+// n8n [뉴스 크롤링 2단계] 실제 노드 구성(URL 파싱/검증 → Tavily Extract 본문 추출
+// → LLM Chain 종합 리포트 생성 → 응답 정리) 기준 4단계. 총 소요시간은 소개자료
+// (v0.4 슬라이드22) 실측치 "평균 AI 리포트 생성 시간 28.8초"를 그대로 쓰고,
+// Tavily Extract 구간은 실측 벤치마크(5 URL advanced ~2초, 20 URL advanced ~19초)를
+// 선택 자료 상한(10건) 기준으로 선형 보간(~8초)해 배분, 나머지 대부분을 실제 AI
+// 분석(LLM Chain) 단계에 배정했다(검색 화면의 4단계 로딩과 동일한 원칙).
+const INSIGHT_LOADING_STEPS = [
+  { label: '선택한 자료의 원문 링크를 확인하고 있어요', ms: 2000 },
+  { label: 'Tavily로 기사 원문을 가져오고 있어요', ms: 8000 },
+  { label: '회사·본부 맥락을 반영해 AI가 분석하고 있어요', ms: 15000 },
+  { label: 'Executive Brief 등 리포트 형식으로 정리하고 있어요', ms: 3800 }
+];
+function startInsightLoadingSteps(){
+  const labelEl = $('#insightLoadingLabel');
+  const render = (i) => { if(labelEl) labelEl.textContent = INSIGHT_LOADING_STEPS[i].label; };
+  render(0);
+  const timers = [];
+  let elapsed = 0;
+  for(let i=1;i<INSIGHT_LOADING_STEPS.length;i++){
+    elapsed += INSIGHT_LOADING_STEPS[i-1].ms;
+    timers.push(setTimeout(()=>render(i), elapsed));
+  }
+  return () => timers.forEach(clearTimeout);
+}
 async function deriveInsight(){
   const selected = getSelectedDetailDocs();
   const withUrl = selected.filter(d=>d.url);
@@ -325,6 +349,7 @@ async function deriveInsight(){
   const bar = $('#insightLoadingBar');
   let pct = 0;
   const timer = setInterval(()=>{ if(pct<85 && bar){ pct+=12; bar.style.width = pct+'%'; } }, 350);
+  const stopLoadingSteps = startInsightLoadingSteps();
 
   let report;
   let overloaded = false;
@@ -360,6 +385,7 @@ async function deriveInsight(){
   }
 
   clearInterval(timer);
+  stopLoadingSteps();
   if(bar) bar.style.width = '100%';
 
   insightHistory.unshift({ kw, articleCount: combined.length, report, createdAt: new Date() });
