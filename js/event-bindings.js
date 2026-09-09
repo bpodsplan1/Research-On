@@ -59,7 +59,7 @@ function bindEvents(){
   $('#excludeDomGroups')?.addEventListener('click', e=>{ const btn=e.target.closest('[data-domain-group]'); if(btn) toggleExcludeDomainGroup(btn.dataset.domainGroup); });
   $('#excludeKwGroups')?.addEventListener('click', e=>{ const btn=e.target.closest('[data-kw-group]'); if(btn) toggleExcludeKwGroup(btn.dataset.kwGroup); });
   $('#countryChips')?.addEventListener('click', e=>{ const btn=e.target.closest('[data-country]'); if(btn) selectCountry(btn.dataset.country); });
-  $('#advancedSearchBtn')?.addEventListener('click', e=>simulateRun(e.currentTarget));
+  $('#advancedSearchBtn')?.addEventListener('click', simulateRun);
 
   // 전역 검색
 

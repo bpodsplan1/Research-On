@@ -553,31 +553,17 @@ function renderPoolD3(){
   const d3s=g[poolD1].d2[poolD2].d3;
   $('#poolDepth3').className=''; $('#poolDepth3').innerHTML=Object.entries(d3s).map(([d3,kws])=>`<div class="depth3-row"><div class="depth3-title">${esc(d3)}</div>${kws.map(kw=>`<button class="chip ${selected.core.includes(kw)?'selected':''}" type="button" data-pool-kw="${esc(kw)}">${esc(kw)}</button>`).join('')}</div>`).join('');
 }
-async function simulateRun(triggerBtn){
+async function simulateRun(){
   const kw = getFinalQuery();
   if(!kw){ showToast('먼저 새 리서치 만들기에서 키워드를 선택해주세요.'); return; }
 
-  const btn = triggerBtn || null;
-  const originalLabel = btn ? btn.innerHTML : '';
-  if(btn){ btn.disabled = true; btn.innerHTML = '검색 중...'; }
-  const statusEl = $('#runStatus'); const progEl = $('#runProgress');
-  let pct=0; if(statusEl) statusEl.textContent='n8n 워크플로우 실행 중...'; if(progEl) progEl.style.width='0%';
-  const timer=setInterval(()=>{ if(pct<85){ pct+=15; if(progEl) progEl.style.width=pct+'%'; } },300);
-
   saveSearchHistory(kw);
+  // 결과 화면(#resultsBody)으로 먼저 전환한 뒤 generateResultsFor를 실행해야
+  // 그 안의 4단계 진행 문구(startSearchLoadingSteps)가 화면에 보인다.
+  // 예전엔 여기서 완료까지 기다렸다가 마지막에 showPage('results')를 호출해서
+  // 4단계 문구가 보이지 않는 화면에 렌더링된 채로 사라졌었음.
+  showPage('results');
   await generateResultsFor(kw, { front:[...selected.front], core:[...selected.core], back:[...selected.back] });
-
-  clearInterval(timer);
-  if(progEl) progEl.style.width='100%';
-  const successCount = resultDocs.filter(d=>d.status==='success').length;
-  const statusMsg = successCount>0
-    ? `완료: 검색 결과 ${resultDocs.length}건 수집, 본문 ${successCount}건 추출 성공`
-    : '완료: 결과를 가져오지 못했습니다. n8n 연동 상태를 확인해주세요.';
-  if(statusEl) statusEl.textContent = statusMsg;
-
-  if(btn){ btn.disabled = false; btn.innerHTML = originalLabel; }
-
-  showToast('리서치 결과 페이지로 이동합니다.');
-  setTimeout(()=>{ showPage('results'); }, 600);
+  renderResults();
 }
 
