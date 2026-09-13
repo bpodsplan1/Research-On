@@ -172,10 +172,17 @@ function globalDocIndex(hidx, li){
   for(let k=0;k<hidx;k++) idx += (resultHistory[k].docs||[]).length;
   return idx + li;
 }
-function renderResults(){
-  $('#resultsSubtitle').textContent = resultHistory.length ? '지금까지 검색한 모든 키워드의 결과를 한 번에 확인할 수 있습니다.' : '새 리서치 만들기에서 검색했던 키워드별 결과를 언제든지 다시 확인할 수 있습니다.';
+// displayedDocs는 resultHistory를 펼쳐놓은 캐시라, resultHistory가 바뀐 뒤 이 함수를
+// 다시 부르지 않으면(예: 대시보드 "최근 검색 결과"나 키워드 페이지 "결과 보기"처럼
+// 목록 화면을 거치지 않고 바로 상세로 들어가는 경로) globalDocIndex가 계산한 gi가
+// 옛 displayedDocs를 가리켜 완전히 다른 검색 기록의 기사가 열리는 버그가 있었음.
+function rebuildDisplayedDocs(){
   displayedDocs = [];
   resultHistory.forEach((h,hi)=>{ (h.docs||[]).forEach(d=>{ displayedDocs.push({...d, kw:h.kw, hidx:hi}); }); });
+}
+function renderResults(){
+  $('#resultsSubtitle').textContent = resultHistory.length ? '지금까지 검색한 모든 키워드의 결과를 한 번에 확인할 수 있습니다.' : '새 리서치 만들기에서 검색했던 키워드별 결과를 언제든지 다시 확인할 수 있습니다.';
+  rebuildDisplayedDocs();
 
   $('#resultsBody').innerHTML = resultHistory.length ? resultHistory.map((h,hi)=>{
     const { count, avgScore, hasSuccess } = computeKwStats(h);
@@ -219,6 +226,10 @@ function viewResultsDetail(hidx){
 function renderResultsDetail(){
   const hidx = currentResultsDetailHidx;
   const h = hidx!==null ? resultHistory[hidx] : null;
+  // 대시보드 "최근 검색 결과"·키워드 페이지 "결과 보기"처럼 결과 목록 화면을
+  // 거치지 않고 바로 이 화면으로 들어오는 경로에서도 displayedDocs가 항상
+  // 현재 resultHistory와 일치하도록 매번 다시 계산한다.
+  rebuildDisplayedDocs();
   userSuppliedLinks = [];
   renderUserLinkList();
   if(!h){
