@@ -690,5 +690,7 @@ async function doGlobalSearch(kw, parts){
   showPage('results');
   await generateResultsFor(kw, parts);
   renderResults();
+  // simulateRun()과 동일하게, 완료 후 목록에서 다시 클릭하지 않고 바로 상세로 이동
+  viewResultsDetail(0);
 }
 

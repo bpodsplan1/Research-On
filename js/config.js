@@ -565,5 +565,8 @@ async function simulateRun(){
   showPage('results');
   await generateResultsFor(kw, { front:[...selected.front], core:[...selected.core], back:[...selected.back] });
   renderResults();
+  // 완료되면 목록 화면에서 다시 "결과 확인"을 누르게 하지 않고, 방금 검색한
+  // 결과(saveResultSession이 항상 맨 앞에 unshift함) 상세로 바로 넘어간다.
+  viewResultsDetail(0);
 }
 
