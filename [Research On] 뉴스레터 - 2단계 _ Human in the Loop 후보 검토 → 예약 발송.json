@@ -68,6 +68,18 @@
             {
               "name": "select",
               "value": "*"
+            },
+            {
+              "name": "collected_at",
+              "value": "=gte.{{ $('A1B. Code - 조회 기간 계산').item.json.since }}"
+            },
+            {
+              "name": "order",
+              "value": "priority.desc"
+            },
+            {
+              "name": "limit",
+              "value": "300"
             }
           ]
         },
@@ -100,6 +112,18 @@
             {
               "name": "select",
               "value": "*"
+            },
+            {
+              "name": "created_at",
+              "value": "=gte.{{ $('A1B. Code - 조회 기간 계산').item.json.since }}"
+            },
+            {
+              "name": "order",
+              "value": "newsletter_priority.desc"
+            },
+            {
+              "name": "limit",
+              "value": "300"
             }
           ]
         },
@@ -120,19 +144,6 @@
         }
       },
       "notes": "(2026-07-25 Supabase 이관: 기존 Google Sheets/Docs 노드를 대체)"
-    },
-    {
-      "parameters": {
-        "jsCode": "// Human-in-the-loop용 후보 정규화 및 '후보별 편집' 프롬프트 생성\n// 중요: 이 단계에서 AI는 후보를 선택하거나 탈락시키지 않습니다.\n// 2026-07-30: request.section이 있으면 그 섹션 하나만 다시 생성하는 \"섹션별 재생성\" 모드로 동작한다.\n\nconst request = $('A0. Webhook - 뉴스레터 후보 초안 조회').first().json.body || {};\nconst VALID_SECTIONS = ['client_watch','research_on_insight','business_work','people_culture'];\nconst requestedSection = VALID_SECTIONS.includes(String(request.section||'').trim()) ? String(request.section).trim() : '';\nconst newsletterRows = $('A2. Google Sheets - newsletter_research 후보 조회').all().map(x => x.json || {});\nconst researchRows = $('A3. Google Sheets - research_results 후보 조회').all().map(x => x.json || {});\n\nfunction txt(v){ return v === null || v === undefined ? '' : String(v).trim(); }\nfunction truthy(v){\n  if (v === true || v === 1) return true;\n  return ['true','1','y','yes','예','o'].includes(txt(v).toLowerCase());\n}\nfunction parseDate(v){ const d = new Date(v || ''); return isNaN(d.getTime()) ? null : d; }\nfunction parseJson(v){\n  if (v && typeof v === 'object') return v;\n  try { return v ? JSON.parse(v) : {}; } catch { return {}; }\n}\nfunction urls(v){\n  if (Array.isArray(v)) return [...new Set(v.map(txt).filter(x => /^https?:\\/\\//i.test(x)))].slice(0,4);\n  return [...new Set(txt(v).split(/[\\n,]+/).map(x=>x.trim()).filter(x => /^https?:\\/\\//i.test(x)))].slice(0,4);\n}\nfunction getDocText(obj){\n  if (obj && typeof obj.content === 'string') {\n    return obj.content.replace(/\\r/g,'\\n').replace(/\\n{3,}/g,'\\n\\n').trim().slice(0,1200);\n  }\n  const chunks=[];\n  const walk=(x)=>{\n    if(!x || typeof x !== 'object') return;\n    if(x.textRun && typeof x.textRun.content === 'string') chunks.push(x.textRun.content);\n    for(const v of Object.values(x)){\n      if(Array.isArray(v)) v.forEach(walk);\n      else if(v && typeof v === 'object') walk(v);\n    }\n  };\n  walk(obj);\n  return chunks.join('').replace(/\\r/g,'\\n').replace(/\\n{3,}/g,'\\n\\n').trim().slice(0,1200);\n}\n\nconst days = Math.max(1, Math.min(30, Number(request.days || 7)));\nconst maxPerSection = Math.max(1, Math.min(10, Number(request.max_per_section || 6)));\nconst now = new Date();\nconst from = new Date(now.getTime() - days * 86400000);\nconst periodStart = from.toISOString().slice(0,10);\nconst periodEnd = now.toISOString().slice(0,10);\nfunction inWindow(v){ const d=parseDate(v); return !d || (d >= from && d <= now); }\n\nconst external = newsletterRows\n  .filter(r => inWindow(r.collected_at || r.generated_at || r.created_at))\n  .map((r,i)=>({\n    candidate_id: txt(r.item_id || `NLR-${i+1}`),\n    section: txt(r.section).toUpperCase(),\n    title: txt(r.title),\n    summary: txt(r.summary).slice(0,900),\n    implication: txt(r.implication).slice(0,500),\n    source_urls: urls(r.source_urls),\n    priority: Number(r.priority || 50),\n    evidence_level: txt(r.evidence_level || 'MEDIUM'),\n    target: txt(r.target),\n    keyword: txt(r.keyword)\n  }))\n  .filter(x => ['CLIENT_WATCH','BUSINESS_WORK','PEOPLE_CULTURE'].includes(x.section))\n  .filter(x => x.title || x.summary)\n  .sort((a,b)=>b.priority-a.priority);\n\nconst internal = researchRows\n  .filter(r => inWindow(r.created_at || r.generated_at || r.requested_at))\n  .filter(r => r.newsletter_candidate === undefined || r.newsletter_candidate === '' || truthy(r.newsletter_candidate))\n  .map((r,i)=>{\n    const raw=parseJson(r.raw_json || r.report_json || r.result_json);\n    const eb=raw.executive_brief || {};\n    // research_results 시트에는 원문 URL이 'source_urls'라는 별도 컬럼으로 저장되지 않고,\n    // raw_json(=raw) 안의 source_summaries 배열(각 항목에 title/url)에 들어있다.\n    // (뉴스 크롤링 2단계 워크플로우의 '8. Code - AI 응답 JSON 정리' 참고)\n    // 예전 코드가 존재하지 않는 raw.source_urls를 찾고 있어서 내부 리서치 결과에 링크가 비어 있었다.\n    return {\n      candidate_id: txt(r.research_id || `RES-${i+1}`),\n      section:'RESEARCH_ON_INSIGHT',\n      title: txt(r.keyword || raw.keyword || `내부 리서치 ${i+1}`),\n      summary: txt(r.one_line_conclusion || eb.one_line_conclusion).slice(0,900),\n      implication: txt(eb.relevance_to_organization || eb.recommended_action).slice(0,500),\n      source_urls: urls(r.source_urls || raw.source_urls || (Array.isArray(raw.source_summaries) ? raw.source_summaries.map(s => s && s.url) : [])),\n      priority: Number(r.newsletter_priority || 50),\n      evidence_level:'INTERNAL',\n      target:'', keyword:txt(r.keyword || raw.keyword)\n    };\n  })\n  .filter(x => x.title || x.summary)\n  .sort((a,b)=>b.priority-a.priority);\n\nconst groupedCandidatesFull = {\n  client_watch: external.filter(x=>x.section==='CLIENT_WATCH').slice(0,maxPerSection),\n  research_on_insight: internal.slice(0,maxPerSection),\n  business_work: external.filter(x=>x.section==='BUSINESS_WORK').slice(0,maxPerSection),\n  people_culture: external.filter(x=>x.section==='PEOPLE_CULTURE').slice(0,maxPerSection)\n};\nconst groupedCandidates = requestedSection\n  ? { [requestedSection]: groupedCandidatesFull[requestedSection] }\n  : groupedCandidatesFull;\nconst candidateCount = Object.values(groupedCandidates).reduce((s,a)=>s+a.length,0);\nif(!candidateCount) throw new Error(requestedSection\n  ? `최근 ${days}일간 웹에 표시할 \"${requestedSection}\" 섹션 후보가 없습니다.`\n  : `최근 ${days}일간 웹에 표시할 뉴스레터 후보가 없습니다.`);\n\nlet docJson={};\ntry { docJson=$('A1. Google Docs - 회사 맥락 읽기').first().json || {}; } catch {}\nconst companyContext = getDocText(docJson) || '회사 맥락 문서를 불러오지 못했습니다. 후보에 있는 사실만 사용합니다.';\n\nconst SECTION_LABELS = {\n  client_watch: 'CLIENT WATCH',\n  research_on_insight: 'RESEARCH ON INSIGHT',\n  business_work: 'BUSINESS & WORK',\n  people_culture: 'PEOPLE & CULTURE'\n};\n\nconst fullPrompt = `너는 BPO사업본부 주간 뉴스레터의 후보 문구 편집자다.\n아래 후보를 웹페이지에 모두 보여줘야 한다. 후보를 선택·삭제·통합하거나 순서를 임의로 바꾸지 마라.\n각 candidate_id마다 정확히 하나의 편집 결과를 만들고 candidate_id를 그대로 복사하라.\n관리자가 웹에서 후보를 검토한 뒤 섹션별 최종 1건을 선택하므로, 너는 선택 판단을 하지 않는다.\n\n[편집 원칙 - 1차 독자는 CL4 이상 보직자(센터장·그룹장·사업부장·임원)다]\n- 바쁜 보직자가 이 항목만 읽고도 핵심과 맥락을 파악해 회의나 의사결정에 참고할 수 있는 수준으로 다듬는다. 짧게 쓰되 알맹이(수치·시점·구체적 근거)는 절대 빼지 않는다.\n- title: 원문 제목을 그대로 복사하지 말고 핵심을 15~25자 내외로 다시 쓴다.\n- summary: 후보의 구체적 숫자·고유명사·행동을 살려 2~3문장으로 정리한다. 후보에 이미 있는 구체성(수치·시점·기업명 등)을 절대 생략하거나 뭉뚱그리지 않는다.\n- implication: CLIENT WATCH, RESEARCH ON INSIGHT, BUSINESS & WORK, PEOPLE & CULTURE 네 섹션 모두 반드시 작성한다. \"~할 기회입니다\" 같은 상투적 한 줄로 끝내지 말고, 이 사안이 BPO사업본부 운영·사업에 어떤 의미인지와 보직자가 무엇을 검토·논의해야 하는지를 담아 1~2문장으로 정리한다. PEOPLE & CULTURE의 implication은 채용·유지·조직문화·세대 간 소통·복리후생 설계 관점에서 작성한다. 후보에 이미 implication/organization_view가 있다면 절대 비우거나 삭제하지 말고, 문장을 다듬어 최대한 살린다.\n- executive_brief.headline과 summary는 후보 중 중요도가 가장 높아 보이는 이슈 1~2개를 중심으로, 보직자가 이번 주 가장 먼저 알아야 할 것이 무엇인지 드러나게 작성한다. 관리자가 최종 후보를 고른 뒤 다시 다듬을 임시 초안이니 지금은 후보 전체를 보고 가장 비중 있어 보이는 것 위주로 작성하면 된다.\n- 후보에 없는 사실은 절대 추가하지 않는다.\n- source_urls는 출력하지 않는다. 시스템이 candidate_id를 기준으로 원본 URL을 다시 붙인다.\n- 반드시 JSON 객체만 출력한다.\n\n[회사 업무 맥락 - 우선순위와 문체 참고용]\n${companyContext}\n\n[기간]\n${periodStart} ~ ${periodEnd}\n\n[후보]\n${JSON.stringify(groupedCandidates)}\n\n[출력 형식]\n{\n  \"issue_title\":\"후보 검토용 주간 브리핑 제목\",\n  \"executive_brief\":{\"headline\":\"후보 전체를 관통하는 임시 헤드라인\",\"summary\":\"관리자가 선택 후 수정할 수 있는 임시 요약\"},\n  \"sections\":{\n    \"client_watch\":[{\"candidate_id\":\"\",\"title\":\"\",\"summary\":\"\",\"implication_label\":\"시사점\",\"implication\":\"\"}],\n    \"research_on_insight\":[{\"candidate_id\":\"\",\"title\":\"\",\"summary\":\"\",\"implication_label\":\"시사점\",\"implication\":\"\"}],\n    \"business_work\":[{\"candidate_id\":\"\",\"title\":\"\",\"summary\":\"\",\"implication_label\":\"시사점\",\"implication\":\"\"}],\n    \"people_culture\":[{\"candidate_id\":\"\",\"title\":\"\",\"summary\":\"\",\"implication_label\":\"시사점\",\"implication\":\"\"}]\n  },\n  \"people_culture_view\":\"후보 전체를 본 임시 종합 코멘트\",\n  \"editor_note\":\"Human in the loop 후보 초안\"\n}`;\n\n// 섹션별 재생성 모드: 요청받은 섹션 하나만 편집하도록 훨씬 작은 프롬프트를 만든다.\n// 전체 재생성과 편집 원칙(문체·분량 기준)은 동일하게 유지하되, issue_title/executive_brief처럼\n// \"전체를 관통하는\" 필드는 요청 범위 밖이라 생성하지 않는다.\nconst scopedPrompt = requestedSection ? `너는 BPO사업본부 주간 뉴스레터의 후보 문구 편집자다.\n아래는 ${SECTION_LABELS[requestedSection]} 섹션 후보만 골라낸 것이다. 이 섹션만 다시 편집하면 된다.\n후보를 선택·삭제·통합하거나 순서를 임의로 바꾸지 마라.\n각 candidate_id마다 정확히 하나의 편집 결과를 만들고 candidate_id를 그대로 복사하라.\n\n[편집 원칙 - 1차 독자는 CL4 이상 보직자(센터장·그룹장·사업부장·임원)다]\n- 바쁜 보직자가 이 항목만 읽고도 핵심과 맥락을 파악해 회의나 의사결정에 참고할 수 있는 수준으로 다듬는다. 짧게 쓰되 알맹이(수치·시점·구체적 근거)는 절대 빼지 않는다.\n- title: 원문 제목을 그대로 복사하지 말고 핵심을 15~25자 내외로 다시 쓴다.\n- summary: 후보의 구체적 숫자·고유명사·행동을 살려 2~3문장으로 정리한다. 후보에 이미 있는 구체성(수치·시점·기업명 등)을 절대 생략하거나 뭉뚱그리지 않는다.\n- implication: 반드시 작성한다. \"~할 기회입니다\" 같은 상투적 한 줄로 끝내지 말고, 이 사안이 BPO사업본부 운영·사업에 어떤 의미인지와 보직자가 무엇을 검토·논의해야 하는지를 담아 1~2문장으로 정리한다.${requestedSection === 'people_culture' ? ' PEOPLE & CULTURE의 implication은 채용·유지·조직문화·세대 간 소통·복리후생 설계 관점에서 작성한다.' : ''} 후보에 이미 implication/organization_view가 있다면 절대 비우거나 삭제하지 말고, 문장을 다듬어 최대한 살린다.\n- 후보에 없는 사실은 절대 추가하지 않는다.\n- source_urls는 출력하지 않는다. 시스템이 candidate_id를 기준으로 원본 URL을 다시 붙인다.\n- 반드시 JSON 객체만 출력한다.\n\n[회사 업무 맥락 - 우선순위와 문체 참고용]\n${companyContext}\n\n[기간]\n${periodStart} ~ ${periodEnd}\n\n[후보]\n${JSON.stringify(groupedCandidates)}\n\n[출력 형식]\n{\n  \"sections\":{\n    \"${requestedSection}\":[{\"candidate_id\":\"\",\"title\":\"\",\"summary\":\"\",\"implication_label\":\"시사점\",\"implication\":\"\"}]\n  }${requestedSection === 'people_culture' ? ',\\n  \"people_culture_view\":\"이 섹션 후보 전체를 본 종합 코멘트\"' : ''}\n}` : '';\n\nconst prompt = requestedSection ? scopedPrompt : fullPrompt;\n\nreturn [{json:{\n  issue_id:`DRAFT-${periodEnd.replace(/-/g,'')}-${Math.random().toString(36).slice(2,7).toUpperCase()}`,\n  generated_at:now.toISOString(), period_start:periodStart, period_end:periodEnd,\n  grouped_candidates:groupedCandidates, candidate_count:candidateCount,\n  requested_section:requestedSection,\n  editor_prompt:prompt\n}}];"
-      },
-      "id": "8f1c22b4-de29-4f9d-bb51-99524ecdf44a",
-      "name": "A4. Code - 후보 정규화 + 후보별 편집 프롬프트",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        56176,
-        9568
-      ]
     },
     {
       "parameters": {
@@ -1437,6 +1448,73 @@
         11328
       ],
       "notes": "D4C(profiles)/D4D(게스트) 둘 다 끝난 뒤에만 D5가 실행되도록 강제하는 동기화 지점. C2-MERGE와 동일한 이유 — 와이어를 그냥 몰아서 연결하면 n8n이 둘 다 끝나기를 기다리지 않는다."
+    },
+    {
+      "parameters": {
+        "jsCode": "// A2/A3의 Supabase 조회를 요청 파라미터(days) 기준으로 서버 사이드에서 필터링하기\n// 위해 기준 시각을 한 곳에서 미리 계산한다. 예전엔 A2/A3가 select=*로 테이블 전체를\n// 매번 끌어온 뒤 A4에서 JS로 날짜를 걸러냈는데, 두 테이블 다 계속 쌓이는 구조라\n// (2026-09-19 기준 newsletter_candidates 331행·research_reports 67행, 매주 계속 증가)\n// 시간이 지날수록 한 Code 노드가 한 번에 처리해야 하는 데이터가 계속 불어나는\n// 구조적 위험이 있었다. 2026-09-14 \"A4 실행 중 out of memory\" 이슈 이후, 데이터 볼륨\n// 자체는 아직 작지만(합쳐서 2MB 안팎) 이후로도 안전하도록 서버 사이드 필터링 +\n// A4를 여러 노드로 쪼개는 두 가지를 함께 적용한다(아래 A4a/A4b/A4-MERGE/A4c 참고).\nconst request = $('A0. Webhook - 뉴스레터 후보 초안 조회').first().json.body || {};\nconst VALID_SECTIONS = ['client_watch','research_on_insight','business_work','people_culture'];\nconst requestedSection = VALID_SECTIONS.includes(String(request.section||'').trim()) ? String(request.section).trim() : '';\nconst days = Math.max(1, Math.min(30, Number(request.days || 7)));\nconst maxPerSection = Math.max(1, Math.min(10, Number(request.max_per_section || 6)));\nconst now = new Date();\nconst from = new Date(now.getTime() - days * 86400000);\n\nreturn [{json:{\n  since: from.toISOString(),\n  days, maxPerSection, requestedSection,\n  periodStart: from.toISOString().slice(0,10),\n  periodEnd: now.toISOString().slice(0,10),\n  generatedAt: now.toISOString()\n}}];\n"
+      },
+      "id": "a1b00000-0000-4000-8000-000000000001",
+      "name": "A1B. Code - 조회 기간 계산",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        55456,
+        9808
+      ],
+      "notes": "A2/A3 서버 사이드 날짜 필터에 쓰는 기준 시각(since)을 한 곳에서 계산 (2026-09-19 A4 OOM 대응 재설계)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 예전 A4(하나의 거대한 Code 노드)의 앞부분 절반 — 외부 후보(뉴스레터 1단계 수집분)만\n// 정규화한다. 2026-09-14 \"A4 실행 중 out of memory\" 이슈 대응: 노드 하나가 두 테이블을\n// 동시에 메모리에 올려 처리하던 걸 나눠서, 노드별 순간 메모리 사용량과 V8 GC 압박을\n// 줄였다. A2가 이미 A1B의 since 이후 것만 서버에서 걸러오지만, 방어적으로 한 번 더\n// 확인한다.\nconst meta = $('A1B. Code - 조회 기간 계산').first().json;\nconst newsletterRows = $('A2. Google Sheets - newsletter_research 후보 조회').all().map(x => x.json || {});\n\nfunction txt(v){ return v === null || v === undefined ? '' : String(v).trim(); }\nfunction parseDate(v){ const d = new Date(v || ''); return isNaN(d.getTime()) ? null : d; }\nfunction urls(v){\n  if (Array.isArray(v)) return [...new Set(v.map(txt).filter(x => /^https?:\\/\\//i.test(x)))].slice(0,4);\n  return [...new Set(txt(v).split(/[\\n,]+/).map(x=>x.trim()).filter(x => /^https?:\\/\\//i.test(x)))].slice(0,4);\n}\nconst from = new Date(meta.since);\nfunction inWindow(v){ const d=parseDate(v); return !d || d >= from; }\n\nconst external = newsletterRows\n  .filter(r => inWindow(r.collected_at || r.generated_at || r.created_at))\n  .map((r,i)=>({\n    candidate_id: txt(r.item_id || `NLR-${i+1}`),\n    section: txt(r.section).toUpperCase(),\n    title: txt(r.title),\n    summary: txt(r.summary).slice(0,900),\n    implication: txt(r.implication).slice(0,500),\n    source_urls: urls(r.source_urls),\n    priority: Number(r.priority || 50),\n    evidence_level: txt(r.evidence_level || 'MEDIUM'),\n    target: txt(r.target),\n    keyword: txt(r.keyword)\n  }))\n  .filter(x => ['CLIENT_WATCH','BUSINESS_WORK','PEOPLE_CULTURE'].includes(x.section))\n  .filter(x => x.title || x.summary)\n  .sort((a,b)=>b.priority-a.priority);\n\nreturn [{json:{ external }}];\n"
+      },
+      "id": "a4a00000-0000-4000-8000-000000000002",
+      "name": "A4a. Code - 외부 후보(뉴스레터) 정규화",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        56176,
+        9328
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 예전 A4의 뒷부분 절반 — 내부 후보(자체 리서치 인사이트 결과)만 정규화한다.\n// A4a와 같은 이유로 분리됨(2026-09-14 OOM 이슈 대응).\nconst meta = $('A1B. Code - 조회 기간 계산').first().json;\nconst researchRows = $('A3. Google Sheets - research_results 후보 조회').all().map(x => x.json || {});\n\nfunction txt(v){ return v === null || v === undefined ? '' : String(v).trim(); }\nfunction truthy(v){\n  if (v === true || v === 1) return true;\n  return ['true','1','y','yes','예','o'].includes(txt(v).toLowerCase());\n}\nfunction parseDate(v){ const d = new Date(v || ''); return isNaN(d.getTime()) ? null : d; }\nfunction parseJson(v){\n  if (v && typeof v === 'object') return v;\n  try { return v ? JSON.parse(v) : {}; } catch { return {}; }\n}\nfunction urls(v){\n  if (Array.isArray(v)) return [...new Set(v.map(txt).filter(x => /^https?:\\/\\//i.test(x)))].slice(0,4);\n  return [...new Set(txt(v).split(/[\\n,]+/).map(x=>x.trim()).filter(x => /^https?:\\/\\//i.test(x)))].slice(0,4);\n}\nconst from = new Date(meta.since);\nfunction inWindow(v){ const d=parseDate(v); return !d || d >= from; }\n\nconst internal = researchRows\n  .filter(r => inWindow(r.created_at || r.generated_at || r.requested_at))\n  .filter(r => r.newsletter_candidate === undefined || r.newsletter_candidate === '' || truthy(r.newsletter_candidate))\n  .map((r,i)=>{\n    const raw=parseJson(r.raw_json || r.report_json || r.result_json);\n    const eb=raw.executive_brief || {};\n    // research_results 시트에는 원문 URL이 'source_urls'라는 별도 컬럼으로 저장되지 않고,\n    // raw_json(=raw) 안의 source_summaries 배열(각 항목에 title/url)에 들어있다.\n    return {\n      candidate_id: txt(r.research_id || `RES-${i+1}`),\n      section:'RESEARCH_ON_INSIGHT',\n      title: txt(r.keyword || raw.keyword || `내부 리서치 ${i+1}`),\n      summary: txt(r.one_line_conclusion || eb.one_line_conclusion).slice(0,900),\n      implication: txt(eb.relevance_to_organization || eb.recommended_action).slice(0,500),\n      source_urls: urls(r.source_urls || raw.source_urls || (Array.isArray(raw.source_summaries) ? raw.source_summaries.map(s => s && s.url) : [])),\n      priority: Number(r.newsletter_priority || 50),\n      evidence_level:'INTERNAL',\n      target:'', keyword:txt(r.keyword || raw.keyword)\n    };\n  })\n  .filter(x => x.title || x.summary)\n  .sort((a,b)=>b.priority-a.priority);\n\nreturn [{json:{ internal }}];\n"
+      },
+      "id": "a4b00000-0000-4000-8000-000000000003",
+      "name": "A4b. Code - 내부 후보(리서치) 정규화",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        56176,
+        9808
+      ]
+    },
+    {
+      "parameters": {
+        "numberInputs": 2
+      },
+      "id": "a4m00000-0000-4000-8000-000000000004",
+      "name": "A4-MERGE. Merge - 후보 정규화 완료 대기",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        56376,
+        9568
+      ],
+      "notes": "A4a/A4b 두 갈래가 모두 끝난 뒤에만 A4c가 실행되도록 강제하는 동기화 지점. A4c는 이 노드의 실제 출력은 안 쓰고 $('A4a...')/$('A4b...')로 직접 조회한다 (C2-MERGE와 동일한 관례)."
+    },
+    {
+      "parameters": {
+        "jsCode": "// A4a(외부 후보)·A4b(내부 후보) 두 갈래가 모두 끝난 뒤 실행된다(A4-MERGE가 동기화 지점 —\n// 이 노드는 병합 노드 자체의 출력 내용은 쓰지 않고 A4a/A4b를 이름으로 직접 다시\n// 조회한다. 이 워크플로우에 이미 있던 관례: C2-MERGE 노드 참고).\n// 이 노드가 예전 A4의 후반부(그룹핑 + 편집 프롬프트 조립)를 그대로 수행하며,\n// 출력 형태(issue_id/generated_at/period_start/period_end/grouped_candidates/\n// candidate_count/requested_section/editor_prompt)는 예전 A4와 완전히 동일해서\n// 아래 A5/A7/A8은 손댈 필요가 없다.\nconst meta = $('A1B. Code - 조회 기간 계산').first().json;\nconst { requestedSection, maxPerSection, periodStart, periodEnd } = meta;\nconst external = $('A4a. Code - 외부 후보(뉴스레터) 정규화').first().json.external || [];\nconst internal = $('A4b. Code - 내부 후보(리서치) 정규화').first().json.internal || [];\n\nconst groupedCandidatesFull = {\n  client_watch: external.filter(x=>x.section==='CLIENT_WATCH').slice(0,maxPerSection),\n  research_on_insight: internal.slice(0,maxPerSection),\n  business_work: external.filter(x=>x.section==='BUSINESS_WORK').slice(0,maxPerSection),\n  people_culture: external.filter(x=>x.section==='PEOPLE_CULTURE').slice(0,maxPerSection)\n};\nconst groupedCandidates = requestedSection\n  ? { [requestedSection]: groupedCandidatesFull[requestedSection] }\n  : groupedCandidatesFull;\n\n// AI 프롬프트에는 URL을 넣지 않아 문자열 중복과 토큰 사용량을 줄인다(원본 URL은\n// grouped_candidates에 그대로 남아 있어 A7이 candidate_id 기준으로 다시 결합함).\n// 2026-09-14 임시조치(\"A4 메모리 안정화\" 세션)에서 나온 개선을 그대로 반영.\nconst promptCandidates = Object.fromEntries(\n  Object.entries(groupedCandidates).map(([section, candidates]) => [\n    section,\n    candidates.map(({ source_urls, ...candidate }) => candidate)\n  ])\n);\n\nconst candidateCount = Object.values(groupedCandidates).reduce((s,a)=>s+a.length,0);\nif(!candidateCount) throw new Error(requestedSection\n  ? `최근 ${meta.days}일간 웹에 표시할 \"${requestedSection}\" 섹션 후보가 없습니다.`\n  : `최근 ${meta.days}일간 웹에 표시할 뉴스레터 후보가 없습니다.`);\n\nfunction getDocText(obj){\n  if (obj && typeof obj.content === 'string') {\n    return obj.content.replace(/\\r/g,'\\n').replace(/\\n{3,}/g,'\\n\\n').trim().slice(0,1200);\n  }\n  const chunks=[];\n  const walk=(x)=>{\n    if(!x || typeof x !== 'object') return;\n    if(x.textRun && typeof x.textRun.content === 'string') chunks.push(x.textRun.content);\n    for(const v of Object.values(x)){\n      if(Array.isArray(v)) v.forEach(walk);\n      else if(v && typeof v === 'object') walk(v);\n    }\n  };\n  walk(obj);\n  return chunks.join('').replace(/\\r/g,'\\n').replace(/\\n{3,}/g,'\\n\\n').trim().slice(0,1200);\n}\nlet docJson={};\ntry { docJson=$('A1. Google Docs - 회사 맥락 읽기').first().json || {}; } catch {}\nconst companyContext = getDocText(docJson) || '회사 맥락 문서를 불러오지 못했습니다. 후보에 있는 사실만 사용합니다.';\n\nconst SECTION_LABELS = {\n  client_watch: 'CLIENT WATCH',\n  research_on_insight: 'RESEARCH ON INSIGHT',\n  business_work: 'BUSINESS & WORK',\n  people_culture: 'PEOPLE & CULTURE'\n};\n\nconst fullPrompt = `너는 BPO사업본부 주간 뉴스레터의 후보 문구 편집자다.\n아래 후보를 웹페이지에 모두 보여줘야 한다. 후보를 선택·삭제·통합하거나 순서를 임의로 바꾸지 마라.\n각 candidate_id마다 정확히 하나의 편집 결과를 만들고 candidate_id를 그대로 복사하라.\n관리자가 웹에서 후보를 검토한 뒤 섹션별 최종 1건을 선택하므로, 너는 선택 판단을 하지 않는다.\n\n[편집 원칙 - 1차 독자는 CL4 이상 보직자(센터장·그룹장·사업부장·임원)다]\n- 바쁜 보직자가 이 항목만 읽고도 핵심과 맥락을 파악해 회의나 의사결정에 참고할 수 있는 수준으로 다듬는다. 짧게 쓰되 알맹이(수치·시점·구체적 근거)는 절대 빼지 않는다.\n- title: 원문 제목을 그대로 복사하지 말고 핵심을 15~25자 내외로 다시 쓴다.\n- summary: 후보의 구체적 숫자·고유명사·행동을 살려 2~3문장으로 정리한다. 후보에 이미 있는 구체성(수치·시점·기업명 등)을 절대 생략하거나 뭉뚱그리지 않는다.\n- implication: CLIENT WATCH, RESEARCH ON INSIGHT, BUSINESS & WORK, PEOPLE & CULTURE 네 섹션 모두 반드시 작성한다. \"~할 기회입니다\" 같은 상투적 한 줄로 끝내지 말고, 이 사안이 BPO사업본부 운영·사업에 어떤 의미인지와 보직자가 무엇을 검토·논의해야 하는지를 담아 1~2문장으로 정리한다. PEOPLE & CULTURE의 implication은 채용·유지·조직문화·세대 간 소통·복리후생 설계 관점에서 작성한다. 후보에 이미 implication/organization_view가 있다면 절대 비우거나 삭제하지 말고, 문장을 다듬어 최대한 살린다.\n- executive_brief.headline과 summary는 후보 중 중요도가 가장 높아 보이는 이슈 1~2개를 중심으로, 보직자가 이번 주 가장 먼저 알아야 할 것이 무엇인지 드러나게 작성한다. 관리자가 최종 후보를 고른 뒤 다시 다듬을 임시 초안이니 지금은 후보 전체를 보고 가장 비중 있어 보이는 것 위주로 작성하면 된다.\n- 후보에 없는 사실은 절대 추가하지 않는다.\n- source_urls는 출력하지 않는다. 시스템이 candidate_id를 기준으로 원본 URL을 다시 붙인다.\n- 반드시 JSON 객체만 출력한다.\n\n[회사 업무 맥락 - 우선순위와 문체 참고용]\n${companyContext}\n\n[기간]\n${periodStart} ~ ${periodEnd}\n\n[후보]\n${JSON.stringify(promptCandidates)}\n\n[출력 형식]\n{\n  \"issue_title\":\"후보 검토용 주간 브리핑 제목\",\n  \"executive_brief\":{\"headline\":\"후보 전체를 관통하는 임시 헤드라인\",\"summary\":\"관리자가 선택 후 수정할 수 있는 임시 요약\"},\n  \"sections\":{\n    \"client_watch\":[{\"candidate_id\":\"\",\"title\":\"\",\"summary\":\"\",\"implication_label\":\"시사점\",\"implication\":\"\"}],\n    \"research_on_insight\":[{\"candidate_id\":\"\",\"title\":\"\",\"summary\":\"\",\"implication_label\":\"시사점\",\"implication\":\"\"}],\n    \"business_work\":[{\"candidate_id\":\"\",\"title\":\"\",\"summary\":\"\",\"implication_label\":\"시사점\",\"implication\":\"\"}],\n    \"people_culture\":[{\"candidate_id\":\"\",\"title\":\"\",\"summary\":\"\",\"implication_label\":\"시사점\",\"implication\":\"\"}]\n  },\n  \"people_culture_view\":\"후보 전체를 본 임시 종합 코멘트\",\n  \"editor_note\":\"Human in the loop 후보 초안\"\n}`;\n\n// 섹션별 재생성 모드: 요청받은 섹션 하나만 편집하도록 훨씬 작은 프롬프트를 만든다.\nconst scopedPrompt = requestedSection ? `너는 BPO사업본부 주간 뉴스레터의 후보 문구 편집자다.\n아래는 ${SECTION_LABELS[requestedSection]} 섹션 후보만 골라낸 것이다. 이 섹션만 다시 편집하면 된다.\n후보를 선택·삭제·통합하거나 순서를 임의로 바꾸지 마라.\n각 candidate_id마다 정확히 하나의 편집 결과를 만들고 candidate_id를 그대로 복사하라.\n\n[편집 원칙 - 1차 독자는 CL4 이상 보직자(센터장·그룹장·사업부장·임원)다]\n- 바쁜 보직자가 이 항목만 읽고도 핵심과 맥락을 파악해 회의나 의사결정에 참고할 수 있는 수준으로 다듬는다. 짧게 쓰되 알맹이(수치·시점·구체적 근거)는 절대 빼지 않는다.\n- title: 원문 제목을 그대로 복사하지 말고 핵심을 15~25자 내외로 다시 쓴다.\n- summary: 후보의 구체적 숫자·고유명사·행동을 살려 2~3문장으로 정리한다. 후보에 이미 있는 구체성(수치·시점·기업명 등)을 절대 생략하거나 뭉뚱그리지 않는다.\n- implication: 반드시 작성한다. \"~할 기회입니다\" 같은 상투적 한 줄로 끝내지 말고, 이 사안이 BPO사업본부 운영·사업에 어떤 의미인지와 보직자가 무엇을 검토·논의해야 하는지를 담아 1~2문장으로 정리한다.${requestedSection === 'people_culture' ? ' PEOPLE & CULTURE의 implication은 채용·유지·조직문화·세대 간 소통·복리후생 설계 관점에서 작성한다.' : ''} 후보에 이미 implication/organization_view가 있다면 절대 비우거나 삭제하지 말고, 문장을 다듬어 최대한 살린다.\n- 후보에 없는 사실은 절대 추가하지 않는다.\n- source_urls는 출력하지 않는다. 시스템이 candidate_id를 기준으로 원본 URL을 다시 붙인다.\n- 반드시 JSON 객체만 출력한다.\n\n[회사 업무 맥락 - 우선순위와 문체 참고용]\n${companyContext}\n\n[기간]\n${periodStart} ~ ${periodEnd}\n\n[후보]\n${JSON.stringify(promptCandidates)}\n\n[출력 형식]\n{\n  \"sections\":{\n    \"${requestedSection}\":[{\"candidate_id\":\"\",\"title\":\"\",\"summary\":\"\",\"implication_label\":\"시사점\",\"implication\":\"\"}]\n  }${requestedSection === 'people_culture' ? ',\\n  \"people_culture_view\":\"이 섹션 후보 전체를 본 종합 코멘트\"' : ''}\n}` : '';\n\nconst prompt = requestedSection ? scopedPrompt : fullPrompt;\n\nreturn [{json:{\n  issue_id:`DRAFT-${periodEnd.replace(/-/g,'')}-${Math.random().toString(36).slice(2,7).toUpperCase()}`,\n  generated_at: meta.generatedAt, period_start:periodStart, period_end:periodEnd,\n  grouped_candidates:groupedCandidates, candidate_count:candidateCount,\n  requested_section:requestedSection,\n  editor_prompt:prompt\n}}];\n"
+      },
+      "id": "a4c00000-0000-4000-8000-000000000005",
+      "name": "A4c. Code - 후보 병합 + 편집 프롬프트 조립",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        56576,
+        9568
+      ]
     }
   ],
   "pinData": {},
@@ -1456,7 +1534,7 @@
       "main": [
         [
           {
-            "node": "A2. Google Sheets - newsletter_research 후보 조회",
+            "node": "A1B. Code - 조회 기간 계산",
             "type": "main",
             "index": 0
           }
@@ -1478,18 +1556,12 @@
       "main": [
         [
           {
-            "node": "A4. Code - 후보 정규화 + 후보별 편집 프롬프트",
+            "node": "A4a. Code - 외부 후보(뉴스레터) 정규화",
             "type": "main",
             "index": 0
-          }
-        ]
-      ]
-    },
-    "A4. Code - 후보 정규화 + 후보별 편집 프롬프트": {
-      "main": [
-        [
+          },
           {
-            "node": "A5. Basic LLM Chain - 후보 문구 편집",
+            "node": "A4b. Code - 내부 후보(리서치) 정규화",
             "type": "main",
             "index": 0
           }
@@ -2065,6 +2137,61 @@
         [
           {
             "node": "D5. Code - 발송 결과 정리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A1B. Code - 조회 기간 계산": {
+      "main": [
+        [
+          {
+            "node": "A2. Google Sheets - newsletter_research 후보 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A4a. Code - 외부 후보(뉴스레터) 정규화": {
+      "main": [
+        [
+          {
+            "node": "A4-MERGE. Merge - 후보 정규화 완료 대기",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A4b. Code - 내부 후보(리서치) 정규화": {
+      "main": [
+        [
+          {
+            "node": "A4-MERGE. Merge - 후보 정규화 완료 대기",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "A4-MERGE. Merge - 후보 정규화 완료 대기": {
+      "main": [
+        [
+          {
+            "node": "A4c. Code - 후보 병합 + 편집 프롬프트 조립",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A4c. Code - 후보 병합 + 편집 프롬프트 조립": {
+      "main": [
+        [
+          {
+            "node": "A5. Basic LLM Chain - 후보 문구 편집",
             "type": "main",
             "index": 0
           }
