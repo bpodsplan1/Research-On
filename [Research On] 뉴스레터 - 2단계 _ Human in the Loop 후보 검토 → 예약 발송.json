@@ -191,7 +191,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// AI 결과를 파싱하되 후보 누락·URL 환각을 차단하고 웹페이지 구조로 변환\nconst base=$('A4. Code - 후보 정규화 + 후보별 편집 프롬프트').first().json;\nconst raw=$json.text || $json.output || $json.response || $json.content || $json.result || '';\nfunction txt(v){return v===null||v===undefined?'':String(v).trim();}\nfunction arr(v){return Array.isArray(v)?v:[];}\nfunction parse(v){\n  if(v && typeof v==='object') return v;\n  let s=String(v||'').replace(/^```json\\s*/i,'').replace(/^```\\s*/,'').replace(/```$/,'').trim();\n  const a=s.indexOf('{'), b=s.lastIndexOf('}'); if(a>=0&&b>=a) s=s.slice(a,b+1);\n  s=s.replace(/,\\s*([}\\]])/g,'$1');\n  try{return JSON.parse(s);}catch{return {};}\n}\nconst ai=parse(raw);\nconst groups=base.grouped_candidates || {};\n\nfunction normalizeGroup(key, hasImplication){\n  const originals=arr(groups[key]);\n  const aiItems=arr(ai.sections?.[key]);\n  const byId=new Map(aiItems.map(x=>[txt(x.candidate_id),x]));\n  return originals.map((o,idx)=>{\n    const x=byId.get(txt(o.candidate_id)) || {};\n    return {\n      title:txt(x.title || o.title || `후보 ${idx+1}`),\n      summary:txt(x.summary || o.summary),\n      implication_label:hasImplication ? txt(x.implication_label || '시사점') : '',\n      implication:hasImplication ? txt(x.implication || o.implication) : '',\n      source_urls:arr(o.source_urls).map(txt).filter(u=>/^https?:\\/\\//i.test(u)).slice(0,4)\n    };\n  }).filter(x=>x.title || x.summary);\n}\n// 섹션별 재생성 모드: base.requested_section이 있으면 그 섹션 하나만 정리해서\n// 최소한의 응답(success/section/items)만 반환한다 — 프론트가 이 섹션 배열 하나만\n// 갈아끼우면 되므로, 다른 섹션·issue_title·executive_brief는 건드리지 않는다.\nif (base.requested_section) {\n  const items = normalizeGroup(base.requested_section, true);\n  const result = { success:true, mode:'SECTION_REGEN', section: base.requested_section, items };\n  if (base.requested_section === 'people_culture') {\n    result.people_culture_view = txt(ai.people_culture_view);\n  }\n  return [{json: result}];\n}\n\nconst sections={\n  client_watch:normalizeGroup('client_watch',true),\n  research_on_insight:normalizeGroup('research_on_insight',true),\n  business_work:normalizeGroup('business_work',true),\n  people_culture:normalizeGroup('people_culture',true),\n  people_culture_view:txt(ai.people_culture_view)\n};\nconst newsletter={\n  newsletter_title:'Research On Weekly',\n  issue_title:txt(ai.issue_title || `${base.period_start} ~ ${base.period_end} 주간 브리핑`),\n  period:`${base.period_start} ~ ${base.period_end}`,\n  executive_brief:{\n    headline:txt(ai.executive_brief?.headline || '이번 주 후보 자료 검토'),\n    summary:txt(ai.executive_brief?.summary || '섹션별 후보를 검토하고 최종 발송 항목을 남겨주세요.')\n  },\n  sections,\n  editor_note:txt(ai.editor_note || 'Human in the loop 후보 초안')\n};\nreturn [{json:{\n  success:true, mode:'HUMAN_REVIEW', issue_id:base.issue_id,\n  generated_at:base.generated_at, period_start:base.period_start, period_end:base.period_end,\n  candidate_count:base.candidate_count, newsletter\n}}];"
+        "jsCode": "// AI 결과를 파싱하되 후보 누락·URL 환각을 차단하고 웹페이지 구조로 변환\nconst base=$('A4c. Code - 후보 병합 + 편집 프롬프트 조립').first().json;\nconst raw=$json.text || $json.output || $json.response || $json.content || $json.result || '';\nfunction txt(v){return v===null||v===undefined?'':String(v).trim();}\nfunction arr(v){return Array.isArray(v)?v:[];}\nfunction parse(v){\n  if(v && typeof v==='object') return v;\n  let s=String(v||'').replace(/^```json\\s*/i,'').replace(/^```\\s*/,'').replace(/```$/,'').trim();\n  const a=s.indexOf('{'), b=s.lastIndexOf('}'); if(a>=0&&b>=a) s=s.slice(a,b+1);\n  s=s.replace(/,\\s*([}\\]])/g,'$1');\n  try{return JSON.parse(s);}catch{return {};}\n}\nconst ai=parse(raw);\nconst groups=base.grouped_candidates || {};\n\nfunction normalizeGroup(key, hasImplication){\n  const originals=arr(groups[key]);\n  const aiItems=arr(ai.sections?.[key]);\n  const byId=new Map(aiItems.map(x=>[txt(x.candidate_id),x]));\n  return originals.map((o,idx)=>{\n    const x=byId.get(txt(o.candidate_id)) || {};\n    return {\n      title:txt(x.title || o.title || `후보 ${idx+1}`),\n      summary:txt(x.summary || o.summary),\n      implication_label:hasImplication ? txt(x.implication_label || '시사점') : '',\n      implication:hasImplication ? txt(x.implication || o.implication) : '',\n      source_urls:arr(o.source_urls).map(txt).filter(u=>/^https?:\\/\\//i.test(u)).slice(0,4)\n    };\n  }).filter(x=>x.title || x.summary);\n}\n// 섹션별 재생성 모드: base.requested_section이 있으면 그 섹션 하나만 정리해서\n// 최소한의 응답(success/section/items)만 반환한다 — 프론트가 이 섹션 배열 하나만\n// 갈아끼우면 되므로, 다른 섹션·issue_title·executive_brief는 건드리지 않는다.\nif (base.requested_section) {\n  const items = normalizeGroup(base.requested_section, true);\n  const result = { success:true, mode:'SECTION_REGEN', section: base.requested_section, items };\n  if (base.requested_section === 'people_culture') {\n    result.people_culture_view = txt(ai.people_culture_view);\n  }\n  return [{json: result}];\n}\n\nconst sections={\n  client_watch:normalizeGroup('client_watch',true),\n  research_on_insight:normalizeGroup('research_on_insight',true),\n  business_work:normalizeGroup('business_work',true),\n  people_culture:normalizeGroup('people_culture',true),\n  people_culture_view:txt(ai.people_culture_view)\n};\nconst newsletter={\n  newsletter_title:'Research On Weekly',\n  issue_title:txt(ai.issue_title || `${base.period_start} ~ ${base.period_end} 주간 브리핑`),\n  period:`${base.period_start} ~ ${base.period_end}`,\n  executive_brief:{\n    headline:txt(ai.executive_brief?.headline || '이번 주 후보 자료 검토'),\n    summary:txt(ai.executive_brief?.summary || '섹션별 후보를 검토하고 최종 발송 항목을 남겨주세요.')\n  },\n  sections,\n  editor_note:txt(ai.editor_note || 'Human in the loop 후보 초안')\n};\nreturn [{json:{\n  success:true, mode:'HUMAN_REVIEW', issue_id:base.issue_id,\n  generated_at:base.generated_at, period_start:base.period_start, period_end:base.period_end,\n  candidate_count:base.candidate_count, newsletter\n}}];"
       },
       "id": "e53e2352-e5c0-49e3-aa63-4c1ebf8f270f",
       "name": "A7. Code - 후보 초안 JSON 정리",
@@ -1451,7 +1451,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// A2/A3의 Supabase 조회를 요청 파라미터(days) 기준으로 서버 사이드에서 필터링하기\n// 위해 기준 시각을 한 곳에서 미리 계산한다. 예전엔 A2/A3가 select=*로 테이블 전체를\n// 매번 끌어온 뒤 A4에서 JS로 날짜를 걸러냈는데, 두 테이블 다 계속 쌓이는 구조라\n// (2026-09-19 기준 newsletter_candidates 331행·research_reports 67행, 매주 계속 증가)\n// 시간이 지날수록 한 Code 노드가 한 번에 처리해야 하는 데이터가 계속 불어나는\n// 구조적 위험이 있었다. 2026-09-14 \"A4 실행 중 out of memory\" 이슈 이후, 데이터 볼륨\n// 자체는 아직 작지만(합쳐서 2MB 안팎) 이후로도 안전하도록 서버 사이드 필터링 +\n// A4를 여러 노드로 쪼개는 두 가지를 함께 적용한다(아래 A4a/A4b/A4-MERGE/A4c 참고).\nconst request = $('A0. Webhook - 뉴스레터 후보 초안 조회').first().json.body || {};\nconst VALID_SECTIONS = ['client_watch','research_on_insight','business_work','people_culture'];\nconst requestedSection = VALID_SECTIONS.includes(String(request.section||'').trim()) ? String(request.section).trim() : '';\nconst days = Math.max(1, Math.min(30, Number(request.days || 7)));\nconst maxPerSection = Math.max(1, Math.min(10, Number(request.max_per_section || 6)));\nconst now = new Date();\nconst from = new Date(now.getTime() - days * 86400000);\n\nreturn [{json:{\n  since: from.toISOString(),\n  days, maxPerSection, requestedSection,\n  periodStart: from.toISOString().slice(0,10),\n  periodEnd: now.toISOString().slice(0,10),\n  generatedAt: now.toISOString()\n}}];\n"
+        "jsCode": "// A2/A3의 Supabase 조회를 요청 파라미터(days) 기준으로 서버 사이드에서 필터링하기\n// 위해 기준 시각을 한 곳에서 미리 계산한다. 예전엔 A2/A3가 select=*로 테이블 전체를\n// 매번 끌어온 뒤 A4에서 JS로 날짜를 걸러냈는데, 두 테이블 다 계속 쌓이는 구조라\n// (2026-09-19 기준 newsletter_candidates 331행·research_reports 67행, 매주 계속 증가)\n// 시간이 지날수록 한 Code 노드가 한 번에 처리해야 하는 데이터가 계속 불어나는\n// 구조적 위험이 있었다. 2026-09-14 \"A4 실행 중 out of memory\" 이슈 이후, 데이터 볼륨\n// 자체는 아직 작지만(합쳐서 2MB 안팎) 이후로도 안전하도록 서버 사이드 필터링 +\n// A4를 여러 노드로 쪼개는 두 가지를 함께 적용한다(아래 A4a/A4b/A4-MERGE/A4c 참고).\nconst request = $('A0G. Code - 트리거 입력 정리').first().json.body || {};\nconst VALID_SECTIONS = ['client_watch','research_on_insight','business_work','people_culture'];\nconst requestedSection = VALID_SECTIONS.includes(String(request.section||'').trim()) ? String(request.section).trim() : '';\nconst days = Math.max(1, Math.min(30, Number(request.days || 7)));\nconst maxPerSection = Math.max(1, Math.min(10, Number(request.max_per_section || 6)));\nconst now = new Date();\nconst from = new Date(now.getTime() - days * 86400000);\n\nreturn [{json:{\n  since: from.toISOString(),\n  days, maxPerSection, requestedSection,\n  periodStart: from.toISOString().slice(0,10),\n  periodEnd: now.toISOString().slice(0,10),\n  generatedAt: now.toISOString()\n}}];\n"
       },
       "id": "a1b00000-0000-4000-8000-000000000001",
       "name": "A1B. Code - 조회 기간 계산",
@@ -1515,6 +1515,337 @@
         56576,
         9568
       ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [
+                1
+              ],
+              "triggerAtHour": 8
+            }
+          ]
+        }
+      },
+      "id": "a0sched00-0000-4000-8000-000000000010",
+      "name": "A0-SCHED. Schedule Trigger - 매주 월요일 08시 초안 자동 생성",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        55216,
+        9328
+      ],
+      "notes": "정기 뉴스레터 초안을 매주 월요일 08시에 자동 생성해 newsletter_draft_cache에 저장한다. 관리자가 '뉴스레터 관리' 화면에 접속하면 이 저장분을 읽기만 하고, AI를 다시 부르지 않는다(2026-09-20 재설계 — 페이지 접속마다 AI가 재실행되던 비효율 해결)."
+    },
+    {
+      "parameters": {
+        "jsCode": "// A0(웹훅 - 강제 재생성/섹션 재생성) 또는 A0-SCHED(매주 월요일 08시 정기 자동 생성)\n// 중 어느 쪽으로 실행됐든, 이후 단계(A1B 등)가 항상 같은 모양의 입력을 쓸 수 있게 정리한다.\n// 웹훅 아이템에는 항상 body 필드가 있고(강제 실행 시 {} 또는 {section:...}), 스케줄\n// 트리거 아이템에는 body 필드가 아예 없다 — 그 경우 빈 객체로 취급해 기본값\n// (전체 재생성, days=7)으로 동작하게 한다.\nconst item = $input.first().json || {};\nconst body = (item && typeof item.body === 'object' && item.body) ? item.body : {};\nreturn [{json:{ body }}];\n"
+      },
+      "id": "a0g000000-0000-4000-8000-000000000011",
+      "name": "A0G. Code - 트리거 입력 정리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        55336,
+        9448
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "a0i-cond-1",
+              "leftValue": "={{ $json.body.section }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a0i000000-0000-4000-8000-000000000012",
+      "name": "A0I. IF - 전체 재생성 요청인가",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        55536,
+        9448
+      ],
+      "notes": "섹션 재생성(body.section 지정)일 때는 캐시 상태를 '생성 중'으로 바꾸지 않는다 — 섹션 재생성은 전체 캐시를 덮어쓰지 않으므로(A7X 참고) 여기서 '생성 중'으로 바꿔버리면 끝나고도 'ready'로 되돌릴 노드가 없어 캐시가 영구적으로 '생성 중' 상태에 갇힌다."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/newsletter_draft_cache",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ id: 'current', status: 'generating', updated_at: new Date().toISOString() }) }}",
+        "options": {},
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "on_conflict",
+              "value": "id"
+            }
+          ]
+        }
+      },
+      "id": "a0h000000-0000-4000-8000-000000000013",
+      "name": "A0H. HTTP Request - 초안 캐시 상태 갱신(생성 중)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        55736,
+        9328
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
+        }
+      },
+      "notes": "newsletter_draft_cache를 status='generating'으로 upsert. draft_json은 건드리지 않아, 생성 중 실패해도 직전 완성본이 그대로 남는다."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "a7x-cond-1",
+              "leftValue": "={{ $json.mode }}",
+              "rightValue": "HUMAN_REVIEW",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a7x000000-0000-4000-8000-000000000014",
+      "name": "A7X. IF - 전체 재생성 결과인가",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        56904,
+        9568
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/newsletter_draft_cache",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ id: 'current', status: 'ready', draft_json: $json.newsletter, period_start: $json.period_start, period_end: $json.period_end, generated_at: $json.generated_at, error_message: null, updated_at: new Date().toISOString() }) }}",
+        "options": {},
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "on_conflict",
+              "value": "id"
+            }
+          ]
+        }
+      },
+      "id": "a7b000000-0000-4000-8000-000000000015",
+      "name": "A7B. HTTP Request - 초안 캐시 저장(완료)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        57104,
+        9448
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
+        }
+      },
+      "notes": "완성된 전체 초안을 newsletter_draft_cache에 status='ready'로 저장. '뉴스레터 관리' 화면은 이제 이 캐시를 읽기만 하고(R0~R3 참고) AI를 다시 부르지 않는다."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "id": "a7c-cond-1",
+              "leftValue": "={{ $execution.mode }}",
+              "rightValue": "webhook",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a7c000000-0000-4000-8000-000000000016",
+      "name": "A7C. IF - 웹훅으로 실행됐는가",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        57304,
+        9448
+      ],
+      "notes": "매주 월요일 08시 정기 자동 생성(A0-SCHED)은 응답할 웹훅 요청 자체가 없으므로, 이 실행이 웹훅(강제 실행)으로 시작된 경우에만 A8로 응답한다. 스케줄 실행은 여기서 조용히 끝난다."
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "newsletter/draft/read",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "r0000000-0000-4000-8000-000000000017",
+      "name": "R0. Webhook - 저장된 뉴스레터 초안 조회",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        55216,
+        10048
+      ],
+      "webhookId": "newsletter-draft-read",
+      "notes": "'뉴스레터 관리' 화면 접속 시 매번 호출되는 읽기 전용 엔드포인트. AI를 전혀 부르지 않고 newsletter_draft_cache의 최신 저장분만 반환한다."
+    },
+    {
+      "parameters": {
+        "url": "https://aiftpranlfudkbobxyll.supabase.co/rest/v1/newsletter_draft_cache",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "id",
+              "value": "eq.current"
+            },
+            {
+              "name": "select",
+              "value": "*"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "r1000000-0000-4000-8000-000000000018",
+      "name": "R1. HTTP Request - 초안 캐시 조회",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        55456,
+        10048
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "emV7HjmG16pBRr4q",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// newsletter_draft_cache의 저장분을 그대로 프론트에 돌려준다.\n// status==='generating'인데 갱신된 지 너무 오래됐으면(정상적으로는 몇십 초~몇 분 안에\n// 끝나야 함) 뭔가 중간에 실패해서 상태가 영영 '생성 중'에 갇힌 것으로 보고, 안내만\n// 하고 무한정 기다리게 하는 대신 마지막으로 성공한 초안(draft_json)을 그대로 보여준다\n// (없으면 '초안 없음'으로 처리).\nconst STALE_MS = 5 * 60 * 1000; // 5분\nconst rows = $input.all().map(x => x.json || {});\nconst row = rows[0] || null;\n\nif(!row || !row.draft_json && row.status !== 'generating'){\n  return [{json:{ success:true, status:'empty' }}];\n}\n\nconst updatedAt = row.updated_at ? new Date(row.updated_at) : null;\nconst isStale = updatedAt ? (Date.now() - updatedAt.getTime() > STALE_MS) : true;\n\nif(row.status === 'generating' && !isStale){\n  return [{json:{ success:true, status:'generating' }}];\n}\n\nif(!row.draft_json){\n  return [{json:{ success:true, status: row.status==='generating' ? 'empty' : (row.status||'empty') }}];\n}\n\nreturn [{json:{\n  success:true,\n  status:'ready',\n  stale: row.status === 'generating' && isStale,\n  newsletter: row.draft_json,\n  period_start: row.period_start,\n  period_end: row.period_end,\n  generated_at: row.generated_at\n}}];\n"
+      },
+      "id": "r2000000-0000-4000-8000-000000000019",
+      "name": "R2. Code - 응답 정리",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        55696,
+        10048
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "name": "Access-Control-Allow-Origin",
+                "value": "*"
+              }
+            ]
+          }
+        }
+      },
+      "id": "r3000000-0000-4000-8000-000000000020",
+      "name": "R3. Respond to Webhook - 초안 조회 결과 반환",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        55936,
+        10048
+      ]
     }
   ],
   "pinData": {},
@@ -1523,7 +1854,7 @@
       "main": [
         [
           {
-            "node": "A1. Google Docs - 회사 맥락 읽기",
+            "node": "A0G. Code - 트리거 입력 정리",
             "type": "main",
             "index": 0
           }
@@ -1594,7 +1925,7 @@
       "main": [
         [
           {
-            "node": "A8. Respond to Webhook - 후보 초안 반환",
+            "node": "A7X. IF - 전체 재생성 결과인가",
             "type": "main",
             "index": 0
           }
@@ -2192,6 +2523,131 @@
         [
           {
             "node": "A5. Basic LLM Chain - 후보 문구 편집",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A0-SCHED. Schedule Trigger - 매주 월요일 08시 초안 자동 생성": {
+      "main": [
+        [
+          {
+            "node": "A0G. Code - 트리거 입력 정리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A0G. Code - 트리거 입력 정리": {
+      "main": [
+        [
+          {
+            "node": "A0I. IF - 전체 재생성 요청인가",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A0I. IF - 전체 재생성 요청인가": {
+      "main": [
+        [
+          {
+            "node": "A0H. HTTP Request - 초안 캐시 상태 갱신(생성 중)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "A1. Google Docs - 회사 맥락 읽기",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A0H. HTTP Request - 초안 캐시 상태 갱신(생성 중)": {
+      "main": [
+        [
+          {
+            "node": "A1. Google Docs - 회사 맥락 읽기",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A7X. IF - 전체 재생성 결과인가": {
+      "main": [
+        [
+          {
+            "node": "A7B. HTTP Request - 초안 캐시 저장(완료)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "A8. Respond to Webhook - 후보 초안 반환",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A7B. HTTP Request - 초안 캐시 저장(완료)": {
+      "main": [
+        [
+          {
+            "node": "A7C. IF - 웹훅으로 실행됐는가",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A7C. IF - 웹훅으로 실행됐는가": {
+      "main": [
+        [
+          {
+            "node": "A8. Respond to Webhook - 후보 초안 반환",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "R0. Webhook - 저장된 뉴스레터 초안 조회": {
+      "main": [
+        [
+          {
+            "node": "R1. HTTP Request - 초안 캐시 조회",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "R1. HTTP Request - 초안 캐시 조회": {
+      "main": [
+        [
+          {
+            "node": "R2. Code - 응답 정리",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "R2. Code - 응답 정리": {
+      "main": [
+        [
+          {
+            "node": "R3. Respond to Webhook - 초안 조회 결과 반환",
             "type": "main",
             "index": 0
           }

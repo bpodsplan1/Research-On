@@ -27,6 +27,10 @@ async function getUid(){
 const N8N_NEWS_SEARCH_URL = 'https://n8n.mokai.kr/webhook/webhook/research/manual';
 const N8N_INSIGHT_URL = 'https://n8n.mokai.kr/webhook/webhook/research/summarize-selected';
 const N8N_NEWSLETTER_DRAFT_URL = 'https://n8n.mokai.kr/webhook/newsletter/draft';
+// "뉴스레터 관리" 화면 접속마다 AI 파이프라인을 재실행하던 비효율을 없애기 위한 읽기 전용
+// 엔드포인트. 매주 월요일 08시 정기 자동 생성(또는 강제 실행)이 저장해둔 초안을 AI 재호출
+// 없이 그냥 읽어오기만 한다(2026-09-20).
+const N8N_NEWSLETTER_DRAFT_READ_URL = 'https://n8n.mokai.kr/webhook/newsletter/draft/read';
 const N8N_NEWSLETTER_QUEUE_URL = 'https://n8n.mokai.kr/webhook/newsletter/queue';
 // 관리자가 4개 섹션을 최종 확정한 뒤, 발송 전에 그 확정 내용만 근거로 Executive Brief를 다시 쓰는 웹훅
 // (body에 target:'people_culture_view'를 실으면 PEOPLE & CULTURE 종합 코멘트만 재생성)

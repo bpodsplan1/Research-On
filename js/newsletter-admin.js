@@ -17,29 +17,91 @@ function renderNewsletterAdminPage(){
   $('#nlEditorNote').value = newsletterDraft.editor_note;
   refreshNewsletterPreview();
   loadNewsletterAdminStats();
-  maybeAutoFetchNewsletterDraft();
+  maybeLoadStoredNewsletterDraft();
 }
-// 뉴스레터 1단계(후보 수집)의 정기 스케줄 실행 시각(매주 월요일 08시, Asia/Seoul) 이후에
-// 이 화면에 접속했을 때만 "AI 초안 가져오기"를 자동으로 한 번 실행한다.
-// - 08시 이전 접속: 아직 정기 실행 전이라 자동으로 안 부름(어제자 후보로 잘못 채워지는 것 방지)
-// - "⚡ 지금 실행"(강제 실행) 버튼으로 임의 시각에 채운 경우는 이 자동 실행과 무관하게 취급—
-//   즉 08시 이전에 강제 실행해서 후보가 이미 쌓여 있어도 08시 전에는 자동으로 안 불러온다.
-// - 기존에 불러오거나 편집해둔 내용이 있으면(섹션이 비어있지 않으면) 자동 실행하지 않음
-//   (AI 재호출 비용 + 편집 중이던 내용을 덮어쓸 위험 방지), 세션당 1회만 시도.
-function isAfterStage1ScheduledHour(){
-  const parts = new Intl.DateTimeFormat('en-US', { timeZone:'Asia/Seoul', hour:'2-digit', hourCycle:'h23' }).formatToParts(new Date());
-  const hour = parseInt(parts.find(p=>p.type==='hour').value, 10);
-  return hour >= 8;
-}
-let nlAutoFetchAttempted = false;
-function maybeAutoFetchNewsletterDraft(){
-  if(nlAutoFetchAttempted) return;
-  if(!isAfterStage1ScheduledHour()) return;
+// 예전엔 이 화면에 접속할 때마다 n8n AI 파이프라인(초안 생성 웹훅)을 그대로 다시 호출해서,
+// 페이지를 나갔다 들어오기만 해도 불필요하게 AI가 재실행되고 토큰이 소모됐다(2026-09-20 제보).
+// 이제는 매주 월요일 08시 정기 스케줄(또는 "⚡ 지금 다시 생성" 강제 실행)만 AI를 부르고,
+// 그 결과를 n8n이 newsletter_draft_cache에 저장해두면, 이 화면은 접속할 때마다 그 저장분을
+// "읽기만" 한다(N8N_NEWSLETTER_DRAFT_READ_URL, AI 미호출).
+// 이미 화면에 내용이 있으면(예: 방금 "⚡ 지금 다시 생성"으로 막 채운 직후) 다시 읽어와서
+// 덮어쓸 필요가 없으므로 건너뛴다.
+const NL_DRAFT_POLL_MS = 15000;
+const NL_DRAFT_POLL_MAX = 20; // 15초 간격 20회 = 최대 5분(서버 쪽 '멈춘 생성' 판정 기준과 동일)
+let nlDraftPollCount = 0;
+async function maybeLoadStoredNewsletterDraft(){
   const s = newsletterDraft.sections;
   const isEmpty = !s.client_watch.length && !s.research_on_insight.length && !s.business_work.length && !s.people_culture.length;
   if(!isEmpty) return;
-  nlAutoFetchAttempted = true;
-  fetchNewsletterDraft();
+  await loadStoredNewsletterDraft();
+}
+async function loadStoredNewsletterDraft(){
+  const statusEl = $('#nlDraftFetchStatus');
+  try {
+    const resp = await fetch(N8N_NEWSLETTER_DRAFT_READ_URL);
+    if(!resp.ok) throw new Error('n8n 응답 오류 (상태코드 ' + resp.status + ')');
+    const data = await resp.json();
+
+    if(data.status === 'generating'){
+      nlDraftPollCount++;
+      if(statusEl){
+        statusEl.className = 'auth-status loading'; statusEl.style.display = 'block';
+        statusEl.textContent = '매주 월요일 08시 정기 생성이 지금 진행 중입니다 — 초안을 가져오는 중입니다...';
+      }
+      if(nlDraftPollCount <= NL_DRAFT_POLL_MAX){
+        setTimeout(loadStoredNewsletterDraft, NL_DRAFT_POLL_MS);
+      } else if(statusEl){
+        statusEl.className = 'auth-status error';
+        statusEl.textContent = '생성이 예상보다 오래 걸리고 있습니다. 잠시 후 새로고침하거나, 계속 안 되면 "⚡ 지금 다시 생성"을 눌러주세요.';
+      }
+      return;
+    }
+
+    if(data.status === 'empty' || !data.newsletter){
+      if(statusEl){
+        statusEl.className = 'auth-status'; statusEl.style.display = 'block';
+        statusEl.textContent = '아직 저장된 초안이 없습니다. "⚡ 지금 다시 생성"을 눌러 처음 만들어주세요.';
+      }
+      return;
+    }
+
+    applyFetchedNewsletterDraft(data);
+    if(statusEl){
+      statusEl.className = 'auth-status success'; statusEl.style.display = 'block';
+      statusEl.textContent = data.stale
+        ? '⚠ 최근 정기 생성이 완료되지 않아 마지막으로 저장된 초안을 보여줍니다.'
+        : '✅ 저장된 AI 초안을 불러왔습니다. 아래 내용을 확인하고 필요한 부분을 수정·추가해주세요.';
+    }
+  } catch(e){
+    if(statusEl){
+      statusEl.className = 'auth-status error'; statusEl.style.display = 'block';
+      statusEl.textContent = '저장된 초안을 불러오지 못했습니다: ' + e.message;
+    }
+  }
+}
+// fetchNewsletterDraft()(강제 재생성)와 loadStoredNewsletterDraft()(저장분 읽기) 둘 다
+// 같은 모양의 응답({newsletter, period_start, period_end})을 newsletterDraft에 반영한다.
+function applyFetchedNewsletterDraft(data){
+  const nl = data.newsletter || data;
+  newsletterDraft = {
+    issue_title: nl.issue_title || 'Research-On 주간 뉴스레터',
+    period: nl.period || '',
+    period_start: data.period_start || '',
+    period_end: data.period_end || '',
+    executive_brief: {
+      headline: nl.executive_brief?.headline || '',
+      summary: nl.executive_brief?.summary || ''
+    },
+    editor_note: nl.editor_note || '',
+    sections: {
+      client_watch: (nl.sections.client_watch || []).map(x=>({ title:x.title||'', summary:x.summary||'', implication_label:x.implication_label||'시사점', implication:x.implication||'', source_urls:(x.source_urls||[]).slice(0,4) })),
+      research_on_insight: (nl.sections.research_on_insight || []).map(x=>({ title:x.title||'', summary:x.summary||'', implication_label:x.implication_label||'시사점', implication:x.implication||'', source_urls:(x.source_urls||[]).slice(0,4) })),
+      business_work: (nl.sections.business_work || []).map(x=>({ title:x.title||'', summary:x.summary||'', implication_label:x.implication_label||'시사점', implication:x.implication||'', source_urls:(x.source_urls||[]).slice(0,4) })),
+      people_culture: (nl.sections.people_culture || []).map(x=>({ title:x.title||'', summary:x.summary||'', implication_label:x.implication_label||'조직 관점', implication:x.implication||'', source_urls:(x.source_urls||[]).slice(0,4) })),
+      people_culture_view: nl.sections.people_culture_view || ''
+    }
+  };
+  renderNewsletterAdminPage();
 }
 // 시작일 변경 시 자동으로 일주일 뒤 날짜를 마감일로 채우고, "기간 표기" 문자열을 자동 생성한다
 function updateNlPeriodHint(){
@@ -190,11 +252,16 @@ async function handleForceCollectStage1(){
 // 워크플로우 노드 "6. Code - AI JSON 정리"가 반환하는 구조를 그대로 매핑한다:
 // { period_end, newsletter:{ issue_title, period, executive_brief:{headline,summary},
 //   sections:{ client_watch[], research_on_insight[], business_work[], people_culture[], people_culture_view }, editor_note } }
+// "⚡ 지금 다시 생성" — AI를 실제로 다시 호출해 newsletter_draft_cache를 덮어쓰는
+// 유일한 경로(매주 월요일 08시 정기 생성 제외). 모두가 공유하는 캐시를 갈아치우고
+// 토큰을 소모하는 명시적 동작이라 확인창을 거친다.
 async function fetchNewsletterDraft(){
+  if(!confirm('AI를 다시 호출해 초안을 새로 만듭니다. 지금까지 화면에서 편집 중이던 내용과, 저장된 초안(다른 관리자가 볼 수도 있는)이 모두 덮어써집니다. 계속할까요?')) return;
+
   const btn = $('#nlFetchDraftBtn');
   const statusEl = $('#nlDraftFetchStatus');
-  if(btn){ btn.disabled = true; btn.textContent = '불러오는 중...'; }
-  if(statusEl){ statusEl.className = 'auth-status loading'; statusEl.style.display = 'block'; statusEl.textContent = 'n8n에서 최근 7일 자료를 가공한 초안을 가져오는 중입니다...'; }
+  if(btn){ btn.disabled = true; btn.textContent = '생성 중...'; }
+  if(statusEl){ statusEl.className = 'auth-status loading'; statusEl.style.display = 'block'; statusEl.textContent = 'n8n에서 최근 7일 자료를 가공한 초안을 새로 만드는 중입니다...'; }
 
   try {
     const resp = await fetch(N8N_NEWSLETTER_DRAFT_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
@@ -203,31 +270,13 @@ async function fetchNewsletterDraft(){
     const nl = data.newsletter || data; // 워크플로우가 배열로 감싸서 줄 수도 있어 최대한 유연하게 처리
     if(!nl || !nl.sections) throw new Error('초안 데이터 형식이 올바르지 않습니다.');
 
-    newsletterDraft = {
-      issue_title: nl.issue_title || 'Research-On 주간 뉴스레터',
-      period: nl.period || '',
-      period_start: data.period_start || '',
-      period_end: data.period_end || '',
-      executive_brief: {
-        headline: nl.executive_brief?.headline || '',
-        summary: nl.executive_brief?.summary || ''
-      },
-      editor_note: nl.editor_note || '',
-      sections: {
-        client_watch: (nl.sections.client_watch || []).map(x=>({ title:x.title||'', summary:x.summary||'', implication_label:x.implication_label||'시사점', implication:x.implication||'', source_urls:(x.source_urls||[]).slice(0,4) })),
-        research_on_insight: (nl.sections.research_on_insight || []).map(x=>({ title:x.title||'', summary:x.summary||'', implication_label:x.implication_label||'시사점', implication:x.implication||'', source_urls:(x.source_urls||[]).slice(0,4) })),
-        business_work: (nl.sections.business_work || []).map(x=>({ title:x.title||'', summary:x.summary||'', implication_label:x.implication_label||'시사점', implication:x.implication||'', source_urls:(x.source_urls||[]).slice(0,4) })),
-        people_culture: (nl.sections.people_culture || []).map(x=>({ title:x.title||'', summary:x.summary||'', implication_label:x.implication_label||'조직 관점', implication:x.implication||'', source_urls:(x.source_urls||[]).slice(0,4) })),
-        people_culture_view: nl.sections.people_culture_view || ''
-      }
-    };
-
-    renderNewsletterAdminPage();
-    if(statusEl){ statusEl.className = 'auth-status success'; statusEl.textContent = '✅ AI 초안을 불러왔습니다. 아래 내용을 확인하고 필요한 부분을 수정·추가해주세요.'; }
+    nlDraftPollCount = 0; // 방금 새로 만들었으니 '생성 중' 폴링 카운트를 초기화
+    applyFetchedNewsletterDraft(data);
+    if(statusEl){ statusEl.className = 'auth-status success'; statusEl.textContent = '✅ AI 초안을 새로 만들었습니다. 아래 내용을 확인하고 필요한 부분을 수정·추가해주세요.'; }
   } catch(e){
     if(statusEl){ statusEl.className = 'auth-status error'; statusEl.textContent = '초안을 가져오지 못했습니다: ' + e.message + ' (n8n 워크플로우에 Webhook 트리거가 연결되어 있는지, 계정 설정의 초안 Webhook 주소가 맞는지 확인해주세요.)'; }
   }
-  if(btn){ btn.disabled = false; btn.textContent = '✨ AI 초안 가져오기'; }
+  if(btn){ btn.disabled = false; btn.textContent = '⚡ 지금 다시 생성'; }
 }
 
 // ── n8n 코드 노드와 동일한 로직으로 이식한 HTML 템플릿 빌더 ──

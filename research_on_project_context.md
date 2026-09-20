@@ -512,8 +512,28 @@ Gmail에서 최근 7일 트렌드레터 수집(뉴닉·캐릿·풋풋레터·까
     - **수정**: `js/research-results.js`의 `generateResultsFor()` 안에 있는 두 `saveResultSession()` 호출(정상 완료 경로·overload 조기 반환 경로) 모두에 `await` 추가.
     - **검증**: Node.js로 `getUid()`의 실제 지연(Supabase 세션 조회)을 흉내낸 뒤, 수정 전 코드로는 "B 검색 직후 화면에 A(또는 그 이전 상태)가 뜬다"가 실제로 재현되고 수정 후 코드로는 정확히 B가 뜨는 것을 확인.
 
+105. **"뉴스레터 관리" 화면 접속마다 AI 파이프라인이 재실행되던 비효율 제거 — 매주 월요일 08시 정기 생성 + Supabase 캐시 읽기 구조로 재설계** — 사용자가 "지금은 '뉴스레터 관리' 메뉴에 접속하면 트리거로 뉴스레터 생성이 되는데, 페이지를 벗어났다 다시 접속하면 워크플로우가 또 실행된다, 무의미한 토큰 낭비"라고 지적. 확인해보니 실제로 `js/newsletter-admin.js`의 `renderNewsletterAdminPage()`가 접속할 때마다 `maybeAutoFetchNewsletterDraft()`를 호출했는데, 이 함수의 "이미 불러온 내용이 있으면 건너뛴다" 가드가 `newsletterDraft.sections`(브라우저 메모리, 새로고침하면 항상 빈 배열로 리셋됨)를 기준으로 판단하고 있어서, 페이지를 새로고침하거나 다시 들어올 때마다 매번 "비어있음"으로 판정되어 AI 파이프라인 전체(A0→...→A5 LLM 호출→A7)가 재실행되고 있었음.
+    - **요구사항**: 매주 월요일 08시 정기 스케줄로 초안을 1회 생성해 Supabase에 저장하고, 화면 접속 시에는 그 저장분을 읽기만 하며(AI 재호출 없음), 강제 실행 외에는 워크플로우를 새로 돌리지 않는다. 접속 시점이 마침 08시 정기 생성이 아직 진행 중이면 "가져오는 중"이라고 안내한다.
+    - **n8n 쪽 (`뉴스레터 - 2단계` 워크플로우)**:
+      - 새 테이블 `newsletter_draft_cache`(싱글턴 캐시, id='current' 한 행만 사용: `status`/`draft_json`/`period_start`/`period_end`/`generated_at`/`updated_at`) 마이그레이션 작성 및 Supabase에 직접 적용 완료.
+      - `A0-SCHED`(Schedule Trigger, 매주 월요일 08시) 신설 — 기존 `A0`(웹훅, 강제 실행/섹션 재생성 겸용)와 함께 `A0G`(Code - 트리거 입력 정리, 둘 중 어느 쪽으로 실행됐든 `{body}` 모양을 통일)로 팬인.
+      - `A0I`(IF - 전체 재생성 요청인가, `body.section`이 비었는지)로 분기해, 전체 재생성일 때만 `A0H`(HTTP Request - 캐시를 `status='generating'`으로 upsert)를 거쳐 `A1`로 진행 — 섹션 재생성은 캐시를 건드리지 않음(안 그러면 섹션 재생성 후 캐시가 `generating`에 영원히 갇힘, A7B가 섹션 재생성 결과로는 안 불리기 때문).
+      - `A1B`가 참조하던 `$('A0. Webhook...')`을 `$('A0G...')`로 수정.
+      - `A7`(후보 초안 JSON 정리) 뒤에 `A7X`(IF - `mode==='HUMAN_REVIEW'`인가)를 추가해, 전체 재생성 결과일 때만 `A7B`(HTTP Request - 캐시를 `status='ready'`+`draft_json`으로 upsert)를 거치고, 이어서 `A7C`(IF - `$execution.mode==='webhook'`인가)로 한 번 더 분기해 **웹훅으로 실행된 경우에만** `A8`(Respond to Webhook)로 응답 — 스케줄 실행은 응답할 대상 자체가 없으므로 조용히 종료. 섹션 재생성 결과는 캐시를 안 건드리고 바로 `A8`로 응답(기존 동작 그대로 유지).
+      - 새 읽기 전용 체인 `R0`(Webhook GET `newsletter/draft/read`)→`R1`(캐시 조회)→`R2`(Code - 응답 정리)→`R3`(Respond to Webhook) 신설. `R2`는 `status==='generating'`이 5분 넘게 안 풀리면(중간에 실패해서 영원히 갇힌 것으로 간주) 안내만 하고 무한 대기시키는 대신 마지막으로 성공한 `draft_json`을 `stale:true`와 함께 그대로 돌려주는 안전장치 포함.
+      - upsert 방식은 이 프로젝트에 이미 검증된 관례(`[Research On] 1회성 - Sheets 데이터 Supabase 이관.json`의 `N3` 등: `queryParameters`에 `on_conflict`, 헤더에 `Prefer: resolution=merge-duplicates,return=minimal`)를 그대로 따름 — 처음엔 URL 문자열에 `?on_conflict=id`를 직접 박아넣었다가, 기존 관례와 다르다는 걸 발견하고 `sendQuery`+`queryParameters`로 바로잡음.
+      - **부수 발견·수정**: 103번 항목(A4 분리 재설계) 때 `A7`이 여전히 삭제된 옛 `A4` 노드를 이름으로 참조하고 있던 버그를 이번에 발견해 `A4c`를 참조하도록 수정(재가져오기 전이라 아직 실제 실행 오류로 드러나지 않았던 상태 — 이번에 이 파일을 다시 열어보다 우연히 잡음).
+    - **프론트엔드 (`js/newsletter-admin.js`, `js/config.js`, `index.html`)**:
+      - `N8N_NEWSLETTER_DRAFT_READ_URL` 신설. 기존 `maybeAutoFetchNewsletterDraft()`(AI 트리거 URL을 부르던 것)를 `maybeLoadStoredNewsletterDraft()`(읽기 전용 URL만 부름)로 교체 — "8시 이전엔 자동 실행 안 함" 같은 시간대 가드도 더 이상 필요 없어져 제거(서버가 `generating`/`ready`/`empty` 상태를 이미 정확히 알려주므로).
+      - `status==='generating'`이면 안내 문구를 띄우고 15초 간격으로 최대 20회(5분) 자동 재확인(폴링)하도록 구현.
+      - 기존 AI 트리거 함수 `fetchNewsletterDraft()`는 "⚡ 지금 다시 생성" 버튼(라벨 변경, 예전엔 "✨ AI 초안 가져오기")으로 남겨두되, 공유 캐시를 덮어쓰고 토큰을 쓰는 명시적 동작이라는 걸 `confirm()` 확인창으로 알림.
+      - 두 함수(`fetchNewsletterDraft`/`loadStoredNewsletterDraft`)가 같은 매핑 로직을 중복하고 있던 걸 `applyFetchedNewsletterDraft(data)` 공용 함수로 통합.
+    - **검증**: (1) n8n JSON 연결 무결성 전수 확인 + 새/수정 코드 노드 전부 `node --check` 문법 검증. (2) `R2`(캐시 조회 응답 정리)의 5가지 상태 분기(캐시 없음/정상 ready/생성 중 갓 시작/생성 중인데 멈춤·폴백/생성 중인데 폴백조차 없음)를 Node.js로 실제 실행해 전부 의도대로 동작함 확인. (3) 프론트엔드 쪽은 Node `vm` 모듈로 `js/newsletter-admin.js`의 관련 함수들을 실제 코드 그대로 격리 실행해 4가지 시나리오(정상 조회/생성 중/캐시 없음/이미 내용 있어 재조회 생략) 모두에서 **AI 트리거 URL이 단 한 번도 호출되지 않고 읽기 전용 URL만 호출됨**을 확인.
+    - **n8n 재가져오기 필요**(아직 미착수) — 재가져오기 후 (a) 실제 월요일 08시 정기 실행이 캐시를 채우는지, (b) "뉴스레터 관리" 화면 재접속 시 AI 재호출 없이 저장분만 뜨는지, (c) "⚡ 지금 다시 생성" 강제 실행이 정상 동작하는지, (d) 섹션 재생성이 캐시를 건드리지 않고 예전처럼 동작하는지 확인 필요.
+
 ## 8. 진행 중 / 미해결 사항
 
+- **뉴스레터 초안 캐시 구조 재설계(105번 항목) n8n 재가져오기 필요** — A0-SCHED/A0G/A0I/A0H/A7X/A7B/A7C/R0~R3 신설 + A7의 옛 A4 참조 버그 수정. 재가져오기 후 정기 생성·저장분 읽기·강제 재생성·섹션 재생성 4가지 모두 실제 실행 확인 필요.
 - **뉴스레터 2단계 A4 분리 재설계(103번 항목) n8n 재가져오기 필요** — A4를 A1B/A4a/A4b/A4-MERGE/A4c로 나누고 A2/A3에 서버사이드 날짜 필터를 추가함. 로직 동등성은 Node.js로 실제 실행 비교까지 마쳤지만, n8n 실행 환경에서의 OOM 재발 여부는 재가져오기 후 실제 "전체 재생성"·"섹션별 재생성" 실행으로만 확인 가능.
 - ~~**뉴스 크롤링 1단계 — 애매 후보 Tavily Extract 추가(86번 항목) n8n 재가져오기 필요**~~ → 89번 항목에서 확인된 8-B/9 참조 버그 수정과 묶여서 아래 "노드 4 원문 검색어 강제 포함 + 날짜 미상 후보 Tavily 회수" 항목에 재가져오기 확인사항이 통합됨.
 - **PUBLISHER_MAP 확장(87번 항목 ①) n8n 재가져오기 필요** — 노드 7의 도메인→언론사명 매핑을 60개→240개로 확장했지만, "출처 미확인"이 대량 발생한 진짜 원인은 라이브 n8n이 domain/publisher 계산 자체가 없는 옛 버전이라는 정황(잘 알려진 도메인도 전부 미확인으로 저장됨)이므로, 재가져오기 후 실제 검색 1회 실행해서 결과에 `domain`/`publisher` 필드가 채워지는지, "출처 미확인" 비율이 실제로 줄었는지 확인 필요.
