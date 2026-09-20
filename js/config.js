@@ -398,7 +398,8 @@ const REPORT_TYPE_OPTIONS = [
 ];
 const VIEWPOINT_OPTIONS = [
   {value:'business_expansion', label:'신규 사업 방향성'},
-  {value:'internal_management', label:'내부 인력 통제'}
+  {value:'internal_management', label:'내부 인력 통제'},
+  {value:'general_trend', label:'일반 트렌드 소개'}
 ];
 const AUDIENCE_OPTIONS = [
   {value:'executive', label:'임원 대상 보고'},
