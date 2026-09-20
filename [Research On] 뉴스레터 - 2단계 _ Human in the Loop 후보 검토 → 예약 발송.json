@@ -1803,7 +1803,9 @@
           "id": "emV7HjmG16pBRr4q",
           "name": "Supabase"
         }
-      }
+      },
+      "alwaysOutputData": true,
+      "notes": "newsletter_draft_cache에 아직 행이 없으면(최초 실행 전) Supabase가 빈 배열을 반환하는데, n8n이 이를 0개 아이템으로 쪼개면 뒤의 R2(Code)가 아예 실행되지 않아 웹훅이 빈 응답을 보내게 된다(2026-09-21 실사용 중 발견: 프론트엔드에 \"JSON.parse: unexpected end of data\" 에러로 나타남). alwaysOutputData로 빈 결과여도 아이템 1개(빈 객체)를 보장해 R2가 항상 실행되게 함."
     },
     {
       "parameters": {
