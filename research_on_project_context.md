@@ -507,6 +507,11 @@ Gmail에서 최근 7일 트렌드레터 수집(뉴닉·캐릿·풋풋레터·까
     - **검증**: (1) 새 워크플로우 JSON 전체의 연결 무결성(모든 connection이 실존하는 노드를 가리키는지) 확인. (2) A1B/A4a/A4b/A4c 4개 노드의 JS를 `node --check`로 문법 검증. (3) **가장 중요한 검증**: Node.js로 `$('NodeName')` 참조를 흉내내는 미니 프레임워크를 만들어, 분리된 파이프라인(A1B→A4a/A4b→A4c)과 git에서 꺼낸 원본 단일 A4 코드를 **동일한 가짜 입력 데이터로 둘 다 실제 실행**해 출력을 비교 — `grouped_candidates`/`candidate_count`/`period_start`/`period_end`가 완전히 일치하고, `editor_prompt`도 의도한 source_urls 차이를 빼면 완전히 일치함을 확인. 섹션별 재생성 모드(`requestedSection` 지정)도 별도로 같은 방식으로 실행해 정상 동작 확인.
     - **n8n 재가져오기 필요**(아직 미착수) — 재가져오기 후 실제 "전체 재생성" 1회 + "섹션별 재생성" 1회를 실행해 A4a~A4c 전 구간이 정상 통과하는지, 그리고 OOM이 재발하지 않는지 확인 필요. 만약 재발한다면 n8n 호스트 자체의 메모리 한도 문제일 가능성이 높으므로 그땐 인스턴스 사양 확인이 필요.
 
+104. **A(직전 검색)를 실행해두고 곧바로 B를 검색하면, B 완료 직후 화면에 B가 아니라 A가 뜨는 레이스 컨디션 수정** — 102번 항목(검색 완료 후 상세 화면 직행)을 실제로 쓰던 사용자가 "A 실행해놓고 지금 B를 서칭하면 B 화면이 아니라 A가 나온다"고 제보.
+    - **원인**: `saveResultSession()`의 첫 줄이 `const uid = await getUid();`(비동기)인데, `generateResultsFor()`가 이 함수를 **await 없이** fire-and-forget으로 호출하고 있었음. 그래서 `resultHistory.unshift(entry)`(방금 검색을 맨 앞에 넣는 줄)가 실제로 실행되기도 전에 `generateResultsFor()`가 먼저 끝나버렸고, 바로 뒤이어 실행되는 `renderResults()`/`viewResultsDetail(0)`(102번 항목)이 아직 갱신 안 된 `resultHistory[0]`(직전 검색, 즉 A)을 읽어버림. 102번 항목 이전에는 사용자가 "결과 확인"을 수동으로 누르기까지 시간차가 있어 이 레이스가 가려져 있었는데, 자동 전환으로 바꾸면서 겉으로 드러남.
+    - **수정**: `js/research-results.js`의 `generateResultsFor()` 안에 있는 두 `saveResultSession()` 호출(정상 완료 경로·overload 조기 반환 경로) 모두에 `await` 추가.
+    - **검증**: Node.js로 `getUid()`의 실제 지연(Supabase 세션 조회)을 흉내낸 뒤, 수정 전 코드로는 "B 검색 직후 화면에 A(또는 그 이전 상태)가 뜬다"가 실제로 재현되고 수정 후 코드로는 정확히 B가 뜨는 것을 확인.
+
 ## 8. 진행 중 / 미해결 사항
 
 - **뉴스레터 2단계 A4 분리 재설계(103번 항목) n8n 재가져오기 필요** — A4를 A1B/A4a/A4b/A4-MERGE/A4c로 나누고 A2/A3에 서버사이드 날짜 필터를 추가함. 로직 동등성은 Node.js로 실제 실행 비교까지 마쳤지만, n8n 실행 환경에서의 OOM 재발 여부는 재가져오기 후 실제 "전체 재생성"·"섹션별 재생성" 실행으로만 확인 가능.
