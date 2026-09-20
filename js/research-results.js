@@ -98,7 +98,7 @@ async function generateResultsFor(kw, parts){
       resultDocs = generateOverloadResults(kw);
       showToast(OVERLOAD_MESSAGE);
       stopLoadingSteps();
-      saveResultSession(kw, parts);
+      await saveResultSession(kw, parts);
       return;
     }
     if(!resp.ok) throw new Error('n8n 응답 오류');
@@ -139,7 +139,12 @@ async function generateResultsFor(kw, parts){
     resultDocs = generateFallbackResults(kw);
   }
   stopLoadingSteps();
-  saveResultSession(kw, parts);
+  // saveResultSession()의 첫 줄이 await getUid()라서, 이걸 await 없이 그냥 부르면
+  // resultHistory.unshift(entry)가 실행되기 전에 generateResultsFor가 먼저 끝나버린다.
+  // 그러면 뒤이어 곧바로 실행되는 renderResults()/viewResultsDetail(0)이 아직 방금 검색
+  // 결과가 반영되지 않은 resultHistory[0](직전 검색)을 읽어서, 방금 검색을 끝냈는데
+  // 화면엔 그 이전 검색 결과가 뜨는 문제가 있었다.
+  await saveResultSession(kw, parts);
 }
 let displayedDocs = [];
 function viewResultSession(kw){
