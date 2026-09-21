@@ -1542,7 +1542,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// A0(웹훅 - 강제 재생성/섹션 재생성) 또는 A0-SCHED(매주 월요일 08시 정기 자동 생성)\n// 중 어느 쪽으로 실행됐든, 이후 단계(A1B 등)가 항상 같은 모양의 입력을 쓸 수 있게 정리한다.\n// 웹훅 아이템에는 항상 body 필드가 있고(강제 실행 시 {} 또는 {section:...}), 스케줄\n// 트리거 아이템에는 body 필드가 아예 없다 — 그 경우 빈 객체로 취급해 기본값\n// (전체 재생성, days=7)으로 동작하게 한다.\nconst item = $input.first().json || {};\nconst body = (item && typeof item.body === 'object' && item.body) ? item.body : {};\nreturn [{json:{ body }}];\n"
+        "jsCode": "// A0(웹훅 - 강제 재생성/섹션 재생성) 또는 A0-SCHED(매주 월요일 08시 정기 자동 생성)\n// 중 어느 쪽으로 실행됐든, 이후 단계(A1B 등)가 항상 같은 모양의 입력을 쓸 수 있게 정리한다.\n// 웹훅 아이템에는 항상 body 필드가 있고(강제 실행 시 {} 또는 {section:...}), 스케줄\n// 트리거 아이템에는 body 필드가 아예 없다 — 그 경우 빈 객체로 취급해 기본값\n// (전체 재생성, days=7)으로 동작하게 한다.\nconst item = $input.first().json || {};\nconst body = (item && typeof item.body === 'object' && item.body) ? item.body : {};\n// A7C가 \"이 실행이 웹훅(강제 실행)으로 시작됐는지\"를 판단할 때 쓴다.\n// 처음엔 n8n의 $execution.mode === 'webhook'을 썼는데, 실사용 테스트 결과 이 조건이\n// 항상 false로 평가돼(이 프로젝트에서 검증된 적 없는 시스템 변수였음) A8까지 응답이\n// 전혀 도달하지 못하는 문제가 있었음(2026-09-21). 대신 이미 검증된 방식 — 웹훅 아이템에는\n// 항상 body 필드가 있고 스케줄 트리거 아이템에는 없다는 것 — 을 그대로 활용한다.\nconst via = Object.prototype.hasOwnProperty.call(item, 'body') ? 'webhook' : 'schedule';\nreturn [{json:{ body, via }}];\n"
       },
       "id": "a0g000000-0000-4000-8000-000000000011",
       "name": "A0G. Code - 트리거 입력 정리",
@@ -1728,7 +1728,7 @@
           "conditions": [
             {
               "id": "a7c-cond-1",
-              "leftValue": "={{ $execution.mode }}",
+              "leftValue": "={{ $('A0G. Code - 트리거 입력 정리').first().json.via }}",
               "rightValue": "webhook",
               "operator": {
                 "type": "string",
