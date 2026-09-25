@@ -125,6 +125,24 @@ function bindEvents(){
   // AI 인사이트 리포트 "다음 추천 검색어" 칩 클릭 → 새 리서치 만들기로 이어서 검색
   $('#insightReportBody')?.addEventListener('click', e=>{ const c=e.target.closest('[data-next-search]'); if(c) useSearchKeywordForBuilder(c.dataset.nextSearch); });
 
+  // AI 인사이트 리포트 삭제 (리서치 결과 삭제와 동일한 패턴)
+  $('#deleteSelectedInsightsBtn')?.addEventListener('click', deleteSelectedInsights);
+  $$('.select-all-insight').forEach(el=>{
+    el.addEventListener('change', e=>{
+      $$('.select-all-insight').forEach(o=>{ o.checked = e.target.checked; o.indeterminate = false; });
+      $$('.insight-chk').forEach(c=>{ c.checked=e.target.checked; });
+    });
+  });
+  $('#newssum')?.addEventListener('change', e=>{
+    if(e.target.classList.contains('insight-chk')){
+      const all = $$('.insight-chk'); const checked = $$('.insight-chk:checked');
+      $$('.select-all-insight').forEach(selectAll=>{
+        selectAll.indeterminate = checked.length>0 && checked.length<all.length;
+        selectAll.checked = all.length>0 && checked.length===all.length;
+      });
+    }
+  });
+
   // 리서치 결과
   $('#saveAllResultsBtn')?.addEventListener('click', saveAllResults);
   $('#deleteSelectedResultsBtn')?.addEventListener('click', deleteSelectedResults);

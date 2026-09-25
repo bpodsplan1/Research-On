@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Research On — 이트너스 리서치 자동화 허브</title>
-<link rel="stylesheet" href="styles.css?v=20260925a" />
+<link rel="stylesheet" href="styles.css?v=20260925b" />
 </head>
 <body>
 
@@ -273,10 +273,19 @@
   </div>
 </section>
 <section class="page" id="newssum">
-  <div class="page-title"><div><h2>AI 인사이트 리포트</h2><p>그동안 도출한 인사이트 리포트를 한 번에 확인할 수 있습니다.</p></div></div>
+  <div class="page-title"><div><h2>AI 인사이트 리포트</h2><p>그동안 도출한 인사이트 리포트를 한 번에 확인할 수 있습니다.</p></div>
+    <div id="insightActionBar" style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn red" id="deleteSelectedInsightsBtn" type="button">선택 리포트 삭제</button>
+    </div>
+  </div>
+  <div class="card" id="insightSelectAllBar" style="padding:14px 20px;display:flex;align-items:center;gap:10px;margin-bottom:12px">
+    <input type="checkbox" class="select-all-insight" id="selectAllInsightMobile" title="전체 선택" />
+    <span style="font-weight:800;font-size:13px;color:var(--muted)">전체 선택</span>
+  </div>
   <div class="insight-cards" id="insightHistoryBody"></div>
   <div class="card table-card" id="insightTableWrap">
     <table><thead><tr>
+      <th style="width:36px"><input type="checkbox" class="select-all-insight" id="selectAllInsightDesktop" title="전체 선택" /></th>
       <th>키워드</th><th>생성일</th><th>선택 자료</th><th>결과 확인</th>
     </tr></thead>
     <tbody id="insightHistoryBodyTable"></tbody></table>
@@ -1076,19 +1085,19 @@
     </div>
   </div>
 </div>
-<script src="js/keywords-data.js?v=20260925a"></script>
-<script src="js/config.js?v=20260925a"></script>
-<script src="js/keywords-state.js?v=20260925a"></script>
-<script src="js/keyword-requests.js?v=20260925a"></script>
-<script src="js/research-results.js?v=20260925a"></script>
-<script src="js/insight-report.js?v=20260925a"></script>
-<script src="js/newsletter-subscriber.js?v=20260925a"></script>
-<script src="js/newsletter-admin.js?v=20260925a"></script>
-<script src="js/search-history.js?v=20260925a"></script>
-<script src="js/account-settings.js?v=20260925a"></script>
-<script src="js/event-bindings.js?v=20260925a"></script>
-<script src="js/auth.js?v=20260925a"></script>
-<script src="js/admin.js?v=20260925a"></script>
+<script src="js/keywords-data.js?v=20260925b"></script>
+<script src="js/config.js?v=20260925b"></script>
+<script src="js/keywords-state.js?v=20260925b"></script>
+<script src="js/keyword-requests.js?v=20260925b"></script>
+<script src="js/research-results.js?v=20260925b"></script>
+<script src="js/insight-report.js?v=20260925b"></script>
+<script src="js/newsletter-subscriber.js?v=20260925b"></script>
+<script src="js/newsletter-admin.js?v=20260925b"></script>
+<script src="js/search-history.js?v=20260925b"></script>
+<script src="js/account-settings.js?v=20260925b"></script>
+<script src="js/event-bindings.js?v=20260925b"></script>
+<script src="js/auth.js?v=20260925b"></script>
+<script src="js/admin.js?v=20260925b"></script>
 
 </body>
 </html>

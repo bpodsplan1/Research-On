@@ -10,7 +10,10 @@ function renderInsightHistoryPage(){
   tbody.innerHTML = insightHistory.length ? insightHistory.map((ins,i)=>`
     <div class="insight-card">
       <div class="insight-card-top">
-        <span class="badge blue">${esc(ins.kw||'(키워드 없음)')}</span>
+        <div style="display:flex;align-items:center;gap:10px">
+          <input type="checkbox" class="insight-chk" data-idx="${i}" />
+          <span class="badge blue">${esc(ins.kw||'(키워드 없음)')}</span>
+        </div>
         <span class="insight-card-date">${esc(ins.createdAt.toLocaleString('ko-KR'))}</span>
       </div>
       <div class="insight-card-mid">선택 자료 ${Number(ins.articleCount)||0}건</div>
@@ -21,12 +24,32 @@ function renderInsightHistoryPage(){
   const tbodyTable = $('#insightHistoryBodyTable'); if(!tbodyTable) return;
   tbodyTable.innerHTML = insightHistory.length ? insightHistory.map((ins,i)=>`
     <tr>
+      <td><input type="checkbox" class="insight-chk" data-idx="${i}" /></td>
       <td><span class="badge blue">${esc(ins.kw||'(키워드 없음)')}</span></td>
       <td style="color:var(--muted);font-size:13px">${esc(ins.createdAt.toLocaleString('ko-KR'))}</td>
       <td style="color:var(--muted);font-size:13px">${Number(ins.articleCount)||0}건</td>
       <td><button class="btn soft" type="button" onclick="viewInsightHistory(${i})">리포트 확인</button></td>
     </tr>
-  `).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:30px">아직 도출한 리포트가 없습니다. "리서치 결과"에서 자료를 선택하고 인사이트를 도출해보세요.</td></tr>';
+  `).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px">아직 도출한 리포트가 없습니다. "리서치 결과"에서 자료를 선택하고 인사이트를 도출해보세요.</td></tr>';
+}
+// "리서치 결과" 삭제(deleteSelectedResults)와 동일한 패턴 — 체크한 항목을 Supabase
+// insight_reports에서 지우고 화면에서도 제거한다.
+async function deleteSelectedInsights(){
+  const checked = $$('.insight-chk:checked');
+  if(!checked.length){ showToast('삭제할 리포트를 먼저 선택해주세요.'); return; }
+  if(!confirm(`선택한 ${checked.length}개 리포트를 삭제하시겠습니까? 되돌릴 수 없습니다.`)) return;
+
+  const uid = await getUid(); if(!uid){ showToast('로그인이 필요합니다.'); return; }
+  const idxSet = new Set([...checked].map(c=>+c.dataset.idx));
+  const targets = insightHistory.filter((h,i)=>idxSet.has(i));
+
+  for(const h of targets){
+    if(h.id) await _sb.from('insight_reports').delete().eq('id', h.id).eq('profile_id', uid);
+  }
+  insightHistory = insightHistory.filter((h,i)=>!idxSet.has(i));
+
+  renderInsightHistoryPage();
+  showToast(`${targets.length}개 리포트가 삭제되었습니다.`);
 }
 function renderInsightDetail(){
   const loadingEl = $('#insightReportLoading');
