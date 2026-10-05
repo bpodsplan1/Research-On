@@ -29,11 +29,64 @@ function renderNewsletterAdminPage(){
 const NL_DRAFT_POLL_MS = 15000;
 const NL_DRAFT_POLL_MAX = 20; // 15초 간격 20회 = 최대 5분(서버 쪽 '멈춘 생성' 판정 기준과 동일)
 let nlDraftPollCount = 0;
+// 실수로 탭을 닫거나 새로고침해도 편집 중이던 내용이 날아가지 않도록, 접속 시
+// 임시저장(admin_autosave)이 있으면 그걸 AI 저장 초안보다 먼저 보여준다.
 async function maybeLoadStoredNewsletterDraft(){
   const s = newsletterDraft.sections;
   const isEmpty = !s.client_watch.length && !s.research_on_insight.length && !s.business_work.length && !s.people_culture.length;
   if(!isEmpty) return;
+  const loadedTemp = await loadNewsletterDraftTemp({ silent: true });
+  if(loadedTemp) return;
   await loadStoredNewsletterDraft();
+}
+// 지금까지 화면에서 편집 중인 내용을 그대로 저장한다(n8n 안 거치고 프론트→Supabase 직접,
+// RLS는 id='admin_autosave' 행에 한해 관리자만 읽고 쓰게 제한됨 — 마이그레이션 참고).
+async function saveNewsletterDraftTemp(){
+  const uid = await getUid();
+  if(!uid){ showToast('로그인이 필요합니다.'); return; }
+  const btn = $('#nlSaveTempBtn');
+  if(btn){ btn.disabled = true; btn.textContent = '저장 중...'; }
+  try{
+    const { error } = await _sb.from('newsletter_draft_cache').upsert({
+      id: 'admin_autosave',
+      status: 'draft_saved',
+      draft_json: newsletterDraft,
+      period_start: newsletterDraft.period_start || null,
+      period_end: newsletterDraft.period_end || null,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'id' });
+    if(error) throw error;
+    showToast('임시저장했습니다.');
+  } catch(e){
+    showToast('임시저장에 실패했습니다: ' + e.message);
+  } finally {
+    if(btn){ btn.disabled = false; btn.textContent = '💾 임시저장'; }
+  }
+}
+// opts.silent=true: 페이지 접속 시 자동 확인용 — 확인창을 띄우지 않고, 저장분이
+// 없어도 에러 토스트를 띄우지 않는다(버튼을 직접 눌렀을 때만 그 피드백이 필요함).
+async function loadNewsletterDraftTemp(opts){
+  opts = opts || {};
+  const silent = !!opts.silent;
+  const uid = await getUid();
+  if(!uid){ if(!silent) showToast('로그인이 필요합니다.'); return false; }
+  if(!silent && !confirm('임시저장된 내용을 불러옵니다. 지금 화면에서 편집 중인 내용은 사라집니다. 계속할까요?')) return false;
+  try{
+    const { data, error } = await _sb.from('newsletter_draft_cache').select('draft_json, updated_at').eq('id', 'admin_autosave').maybeSingle();
+    if(error) throw error;
+    if(!data || !data.draft_json){
+      if(!silent) showToast('임시저장된 내용이 없습니다.');
+      return false;
+    }
+    newsletterDraft = data.draft_json;
+    renderNewsletterAdminPage();
+    const savedAt = data.updated_at ? new Date(data.updated_at).toLocaleString('ko-KR') : '';
+    showToast('임시저장된 내용을 불러왔습니다.' + (savedAt ? ` (저장 시각: ${savedAt})` : ''));
+    return true;
+  } catch(e){
+    if(!silent) showToast('임시저장 불러오기에 실패했습니다: ' + e.message);
+    return false;
+  }
 }
 async function loadStoredNewsletterDraft(){
   const statusEl = $('#nlDraftFetchStatus');

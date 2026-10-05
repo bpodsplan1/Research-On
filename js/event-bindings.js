@@ -415,6 +415,8 @@ function bindEvents(){
   $('#nlItemModalOverlay')?.addEventListener('click', e=>{ if(e.target.id==='nlItemModalOverlay') closeNlItemModal(); });
   $('#nlPreviewRefreshBtn')?.addEventListener('click', goBackToNewsletterPreview);
   $('#nlSendBtn')?.addEventListener('click', sendNewsletter);
+  $('#nlSaveTempBtn')?.addEventListener('click', saveNewsletterDraftTemp);
+  $('#nlLoadTempBtn')?.addEventListener('click', () => loadNewsletterDraftTemp());
   $('#nlFetchDraftBtn')?.addEventListener('click', fetchNewsletterDraft);
   $('#nlSummarizeBriefBtn')?.addEventListener('click', summarizeExecutiveBrief);
   $('#nlForceCollectBtn')?.addEventListener('click', handleForceCollectStage1);
