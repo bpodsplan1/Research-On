@@ -20,9 +20,19 @@ const OVERLOAD_MESSAGE = '현재 분석 요청이 많아 일시적으로 이용�
 // 여러 사용자가 동시에 검색/인사이트 도출을 실행할 때 Naver/Serper/Gemini 등의
 // API 동시 요청 수 제한에 걸려 n8n이 에러를 낼 수 있다. 이 경우 "n8n 미연동"류의
 // 혼란스러운 안내 대신, 원인이 분명한 안내 문구를 보여준다.
+const OVERLOAD_PATTERN = /(rate.?limit|too many requests|quota|not enough credit|credits? exhausted|\b429\b)/i;
 function isOverloadResponse(status, bodyText){
   if(status === 429) return true;
-  return /(rate.?limit|too many requests|quota|not enough credit|credits? exhausted|429)/i.test(bodyText || '');
+  // 정상(2xx) 응답 본문 전체를 검사하면 기사 URL·점수·ID에 우연히 섞인 "429"나 기사 내용의
+  // "quota" 같은 단어 때문에 성공한 결과를 과부하로 오판한다. 2xx는 success:false일 때 오류 메시지만 본다.
+  if(status >= 200 && status < 300){
+    try {
+      const d = JSON.parse(bodyText);
+      if(d && d.success === false) return OVERLOAD_PATTERN.test(String(d.message || d.error || ''));
+    } catch(e){}
+    return false;
+  }
+  return OVERLOAD_PATTERN.test(bodyText || '');
 }
 function generateOverloadResults(kw){
   return [{
