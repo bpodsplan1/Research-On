@@ -16,6 +16,19 @@ function generateFallbackResults(kw){
     body: `"${kw}" 검색 결과를 가져오지 못했습니다.\n\n가능한 원인:\n• 계정 설정에 뉴스 기사 검색 Webhook이 입력되지 않음\n• n8n 워크플로우가 비활성(Inactive) 상태\n• Serper/Naver API 키가 만료되었거나 호출 한도 초과\n\n계정 설정에서 뉴스 기사 검색 Webhook 주소를 확인해주세요.`
   }];
 }
+const SLOW_MESSAGE = '검색 응답이 지연되어 결과를 받지 못했습니다. 잠시 후 다시 시도해 주세요.';
+// n8n이 Cloudflare 프록시 제한(약 100초) 등을 넘겨 오래 걸리거나 서버 오류(5xx)·네트워크 끊김이 난 경우.
+// "n8n 연동 안 됨" 안내(generateFallbackResults)는 설정 문제일 때만 쓰고, 지연·서버 오류는 이 카드로 구분한다.
+function generateSlowResults(kw){
+  return [{
+    title: `${kw} 검색 응답이 지연되고 있습니다`,
+    desc: SLOW_MESSAGE,
+    source: '응답 지연',
+    score: 0,
+    status: 'fail',
+    body: `"${kw}" 검색 결과를 받지 못했습니다.\n\n${SLOW_MESSAGE}\n\n검색 서버(AI 평가 단계 등)가 평소보다 오래 걸리면 중간 프록시가 연결을 끊을 수 있어요. 같은 키워드로 다시 검색하면 대부분 정상 처리됩니다.`
+  }];
+}
 const OVERLOAD_MESSAGE = '현재 분석 요청이 많아 일시적으로 이용이 어렵습니다. 잠시 후 다시 시도해 주세요.';
 // 여러 사용자가 동시에 검색/인사이트 도출을 실행할 때 Naver/Serper/Gemini 등의
 // API 동시 요청 수 제한에 걸려 n8n이 에러를 낼 수 있다. 이 경우 "n8n 미연동"류의
@@ -73,7 +86,8 @@ const SEARCH_LOADING_STEPS = [
   { label: kw => `"${kw}"에 대한 검색어를 AI가 만들고 있어요`, ms: 3500 },
   { label: () => 'Naver·Google에서 관련 자료를 모으고 있어요', ms: 4500 },
   { label: () => 'AI가 자료의 관련성을 평가하고 있어요', ms: 7000 },
-  { label: () => 'AI가 최종 결과를 정리하고 있어요', ms: 9000 }
+  { label: () => 'AI가 최종 결과를 정리하고 있어요', ms: 9000 },
+  { label: () => '응답을 기다리고 있어요. 자료가 많거나 AI가 바쁠 땐 1~2분 걸릴 수 있어요', ms: 0 }
 ];
 // 실제 응답이 이 단계들을 다 지나서 더 걸리면(네트워크 지연 등), 마지막 단계 문구에 멈춰서
 // 보여준다 — 응답이 먼저 오면 generateResultsFor가 stopFn()으로 타이머를 즉시 정리한다.
@@ -111,7 +125,7 @@ async function generateResultsFor(kw, parts){
       await saveResultSession(kw, parts);
       return;
     }
-    if(!resp.ok) throw new Error('n8n 응답 오류');
+    if(!resp.ok) throw new Error('HTTP ' + resp.status);
     const data = JSON.parse(raw);
     // n8n 워크플로우([Research On] 뉴스 크롤링 - 1단계)는 결과를 data.list 배열로 반환함
     // (구버전 호환을 위해 data.articles도 함께 지원)
@@ -146,7 +160,8 @@ async function generateResultsFor(kw, parts){
       };
     });
   } catch(e){
-    resultDocs = generateFallbackResults(kw);
+    const slow = e instanceof TypeError || /^HTTP (5\d\d|4(08|29))$/.test(e.message);
+    resultDocs = slow ? generateSlowResults(kw) : generateFallbackResults(kw);
   }
   stopLoadingSteps();
   // saveResultSession()의 첫 줄이 await getUid()라서, 이걸 await 없이 그냥 부르면
