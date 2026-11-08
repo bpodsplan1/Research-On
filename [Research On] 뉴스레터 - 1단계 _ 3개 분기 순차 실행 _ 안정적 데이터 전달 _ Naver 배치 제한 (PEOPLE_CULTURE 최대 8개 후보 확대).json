@@ -790,7 +790,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const base = $('3-C-3. Code - 전체 메일 본문 정제 + 후보 추출 프롬프트').first().json;\nconst raw = $json.text || $json.output || $json.response || $json.result || '';\n\n\nfunction repairJsonText(input) {\n  let s = String(input || '')\n    .replace(/^\\uFEFF/, '')\n    .replace(/^```json\\s*/i, '')\n    .replace(/^```\\s*/i, '')\n    .replace(/```$/i, '')\n    .trim();\n\n  const first = s.indexOf('{');\n  const last = s.lastIndexOf('}');\n  if (first >= 0 && last >= first) s = s.slice(first, last + 1);\n\n  // 흔한 LLM JSON 오류 정리\n  s = s\n    .replace(/\\bNone\\b/g, 'null')\n    .replace(/\\bTrue\\b/g, 'true')\n    .replace(/\\bFalse\\b/g, 'false')\n    .replace(/,\\s*([}\\]])/g, '$1')\n    .replace(/}\\s*{/g, '},{')\n    .replace(/]\\s*\\[/g, '],[')\n    .replace(/}\\s*\"/g, '},\"')\n    .replace(/]\\s*\"/g, '],\"')\n    .replace(/\"(\\s+)\"/g, '\",$1\"');\n\n  // 문자열 안의 실제 개행·탭을 JSON escape로 교체\n  let out = '';\n  let inString = false;\n  let escaped = false;\n\n  for (let i = 0; i < s.length; i++) {\n    const ch = s[i];\n\n    if (inString) {\n      if (escaped) {\n        out += ch;\n        escaped = false;\n        continue;\n      }\n      if (ch === '\\\\') {\n        out += ch;\n        escaped = true;\n        continue;\n      }\n      if (ch === '\"') {\n        inString = false;\n        out += ch;\n        continue;\n      }\n      if (ch === '\\n') {\n        out += '\\\\n';\n        continue;\n      }\n      if (ch === '\\r') continue;\n      if (ch === '\\t') {\n        out += '\\\\t';\n        continue;\n      }\n      out += ch;\n    } else {\n      if (ch === '\"') inString = true;\n      out += ch;\n    }\n  }\n\n  return out;\n}\n\nfunction parseJsonRobust(v) {\n  if (v && typeof v === 'object') return v;\n\n  const original = String(v || '');\n  const repaired = repairJsonText(original);\n\n  try {\n    return JSON.parse(repaired);\n  } catch (firstError) {\n    // 객체 사이 쉼표 누락을 한 번 더 넓게 보정\n    const secondPass = repaired\n      .replace(/}\\s*,?\\s*(?={)/g, '},')\n      .replace(/]\\s*,?\\s*(?=\"(?:client_watch|business_work|people_culture|trend_candidates)\")/g, '],');\n\n    try {\n      return JSON.parse(secondPass);\n    } catch (secondError) {\n      throw new Error(\n        `${secondError.message} | RAW_PREVIEW=${original.slice(0, 1800)}`\n      );\n    }\n  }\n}\n\nlet parsed;\ntry { parsed = parseJsonRobust(raw); }\ncatch(e) { throw new Error(`3-C 후보 JSON 파싱 실패: ${e.message}`); }\n\nconst candidates = Array.isArray(parsed.trend_candidates) ? parsed.trend_candidates.slice(0,8) : [];\nif (!candidates.length) throw new Error('메일에서 추출된 트렌드 후보가 없습니다.');\n\nconst now = new Date();\nconst from = new Date(now);\nfrom.setDate(now.getDate() - 7);\nconst toMDY = d => `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`;\n\n// 안전장치: AI가 search_query를 영어(원어) 문구로 써버리면 Naver/Serper 한국 뉴스 검색에서\n// 결과가 거의 0건이 된다(실제로 확인된 문제: Maxxing/Touch grass/Whimsy 등 영어 트렌드명).\n// 한글 비중이 낮으면 keyword의 괄호 앞 한글 표기로 대체하고, 그마저 없으면 원래 값을 그대로 쓴다.\nfunction hasEnoughKorean(s) {\n  const str = String(s || '');\n  const koreanCount = (str.match(/[가-힣]/g) || []).length;\n  const totalCount = str.replace(/\\s/g, '').length;\n  return totalCount > 0 && (koreanCount / totalCount) >= 0.3;\n}\nfunction koreanPortionOfKeyword(k) {\n  return String(k || '').split(/[\\(（]/)[0].trim();\n}\n\nreturn candidates.map((c, idx) => {\n  const keyword = String(c.keyword || '').trim();\n  let searchQuery = String(c.search_query || keyword || '').trim();\n  if (!hasEnoughKorean(searchQuery)) {\n    const fallback = koreanPortionOfKeyword(keyword);\n    if (hasEnoughKorean(fallback)) searchQuery = fallback;\n  }\n  const qBase = searchQuery || keyword;\n  const q = /트렌드/.test(qBase) ? qBase : `${qBase} 트렌드`;\n\n  return {\n    json: {\n    candidate_id: `PC-${idx+1}`,\n    keyword,\n    search_query: searchQuery,\n    what_is_happening: String(c.what_is_happening || ''),\n    why_candidate: String(c.why_candidate || ''),\n    mentioned_mail_ids: Array.isArray(c.mentioned_mail_ids) ? c.mentioned_mail_ids : [],\n    initial_evidence_level: String(c.initial_evidence_level || 'MEDIUM'),\n    q,\n    gl: 'kr',\n    hl: 'ko',\n    num: 5,\n    tbs: `cdr:1,cd_min:${toMDY(from)},cd_max:${toMDY(now)}`,\n    naver_display: 5,\n    naver_sort: 'date',\n    period_start: from.toISOString().slice(0,10),\n    period_end: now.toISOString().slice(0,10),\n    mail_count: base.mail_count\n    }\n  };\n});"
+        "jsCode": "const base = $('3-C-3. Code - 전체 메일 본문 정제 + 후보 추출 프롬프트').first().json;\nconst raw = $json.text || $json.output || $json.response || $json.result || '';\n\n\nfunction repairJsonText(input) {\n  let s = String(input || '')\n    .replace(/^\\uFEFF/, '')\n    .replace(/^```json\\s*/i, '')\n    .replace(/^```\\s*/i, '')\n    .replace(/```$/i, '')\n    .trim();\n\n  const first = s.indexOf('{');\n  const last = s.lastIndexOf('}');\n  if (first >= 0 && last >= first) s = s.slice(first, last + 1);\n\n  // 흔한 LLM JSON 오류 정리\n  s = s\n    .replace(/\\bNone\\b/g, 'null')\n    .replace(/\\bTrue\\b/g, 'true')\n    .replace(/\\bFalse\\b/g, 'false')\n    .replace(/,\\s*([}\\]])/g, '$1')\n    .replace(/}\\s*{/g, '},{')\n    .replace(/]\\s*\\[/g, '],[')\n    .replace(/}\\s*\"/g, '},\"')\n    .replace(/]\\s*\"/g, '],\"')\n    .replace(/\"(\\s+)\"/g, '\",$1\"');\n\n  // 문자열 안의 실제 개행·탭을 JSON escape로 교체\n  let out = '';\n  let inString = false;\n  let escaped = false;\n\n  for (let i = 0; i < s.length; i++) {\n    const ch = s[i];\n\n    if (inString) {\n      if (escaped) {\n        out += ch;\n        escaped = false;\n        continue;\n      }\n      if (ch === '\\\\') {\n        out += ch;\n        escaped = true;\n        continue;\n      }\n      if (ch === '\"') {\n        inString = false;\n        out += ch;\n        continue;\n      }\n      if (ch === '\\n') {\n        out += '\\\\n';\n        continue;\n      }\n      if (ch === '\\r') continue;\n      if (ch === '\\t') {\n        out += '\\\\t';\n        continue;\n      }\n      out += ch;\n    } else {\n      if (ch === '\"') inString = true;\n      out += ch;\n    }\n  }\n\n  return out;\n}\n\nfunction parseJsonRobust(v) {\n  if (v && typeof v === 'object') return v;\n\n  const original = String(v || '');\n  const repaired = repairJsonText(original);\n\n  try {\n    return JSON.parse(repaired);\n  } catch (firstError) {\n    // 객체 사이 쉼표 누락을 한 번 더 넓게 보정\n    const secondPass = repaired\n      .replace(/}\\s*,?\\s*(?={)/g, '},')\n      .replace(/]\\s*,?\\s*(?=\"(?:client_watch|business_work|people_culture|trend_candidates)\")/g, '],');\n\n    try {\n      return JSON.parse(secondPass);\n    } catch (secondError) {\n      throw new Error(\n        `${secondError.message} | RAW_PREVIEW=${original.slice(0, 1800)}`\n      );\n    }\n  }\n}\n\nlet parsed;\ntry { parsed = parseJsonRobust(raw); }\ncatch(e) { throw new Error(`3-C 후보 JSON 파싱 실패: ${e.message}`); }\n\nconst candidates = Array.isArray(parsed.trend_candidates) ? parsed.trend_candidates.slice(0,8) : [];\nif (!candidates.length) throw new Error('메일에서 추출된 트렌드 후보가 없습니다.');\n\nconst now = new Date();\nconst from = new Date(now);\nfrom.setDate(now.getDate() - 7);\n// 2026-11-08: 근거 검색 범위는 최근 3개월. 트렌드는 뉴스레터에 소개되기 전부터 기사·SNS에 쌓여 있는 경우가 많다.\nconst evidenceFrom = new Date(now);\nevidenceFrom.setDate(now.getDate() - 90);\nconst toMDY = d => `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()}`;\n\n// 안전장치: AI가 search_query를 영어(원어) 문구로 써버리면 Naver/Serper 한국 뉴스 검색에서\n// 결과가 거의 0건이 된다(실제로 확인된 문제: Maxxing/Touch grass/Whimsy 등 영어 트렌드명).\n// 한글 비중이 낮으면 keyword의 괄호 앞 한글 표기로 대체하고, 그마저 없으면 원래 값을 그대로 쓴다.\nfunction hasEnoughKorean(s) {\n  const str = String(s || '');\n  const koreanCount = (str.match(/[가-힣]/g) || []).length;\n  const totalCount = str.replace(/\\s/g, '').length;\n  return totalCount > 0 && (koreanCount / totalCount) >= 0.3;\n}\nfunction koreanPortionOfKeyword(k) {\n  return String(k || '').split(/[\\(（]/)[0].trim();\n}\n\nreturn candidates.map((c, idx) => {\n  const keyword = String(c.keyword || '').trim();\n  let searchQuery = String(c.search_query || keyword || '').trim();\n  if (!hasEnoughKorean(searchQuery)) {\n    const fallback = koreanPortionOfKeyword(keyword);\n    if (hasEnoughKorean(fallback)) searchQuery = fallback;\n  }\n  const qBase = searchQuery || keyword;\n  // 2026-11-08: 예전엔 '트렌드'를 붙여 검색했는데, 기사 제목·본문에 '트렌드'라는 단어가 있어야만 걸려서\n  // 근거가 0~5건에 그쳤다. 이제 검색어를 그대로 쓴다.\n  const q = qBase;\n\n  return {\n    json: {\n    candidate_id: `PC-${idx+1}`,\n    keyword,\n    search_query: searchQuery,\n    what_is_happening: String(c.what_is_happening || ''),\n    why_candidate: String(c.why_candidate || ''),\n    mentioned_mail_ids: Array.isArray(c.mentioned_mail_ids) ? c.mentioned_mail_ids : [],\n    initial_evidence_level: String(c.initial_evidence_level || 'MEDIUM'),\n    q,\n    gl: 'kr',\n    hl: 'ko',\n    num: 10,\n    tbs: `cdr:1,cd_min:${toMDY(evidenceFrom)},cd_max:${toMDY(now)}`,\n    naver_display: 20,\n    naver_sort: 'sim',\n    period_start: from.toISOString().slice(0,10),\n    period_end: now.toISOString().slice(0,10),\n    mail_count: base.mail_count\n    }\n  };\n});"
       },
       "id": "00169c38-d836-4c33-b666-1dc3a533a6c2",
       "name": "3-C-5. Code - 후보 JSON 정리 + 검증 검색 Job",
@@ -804,7 +804,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://google.serper.dev/news",
+        "url": "https://google.serper.dev/search",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
@@ -849,7 +849,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const packed = $input.all().map(x => x.json || {});\nconst verified = [];\n\nfor (const item of packed) {\n  const job = item.job || {};\n  const serperR = item.serper_response || {};\n  const naverR = item.naver_response || {};\n\n  const serperNews = Array.isArray(serperR.news) ? serperR.news : Array.isArray(serperR.organic) ? serperR.organic : [];\n  const serperSources = serperNews.map(x => ({\n    title: String(x.title || ''),\n    url: String(x.link || x.url || ''),\n    snippet: String(x.snippet || ''),\n    date: x.date || null,\n    source: x.source || 'serper'\n  }));\n\n  // Naver News API 응답의 title/description은 <b> 태그와 HTML 엔티티(&quot; 등)를 포함하므로 정리한다.\n  function cleanNaverText(s) {\n    return String(s || '')\n      .replace(/<[^>]+>/g, '')\n      .replace(/&quot;/g, '\"').replace(/&apos;/g, \"'\").replace(/&#39;/g, \"'\")\n      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')\n      .trim();\n  }\n  const naverItems = Array.isArray(naverR.items) ? naverR.items : [];\n  const naverSources = naverItems.map(x => ({\n    title: cleanNaverText(x.title),\n    url: String(x.originallink || x.link || ''),\n    snippet: cleanNaverText(x.description),\n    date: x.pubDate || null,\n    source: 'naver'\n  }));\n\n  // 뉴스에서 관련 자료를 못 찾은 후보는 3-C-8-3에서 인스타그램/틱톡/threads/X로 한정한\n  // 구글 검색을 한 번 더 시도했다. 그 결과(sns_response)가 있으면 함께 후보 소스로 합친다.\n  const snsR = item.sns_response || {};\n  const snsResults = Array.isArray(snsR.organic) ? snsR.organic : [];\n  const snsSources = snsResults.map(x => ({\n    title: String(x.title || ''),\n    url: String(x.link || x.url || ''),\n    snippet: String(x.snippet || ''),\n    date: x.date || null,\n    source: 'sns'\n  }));\n\n  // 관련성 필터: Naver/Serper는 \"걸\"+\"그립\"처럼 키워드를 단어 단위로 느슨하게 매칭해서,\n  // 실제로는 무관한 기사(예: 골프 그립, 게임 뉴스)를 결과에 섞어 보내는 경우가 많다.\n  // 반대로 \"제철코어\"처럼 항상 붙어 쓰이는 신조어가 아니라 \"촉감 소비\"처럼 AI가 현상을 설명하려고\n  // 조합한 문구는, 실제 기사에서는 두 단어가 문장 안에 떨어져 등장하는 경우가 많다\n  // (예: \"촉감을 즐기는 굿즈로... 소비 트렌드\"). 그래서 \"구 전체가 붙어서 등장\"을 요구하는 대신,\n  // 트렌드·소비처럼 어디에나 붙는 일반 단어는 제외하고, 키워드에서 실제로 의미를 구분해주는\n  // 단어들이 (순서·인접 여부와 무관하게) 전부 등장하는지만 확인한다.\n  function stripSpaces(s) { return String(s || '').replace(/\\s+/g, '').toLowerCase(); }\n  const GENERIC_TOKENS = new Set(['트렌드','소비','문화','현상','라이프스타일','방식','신드롬','트랜드','열풍','유행','스타일','챌린지','밈']);\n  function significantTokens(keyword) {\n    // \"터치 그래스(Touch grass)\" → 괄호 앞 한글 표기만 사용 → [\"터치\",\"그래스\"]\n    const base = String(keyword || '').split(/[\\(（]/)[0];\n    return base.split(/\\s+/).map(t => t.trim()).filter(t => t && !GENERIC_TOKENS.has(t));\n  }\n  const requiredTokens = significantTokens(job.keyword);\n  function isTopicallyRelevant(x) {\n    if (!requiredTokens.length) return true; // 키워드가 전부 일반 단어뿐이면 필터링을 건너뛴다\n    const haystack = stripSpaces(x.title) + stripSpaces(x.snippet);\n    return requiredTokens.every(t => haystack.includes(stripSpaces(t)));\n  }\n\n  // Naver + Serper 결과를 URL 기준으로 합치고 중복을 제거한 뒤, 실제로 키워드 구가 등장하는 것만 남긴다\n  // (검색 적중률을 높이기 위해 두 소스를 함께 쓰되, 무관한 기사가 섞이지 않도록 관련성도 함께 검증).\n  const seenUrls = new Set();\n  const sources = [...naverSources, ...serperSources, ...snsSources]\n    .filter(x => x.title && x.url)\n    .filter(x => { if (seenUrls.has(x.url)) return false; seenUrls.add(x.url); return true; })\n    .filter(isTopicallyRelevant)\n    .slice(0,5);\n\n  verified.push({\n    keyword: job.keyword,\n    search_query: job.search_query,\n    email_signal: job.what_is_happening,\n    candidate_reason: job.why_candidate,\n    mentioned_mail_ids: job.mentioned_mail_ids,\n    initial_evidence_level: job.initial_evidence_level,\n    web_sources: sources\n  });\n}\n\nconst validVerified = verified.filter(x =>\n  String(x.keyword || '').trim() ||\n  String(x.email_signal || '').trim()\n);\n\nconst desiredCount = Math.min(8, validVerified.length);\n\nif (!desiredCount) {\n  throw new Error('PEOPLE_CULTURE 최종 분석 후보가 없습니다. 메일 후보 추출 또는 웹 검증 Job 전달 상태를 확인하세요.');\n}\n\nconst prompt = `너는 CL4 이상 보직자(센터장·그룹장·사업부장·임원)에게 젊은 구성원의 행동과 가치관을 조직 운영 관점에서 해석해주는 PEOPLE & CULTURE 편집자다.\n이메일에서 발견한 후보와 최근 7일 웹검색 결과를 함께 검토하라.\n\n[목표]\n- 이번 단계는 최종 뉴스레터 선별이 아니라 2단계에서 사용자가 선택할 후보를 저장하는 단계다.\n- 트렌드 자체를 소개하는 데서 그치지 않는다. 이 섹션의 존재 이유는 \"요즘 애들 사이에서 이런 게 유행한다더라\"를 전달하는 게 아니라, 보직자가 조직 운영(채용, 유지, 복리후생, 조직문화, 세대 간 소통, 근무 제도 등) 관점에서 실제로 참고할 수 있는 해석을 제공하는 것이다.\n- 입력된 유효 후보 ${desiredCount}개를 반드시 정확히 ${desiredCount}개 출력한다. 후보가 충분한데 임의로 1~2개에서 멈추지 않는다.\n- 최신성과 다양성을 우선하되, 명백한 중복·광고·정치 및 사건 속보가 아니라면 후보를 지나치게 엄격하게 제거하지 않는다.\n- 웹검색 근거가 충분하면 HIGH 또는 MEDIUM으로, 웹 근거가 약하더라도 이메일에서 반복 언급되거나 구체적인 행동·상품·콘텐츠 사례가 확인되면 LOW로 포함할 수 있다.\n- 웹검색 결과가 없다는 이유만으로 이메일 기반 후보를 자동 제외하지 않는다. 이 경우 source_urls는 빈 배열로 두고 evidence_level은 LOW로 설정한다.\n- 이메일 문장을 그대로 베끼지 말고 이메일 신호와 웹검색 결과를 함께 반영해 독립적으로 작성한다.\n- 사실과 해석을 구분한다.\n- summary(트렌드 설명)는 2~3문장으로 작성한다. 입력 후보 또는 웹검색 결과에 실제로 있는 구체적인 행동·상품명·브랜드명·하위 트렌드명을 최소 1개 포함하고, 가능하면 확산 정도를 보여주는 근거(언급량 증가율, 관련 상품 출시 사례, 특정 세대·집단의 비중 등 원문에 있는 경우)도 함께 담는다. 입력에 없는 사례를 새로 만들지 않는다.\n- organization_view(조직 운영 시사점)는 절대 비워두거나 한 줄로 얼버무리지 않는다. 이 트렌드가 왜 지금 나타났는지에 대한 심리적·사회적 배경을 한 문장으로 짚고, 그것이 채용·유지·조직문화·근무 제도·세대 간 소통·복리후생 설계 중 어디에 어떤 시사점을 주는지 최소 2문장으로 구체적으로 작성한다. \"~에 참고할 필요가 있습니다\" 같은 상투적 마무리 대신, 무엇을 검토하거나 시도해볼 수 있는지까지 짚는다. 정말로 회사 운영과 연결 지을 근거가 전혀 없는 극히 예외적인 경우에만 그 이유를 한 문장으로 명시하고 짧게 쓴다 (비워두지 않는다).\n- 가능하면 직장생활·조직문화, 소비·라이프스타일, 콘텐츠·SNS·여가, 세대 가치관·커리어 영역을 분산한다.\n- 젊은 세대 전체를 단정하지 말고 '일부 젊은 층', '최근 관찰되는 흐름' 등 신중한 표현을 사용한다. 다만 organization_view의 결론 자체는 신중하되 분명하게 제시한다.\n- source_urls는 반드시 [후보 및 웹 검증]의 web_sources에 실제로 나열된 url 문자열을 그대로 복사해서만 사용한다. 절대 URL을 새로 만들거나, 알고 있는 것 같은 URL을 추측해서 채우지 마라. 이건 심각한 오류이며 사용자에게 실제 접속 불가능한 링크를 보여주는 결과로 이어진다.\n- web_sources에 있다고 해서 전부 관련 자료는 아니다. 제목과 요약을 실제로 읽고, 이 키워드/트렌드를 다루는 기사인지 먼저 판단하라. 단어만 우연히 겹치고 실제 주제가 다른 기사(예: 키워드가 '걸 그립'인데 골프 그립이나 게임 기사가 섞여 들어온 경우)는 web_sources에 있어도 source_urls에서 반드시 제외한다.\n- 특정 후보의 web_sources가 비어있거나 관련된 URL이 없으면, source_urls는 반드시 빈 배열([])로 남긴다. 빈 배열도 정상적인 결과이며, 억지로 채우는 것보다 훨씬 낫다.\n- 반드시 JSON 객체만 출력한다.\\n- 배열의 객체 사이에는 반드시 쉼표를 넣는다.\\n- 문자열 안의 큰따옴표는 반드시 \\\\\\\"로 이스케이프한다.\\n- 후행 쉼표와 주석을 사용하지 않는다.\n\n[출력]\n{\n  \"people_culture\": [\n    {\n      \"title\": \"\",\n      \"summary\": \"\",\n      \"organization_view\": \"\",\n      \"keyword\": \"\",\n      \"priority\": 0,\n      \"evidence_level\": \"HIGH|MEDIUM|LOW\",\n      \"source_urls\": [\"\"],\n      \"mentioned_mail_ids\": [\"\"]\n    }\n  ]\n}\n\n[후보 및 웹 검증]\n${JSON.stringify(validVerified, null, 2)}`;\n\nreturn [{\n  json: {\n    period_start: packed[0]?.job?.period_start || '',\n    period_end: packed[0]?.job?.period_end || '',\n    original_candidate_count: verified.length,\n    valid_candidate_count: validVerified.length,\n    desired_output_count: desiredCount,\n    verified_candidates: validVerified,\n    prompt\n  }\n}];"
+        "jsCode": "const packed = $input.all().map(x => x.json || {});\nconst verified = [];\n\n// 2026-11-08 개편: 근거 수집을 '사용자가 직접 하는 방식'(뉴스레터로 테마 → 구글 웹검색으로 자료)에 맞췄다.\n// - 3-C-7이 구글 뉴스 7일 검색 대신 구글 웹검색(최근 3개월)을 한다. 웹검색 결과에는 언론 기사·인스타그램·\n//   스레드·뉴스레터 아카이브·블로그가 섞여 나오므로, 예전의 'SNS 재검색' 분기(3-C-8-1~3-C-8-4)는 없앴다.\n//   그 분기 때문에 후보가 두 묶음으로 나뉘어 이 노드와 AI 분석이 매주 두 번씩 따로 돌았다.\n// - 네이버 뉴스는 '검색어 + 트렌드' 최신순 5건 대신 검색어 그대로 정확도순 20건을 받는다.\n// - 출처는 유형별로 분류해 언론 기사 → 뉴스레터·리서치 매체 → SNS → 기타 웹 → 블로그 순으로 고른다.\n//   쇼핑몰·커뮤니티 글은 근거로 쓰지 않는다.\nconst SNS_HOSTS = ['instagram.com', 'threads.net', 'threads.com', 'tiktok.com', 'x.com', 'twitter.com', 'youtube.com', 'youtu.be', 'facebook.com'];\nconst BLOG_HOSTS = ['blog.naver.com', 'm.blog.naver.com', 'post.naver.com', 'tistory.com', 'brunch.co.kr', 'velog.io', 'medium.com', 'blog.daum.net'];\nconst COMMUNITY_HOSTS = ['dcinside.com', 'theqoo.net', 'fmkorea.com', 'clien.net', 'ruliweb.com', 'instiz.net', 'pann.nate.com', 'ppomppu.co.kr', 'cafe.naver.com', 'cafe.daum.net', 'reddit.com', 'namu.wiki', 'kin.naver.com'];\nconst SHOP_HOSTS = ['coupang.com', '11st.co.kr', 'gmarket.co.kr', 'auction.co.kr', 'smartstore.naver.com', 'brand.naver.com', 'shopping.naver.com', 'musinsa.com', '29cm.co.kr', 'kream.co.kr', 'a-bly.com', 'zigzag.kr', 'oliveyoung.co.kr', 'amazon.com', 'aliexpress.com', 'temu.com'];\nconst TREND_MEDIA_HOSTS = ['newneek.co', 'careet.net', 'the-edit.co.kr', 'opensurvey.co.kr', 'trendportal.kr', 'trendmonitor.co.kr', '20slab.org', 'univ20.com', 'contents.premium.naver.com', 'stibee.com', 'maily.so', 'gogumafarm.kr', 'ppss.kr', 'outstanding.kr', 'publy.co', 'longblack.co', 'folin.co', 'mobiinside.co.kr', 'openads.co.kr', 'ditoday.com'];\nconst PRESS_HOSTS = ['v.daum.net', 'news.naver.com', 'n.news.naver.com', 'm.news.naver.com', 'entertain.naver.com', 'chosun.com', 'joongang.co.kr', 'donga.com', 'hani.co.kr', 'khan.co.kr', 'hankyung.com', 'mk.co.kr', 'sedaily.com', 'edaily.co.kr', 'yna.co.kr', 'newsis.com', 'news1.kr', 'mt.co.kr', 'asiae.co.kr', 'heraldcorp.com', 'hankookilbo.com', 'kmib.co.kr', 'munhwa.com', 'segye.com', 'seoul.co.kr', 'fnnews.com', 'etoday.co.kr', 'etnews.com', 'zdnet.co.kr', 'ajunews.com', 'nocutnews.co.kr', 'ytn.co.kr', 'sbs.co.kr', 'kbs.co.kr', 'imbc.com', 'jtbc.co.kr', 'economist.co.kr', 'thescoop.co.kr', 'fashionbiz.co.kr', 'harpersbazaar.co.kr', 'elle.co.kr', 'vogue.co.kr', 'wkorea.com', 'gqkorea.co.kr', 'cosmopolitan.co.kr', 'allurekorea.com', 'marieclairekorea.com', 'esquirekorea.co.kr'];\nconst PRESS_PATH = /(\\/news\\/|\\/article|articleview|newsview|news_view|\\/view\\/|read\\.nhn|\\/arti\\/|\\/amp\\/article)/i;\n\nfunction hostOf(url) {\n  try { return new URL(url).hostname.toLowerCase().replace(/^www\\./, ''); } catch (e) { return ''; }\n}\nfunction hostIn(host, list) {\n  return list.some(h => host === h || host.endsWith('.' + h));\n}\nfunction sourceType(url, fromNaverNews) {\n  if (fromNaverNews) return 'press';\n  const host = hostOf(url);\n  if (!host) return 'web';\n  if (hostIn(host, SHOP_HOSTS)) return 'shop';\n  if (hostIn(host, COMMUNITY_HOSTS)) return 'community';\n  if (hostIn(host, SNS_HOSTS)) return 'sns';\n  if (hostIn(host, BLOG_HOSTS)) return 'blog';\n  if (hostIn(host, TREND_MEDIA_HOSTS)) return 'trend_media';\n  if (hostIn(host, PRESS_HOSTS)) return 'press';\n  let path = '';\n  try { path = new URL(url).pathname + new URL(url).search; } catch (e) {}\n  if (/news|ilbo|times|daily|journal|herald|press|biz|economy|today/.test(host) || PRESS_PATH.test(path)) return 'press';\n  return 'web';\n}\n// 유형별 최대 개수(위에서부터 순서대로 채움). 블로그는 앞의 유형으로 3개를 못 채웠을 때만 쓴다.\nconst TYPE_PLAN = [\n  { type: 'press', max: 3 },\n  { type: 'trend_media', max: 2 },\n  { type: 'sns', max: 2 },\n  { type: 'web', max: 1 },\n  { type: 'blog', max: 1, onlyIfBelow: 3 }\n];\nconst MAX_SOURCES = 6;\n\nfunction daysAgo(v) {\n  if (!v) return null;\n  const d = new Date(v);\n  if (isNaN(d.getTime())) return null;\n  return Math.floor((Date.now() - d.getTime()) / 86400000);\n}\n\n// Naver News API 응답의 title/description은 <b> 태그와 HTML 엔티티(&quot; 등)를 포함하므로 정리한다.\nfunction cleanNaverText(s) {\n  return String(s || '')\n    .replace(/<[^>]+>/g, '')\n    .replace(/&quot;/g, '\"').replace(/&apos;/g, \"'\").replace(/&#39;/g, \"'\")\n    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')\n    .trim();\n}\n\n// 관련성 필터: 트렌드·소비처럼 어디에나 붙는 일반 단어는 빼고, 키워드에서 의미를 구분해주는 단어가\n// (순서·인접 여부와 무관하게) 제목+요약에 전부 등장하는지만 확인한다.\n// 예: '걸 그립'을 찾는데 골프 그립 기사가 섞이는 것을 막는다.\nfunction stripSpaces(s) { return String(s || '').replace(/\\s+/g, '').toLowerCase(); }\nconst GENERIC_TOKENS = new Set(['트렌드','소비','문화','현상','라이프스타일','방식','신드롬','트랜드','열풍','유행','스타일','챌린지','밈']);\nfunction significantTokens(keyword) {\n  // \"터치 그래스(Touch grass)\" → 괄호 앞 한글 표기만 사용 → [\"터치\",\"그래스\"]\n  const base = String(keyword || '').split(/[\\(（]/)[0];\n  return base.split(/\\s+/).map(t => t.trim()).filter(t => t && !GENERIC_TOKENS.has(t));\n}\n\nfor (const item of packed) {\n  const job = item.job || {};\n  const serperR = item.serper_response || {};\n  const naverR = item.naver_response || {};\n\n  const naverItems = Array.isArray(naverR.items) ? naverR.items : [];\n  const naverSources = naverItems.map(x => ({\n    title: cleanNaverText(x.title),\n    url: String(x.originallink || x.link || ''),\n    snippet: cleanNaverText(x.description),\n    date: x.pubDate || null,\n    source: 'naver',\n    source_type: 'press'\n  }));\n\n  const webResults = Array.isArray(serperR.organic) ? serperR.organic : Array.isArray(serperR.news) ? serperR.news : [];\n  const webSources = webResults.map(x => {\n    const url = String(x.link || x.url || '');\n    return {\n      title: String(x.title || ''),\n      url,\n      snippet: String(x.snippet || ''),\n      date: x.date || null,\n      source: 'google',\n      source_type: sourceType(url, false)\n    };\n  });\n\n  const requiredTokens = significantTokens(job.keyword);\n  // 키워드가 붙은 그대로(공백 무시) 나오는 자료를 먼저 쓴다. 단어가 흩어져 나오는 자료는 그 다음이다\n  // (예: '소프트 론칭'을 찾는데 '게임 소프트 … 신작 론칭' 기사가 먼저 뽑히는 것을 막음).\n  const phrase = stripSpaces(requiredTokens.join(''));\n  const phraseHit = x => phrase && (stripSpaces(x.title) + ' ' + stripSpaces(x.snippet)).includes(phrase) ? 0 : 1;\n  function isTopicallyRelevant(x) {\n    if (!requiredTokens.length) return true; // 키워드가 전부 일반 단어뿐이면 필터링을 건너뛴다\n    const haystack = stripSpaces(x.title) + stripSpaces(x.snippet);\n    return requiredTokens.every(t => haystack.includes(stripSpaces(t)));\n  }\n\n  const seenUrls = new Set();\n  const relevant = [...naverSources, ...webSources]\n    .filter(x => x.title && x.url)\n    .filter(x => { if (seenUrls.has(x.url)) return false; seenUrls.add(x.url); return true; })\n    .filter(x => x.source_type !== 'shop' && x.source_type !== 'community')\n    .filter(isTopicallyRelevant);\n\n  // 언론 기사는 최근 90일 기사를 먼저 쓰고, 180일이 넘은 기사는 근거로 쓰지 않는다(발행일을 알 수 있을 때만).\n  const pressRank = x => {\n    const age = daysAgo(x.date);\n    if (age === null) return 1;\n    return age <= 90 ? 0 : 2;\n  };\n  const pool = relevant.filter(x => !(x.source_type === 'press' && (daysAgo(x.date) ?? 0) > 180));\n\n  const sources = [];\n  for (const plan of TYPE_PLAN) {\n    if (plan.onlyIfBelow !== undefined && sources.length >= plan.onlyIfBelow) continue;\n    const list = pool.filter(x => x.source_type === plan.type)\n      .map((x, i) => ({ x, i }))\n      .sort((a, b) => phraseHit(a.x) - phraseHit(b.x) ||\n        (plan.type === 'press' ? pressRank(a.x) - pressRank(b.x) : 0) || a.i - b.i)\n      .map(o => o.x);\n    for (const x of list.slice(0, plan.max)) {\n      if (sources.length >= MAX_SOURCES) break;\n      sources.push(x);\n    }\n  }\n\n  const typeCounts = sources.reduce((m, x) => (m[x.source_type] = (m[x.source_type] || 0) + 1, m), {});\n\n  verified.push({\n    keyword: job.keyword,\n    search_query: job.search_query,\n    email_signal: job.what_is_happening,\n    candidate_reason: job.why_candidate,\n    mentioned_mail_ids: job.mentioned_mail_ids,\n    initial_evidence_level: job.initial_evidence_level,\n    source_type_counts: typeCounts,\n    web_sources: sources.map(({ source, ...rest }) => rest)\n  });\n}\n\nconst validVerified = verified.filter(x =>\n  String(x.keyword || '').trim() ||\n  String(x.email_signal || '').trim()\n);\n\nconst desiredCount = Math.min(8, validVerified.length);\n\nif (!desiredCount) {\n  throw new Error('PEOPLE_CULTURE 최종 분석 후보가 없습니다. 메일 후보 추출 또는 웹 검증 Job 전달 상태를 확인하세요.');\n}\n\nconst prompt = `너는 CL4 이상 보직자(센터장·그룹장·사업부장·임원)에게 젊은 구성원의 행동과 가치관을 조직 운영 관점에서 해석해주는 PEOPLE & CULTURE 편집자다.\n이메일에서 발견한 후보와 최근 3개월 웹검색 결과(네이버 뉴스 + 구글 웹검색)를 함께 검토하라.\n\n[목표]\n- 이번 단계는 최종 뉴스레터 선별이 아니라 2단계에서 사용자가 선택할 후보를 저장하는 단계다.\n- 트렌드 자체를 소개하는 데서 그치지 않는다. 이 섹션의 존재 이유는 \"요즘 애들 사이에서 이런 게 유행한다더라\"를 전달하는 게 아니라, 보직자가 조직 운영(채용, 유지, 복리후생, 조직문화, 세대 간 소통, 근무 제도 등) 관점에서 실제로 참고할 수 있는 해석을 제공하는 것이다.\n- 입력된 유효 후보 ${desiredCount}개를 반드시 정확히 ${desiredCount}개 출력한다. 후보가 충분한데 임의로 1~2개에서 멈추지 않는다.\n- 최신성과 다양성을 우선하되, 명백한 중복·광고·정치 및 사건 속보가 아니라면 후보를 지나치게 엄격하게 제거하지 않는다.\n- web_sources의 각 항목에는 source_type이 있다: press(언론 기사), trend_media(뉴스레터·리서치 매체), sns(인스타그램·스레드 등), web(기타 웹), blog(블로그).\n- evidence_level은 근거 유형으로 정한다: 관련 언론 기사(press)가 2개 이상이면 HIGH, 언론 기사 1개 또는 trend_media·sns 근거가 있으면 MEDIUM, 블로그뿐이거나 근거가 없으면 LOW.\n- source_urls는 언론 기사를 먼저 넣고, trend_media·sns는 언론 기사가 부족할 때 보완용으로 넣는다. 블로그는 다른 근거가 전혀 없을 때만 쓴다.\n- 웹검색 근거가 충분하면 HIGH 또는 MEDIUM으로, 웹 근거가 약하더라도 이메일에서 반복 언급되거나 구체적인 행동·상품·콘텐츠 사례가 확인되면 LOW로 포함할 수 있다.\n- 웹검색 결과가 없다는 이유만으로 이메일 기반 후보를 자동 제외하지 않는다. 이 경우 source_urls는 빈 배열로 두고 evidence_level은 LOW로 설정한다.\n- 이메일 문장을 그대로 베끼지 말고 이메일 신호와 웹검색 결과를 함께 반영해 독립적으로 작성한다.\n- 사실과 해석을 구분한다.\n- summary(트렌드 설명)는 2~3문장으로 작성한다. 입력 후보 또는 웹검색 결과에 실제로 있는 구체적인 행동·상품명·브랜드명·하위 트렌드명을 최소 1개 포함하고, 가능하면 확산 정도를 보여주는 근거(언급량 증가율, 관련 상품 출시 사례, 특정 세대·집단의 비중 등 원문에 있는 경우)도 함께 담는다. 입력에 없는 사례를 새로 만들지 않는다.\n- organization_view(조직 운영 시사점)는 절대 비워두거나 한 줄로 얼버무리지 않는다. 이 트렌드가 왜 지금 나타났는지에 대한 심리적·사회적 배경을 한 문장으로 짚고, 그것이 채용·유지·조직문화·근무 제도·세대 간 소통·복리후생 설계 중 어디에 어떤 시사점을 주는지 최소 2문장으로 구체적으로 작성한다. \"~에 참고할 필요가 있습니다\" 같은 상투적 마무리 대신, 무엇을 검토하거나 시도해볼 수 있는지까지 짚는다. 정말로 회사 운영과 연결 지을 근거가 전혀 없는 극히 예외적인 경우에만 그 이유를 한 문장으로 명시하고 짧게 쓴다 (비워두지 않는다).\n- 가능하면 직장생활·조직문화, 소비·라이프스타일, 콘텐츠·SNS·여가, 세대 가치관·커리어 영역을 분산한다.\n- 젊은 세대 전체를 단정하지 말고 '일부 젊은 층', '최근 관찰되는 흐름' 등 신중한 표현을 사용한다. 다만 organization_view의 결론 자체는 신중하되 분명하게 제시한다.\n- source_urls는 반드시 [후보 및 웹 검증]의 web_sources에 실제로 나열된 url 문자열을 그대로 복사해서만 사용한다. 절대 URL을 새로 만들거나, 알고 있는 것 같은 URL을 추측해서 채우지 마라. 이건 심각한 오류이며 사용자에게 실제 접속 불가능한 링크를 보여주는 결과로 이어진다.\n- web_sources에 있다고 해서 전부 관련 자료는 아니다. 제목과 요약을 실제로 읽고, 이 키워드/트렌드를 다루는 기사인지 먼저 판단하라. 단어만 우연히 겹치고 실제 주제가 다른 기사(예: 키워드가 '걸 그립'인데 골프 그립이나 게임 기사가 섞여 들어온 경우)는 web_sources에 있어도 source_urls에서 반드시 제외한다.\n- 특정 후보의 web_sources가 비어있거나 관련된 URL이 없으면, source_urls는 반드시 빈 배열([])로 남긴다. 빈 배열도 정상적인 결과이며, 억지로 채우는 것보다 훨씬 낫다.\n- 반드시 JSON 객체만 출력한다.\\n- 배열의 객체 사이에는 반드시 쉼표를 넣는다.\\n- 문자열 안의 큰따옴표는 반드시 \\\\\\\"로 이스케이프한다.\\n- 후행 쉼표와 주석을 사용하지 않는다.\n\n[출력]\n{\n  \"people_culture\": [\n    {\n      \"title\": \"\",\n      \"summary\": \"\",\n      \"organization_view\": \"\",\n      \"keyword\": \"\",\n      \"priority\": 0,\n      \"evidence_level\": \"HIGH|MEDIUM|LOW\",\n      \"source_urls\": [\"\"],\n      \"mentioned_mail_ids\": [\"\"]\n    }\n  ]\n}\n\n[후보 및 웹 검증]\n${JSON.stringify(validVerified, null, 2)}`;\n\nreturn [{\n  json: {\n    period_start: packed[0]?.job?.period_start || '',\n    period_end: packed[0]?.job?.period_end || '',\n    original_candidate_count: verified.length,\n    valid_candidate_count: validVerified.length,\n    desired_output_count: desiredCount,\n    verified_candidates: validVerified,\n    prompt\n  }\n}];"
       },
       "id": "e24f69b1-1b02-4e08-a2a7-b5a9bf10af8c",
       "name": "3-C-10. Code - 웹 검증 취합 + 최종 분석 프롬프트",
@@ -1057,97 +1057,6 @@
         6752,
         2112
       ]
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "function stripSpaces(s) { return String(s || '').replace(/\\s+/g, '').toLowerCase(); }\nconst GENERIC_TOKENS = new Set(['트렌드','소비','문화','현상','라이프스타일','방식','신드롬','트랜드','열풍','유행','스타일','챌린지','밈']);\nfunction significantTokens(keyword) {\n  const base = String(keyword || '').split(/[\\(（]/)[0];\n  return base.split(/\\s+/).map(t => t.trim()).filter(t => t && !GENERIC_TOKENS.has(t));\n}\nfunction hasRelevantMatch(keyword, items) {\n  const requiredTokens = significantTokens(keyword);\n  if (!requiredTokens.length) return true;\n  return items.some(it => {\n    const haystack = stripSpaces(it.title) + stripSpaces(it.description || it.snippet);\n    return requiredTokens.every(t => haystack.includes(stripSpaces(t)));\n  });\n}\n\nconst job = $json.job || {};\nconst naverItems = Array.isArray($json.naver_response?.items) ? $json.naver_response.items : [];\nconst serperNewsItems = Array.isArray($json.serper_response?.news) ? $json.serper_response.news : [];\n\nconst hasRelevantNews = hasRelevantMatch(job.keyword, [...naverItems, ...serperNewsItems]);\n\nreturn {\n  json: {\n    ...$json,\n    has_relevant_news: hasRelevantNews\n  }\n};"
-      },
-      "id": "379f88b9-aaee-4f05-8554-29ecba4983e0",
-      "name": "3-C-8-1. Code - 뉴스 검색 결과 관련성 판정",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        7184,
-        2112
-      ],
-      "notes": "뉴스(Naver+Serper) 결과 중 실제로 키워드와 관련된 항목이 하나라도 있는지 미리 판정한다. 없으면 SNS 검색으로 보완한다."
-    },
-    {
-      "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 1
-          },
-          "conditions": [
-            {
-              "id": "if-no-relevant-news",
-              "leftValue": "={{ $json.has_relevant_news }}",
-              "rightValue": false,
-              "operator": {
-                "type": "boolean",
-                "operation": "equals"
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "id": "1099705d-0bc7-48cc-ab79-a597d5ac5177",
-      "name": "3-C-8-2. IF - 뉴스에서 관련 자료 못 찾음",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2,
-      "position": [
-        7248,
-        2112
-      ],
-      "notes": "TRUE(관련 뉴스 없음) → SNS(인스타/틱톡/X/스레드) 검색으로 보완. FALSE(이미 있음) → 바로 다음 단계."
-    },
-    {
-      "parameters": {
-        "method": "POST",
-        "url": "https://google.serper.dev/search",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendBody": true,
-        "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ q: $json.job.search_query + ' (site:instagram.com OR site:tiktok.com OR site:threads.net OR site:x.com OR site:twitter.com)', gl: $json.job.gl, hl: $json.job.hl, num: 5 }) }}",
-        "options": {}
-      },
-      "id": "f22d238f-5418-4576-9878-79b032c44790",
-      "name": "3-C-8-3. HTTP Request - PEOPLE_CULTURE SNS 검색",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        7312,
-        2016
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "f995YWhME6zw2vSb",
-          "name": "Header Auth account 2"
-        }
-      },
-      "notes": "뉴스에서 관련 자료를 못 찾은 후보만, 인스타그램/틱톡/threads/X로 한정해 구글 일반 검색을 한 번 더 시도한다."
-    },
-    {
-      "parameters": {
-        "mode": "runOnceForEachItem",
-        "jsCode": "const prior = $('3-C-8-2. IF - 뉴스에서 관련 자료 못 찾음').item.json;\n\n// SNS 검색 결과에도 imageUrl 등 불필요한 대용량 필드가 섞여올 수 있어 미리 제거한다.\nconst snsRaw = $json || {};\nif (Array.isArray(snsRaw.organic)) {\n  for (const item of snsRaw.organic) {\n    delete item.imageUrl;\n    delete item.imageBase64;\n    delete item.thumbnail;\n  }\n}\n\nreturn {\n  json: {\n    ...prior,\n    sns_response: snsRaw\n  }\n};"
-      },
-      "id": "fb8e061a-e221-4ae4-983d-4c553c4078fd",
-      "name": "3-C-8-4. Code - SNS 검색 결과 병합",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        7376,
-        2016
-      ],
-      "notes": "IF 분기로 갈라진 뒤라 $itemIndex 정렬이 어긋날 수 있어, .all()[index] 대신 pairedItem 기반 .item으로 원본(job/naver/serper)을 복원한다."
     },
     {
       "parameters": {
@@ -1729,7 +1638,7 @@
       "main": [
         [
           {
-            "node": "3-C-8-1. Code - 뉴스 검색 결과 관련성 판정",
+            "node": "3-C-10. Code - 웹 검증 취합 + 최종 분석 프롬프트",
             "type": "main",
             "index": 0
           }
@@ -1829,57 +1738,6 @@
         [
           {
             "node": "3-C-7. HTTP Request - PEOPLE_CULTURE 웹 검증",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "3-C-8-1. Code - 뉴스 검색 결과 관련성 판정": {
-      "main": [
-        [
-          {
-            "node": "3-C-8-2. IF - 뉴스에서 관련 자료 못 찾음",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "3-C-8-2. IF - 뉴스에서 관련 자료 못 찾음": {
-      "main": [
-        [
-          {
-            "node": "3-C-8-3. HTTP Request - PEOPLE_CULTURE SNS 검색",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "3-C-10. Code - 웹 검증 취합 + 최종 분석 프롬프트",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "3-C-8-3. HTTP Request - PEOPLE_CULTURE SNS 검색": {
-      "main": [
-        [
-          {
-            "node": "3-C-8-4. Code - SNS 검색 결과 병합",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "3-C-8-4. Code - SNS 검색 결과 병합": {
-      "main": [
-        [
-          {
-            "node": "3-C-10. Code - 웹 검증 취합 + 최종 분석 프롬프트",
             "type": "main",
             "index": 0
           }
