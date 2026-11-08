@@ -683,7 +683,7 @@
         "operation": "getAll",
         "returnAll": true,
         "filters": {
-          "q": "newer_than:7d from:(whatsup@newneek.co OR newsletter@the-edit.co.kr OR careet@careet.net OR putputletter-gmail.com@send.stibee.com)"
+          "q": "newer_than:7d from:(whatsup@newneek.co OR newsletter@the-edit.co.kr OR careet@careet.net OR hello@putput.kr OR no-reply@thesmc.co.kr)"
         }
       },
       "id": "112e8baa-4e61-46ce-8cd7-a4ea05ee7f41",
